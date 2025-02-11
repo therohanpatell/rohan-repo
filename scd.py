@@ -16,16 +16,16 @@ Audit columns in the schema are populated as follows (for every record):
   - pipeline_execution_ingest_map: "csv file"
 
 The simulation uses SCD Type 2 logic. For day 1, all rows are new.
-For subsequent days, a random subset of yesterday’s active rows (those that were new, unchanged, or updated)
-is “processed” (with the rest omitted). For each processed record, an action is randomly chosen:
-  - **updated** – a new version is generated with some columns changed,
-  - **unchanged** – the same row is reinserted (with the day’s partition_dt),
-  - **deleted** – the record is “closed” (it is inserted for history with the day’s partition_dt, but is not carried forward)
-Then new rows are generated as needed so that exactly the specified number of rows is inserted that day.
+For subsequent days, a random subset of yesterday’s active rows is processed.
+For each processed record an action is randomly chosen:
+  - **updated** – a new version is generated with one or more columns modified,
+  - **unchanged** – the row is simply reinserted with the current day’s partition_dt.
+Records not selected for processing (omitted) do not appear in the current day’s output.
+New rows are generated as needed so that exactly the specified number of rows are inserted each day.
 
-A new command‑line argument --quote_cols accepts a comma‑separated list of column names. For any column
-included in this list, its value will be forced to appear within single quotes in the generated INSERT statements
-—even if its native data type (for example, numeric) would normally not use quotes.
+A new command‑line argument --quote_cols accepts a comma‑separated list of column names.
+For any column in this list, its value is forced to appear within single quotes in the generated INSERT statements,
+even if its native data type would normally not use quotes.
 
 Usage example:
     python scd2_synthetic_data.py --ddl schema.json --primary_key country_code --days 5 --records_per_day 5 --delimiter "|" --target_table "myProject.myDataset.myTable" --quote_cols purchase_price,another_column
@@ -232,8 +232,8 @@ def generate_new_row(columns, simulation_date, primary_key, base_time):
 
 def generate_updated_row(columns, simulation_date, primary_key, old_row, base_time):
     """
-    Generates an updated version of an existing row. Only a subset of non‑key,
-    non‑partition_dt, and non‑audit columns are modified.
+    Generates an updated version of an existing row.
+    Only a subset of non‑key, non‑partition_dt, and non‑audit columns are modified.
     """
     new_row = old_row.copy()
     non_key_cols = [col for col, _ in columns if col not in [primary_key, "partition_dt"] and col not in audit_defaults]
@@ -272,9 +272,7 @@ def main():
     args = parser.parse_args()
 
     # Parse the quote_cols option into a set of column names.
-    quote_cols = set()
-    if args.quote_cols:
-        quote_cols = set(col.strip() for col in args.quote_cols.split(','))
+    quote_cols = set(col.strip() for col in args.quote_cols.split(',')) if args.quote_cols else set()
 
     # Parse the JSON schema.
     columns = parse_json_schema(args.ddl)
@@ -297,17 +295,13 @@ def main():
     start_date = today - datetime.timedelta(days=num_days)
     base_time = datetime.datetime.now().time()
 
-    active_set = {}    # Mapping from primary key to row (only active, i.e. not “deleted”)
+    active_set = {}    # Mapping from primary key to row (active records that will be carried forward)
     all_rows = []      # List of all generated rows (for CSV)
     summary_lines = [] # Summary report lines
     insert_sql_scripts = []  # List of INSERT statements per day
 
-    # Define probabilities for processed rows actions.
-    # For each processed row: choose among "updated", "unchanged", "deleted"
-    p_update = 0.3
-    p_unchanged = 0.3
-    p_deleted = 0.4
-
+    # Define probabilities for processed rows actions: either "updated" or "unchanged"
+    # In this refactored version we use a simple 50/50 chance.
     for day in range(1, num_days + 1):
         simulation_date = start_date + datetime.timedelta(days=day - 1)
         summary_lines.append(f"Day {day} (partition_dt = {simulation_date.strftime('%Y-%m-%d')}):")
@@ -326,7 +320,6 @@ def main():
             # For days 2+, process a subset of previous active rows.
             prev_active_keys = list(active_set.keys())
             num_prev = len(prev_active_keys)
-            # Decide how many of yesterday’s active records to process (if any)
             if num_prev > 0:
                 processed_count = random.randint(1, min(num_prev, records_per_day))
             else:
@@ -337,16 +330,11 @@ def main():
             processed_rows = []
             summary_updated = []
             summary_unchanged = []
-            summary_deleted = []
-            deleted_keys = set()  # We'll use this set to exclude deleted records from the active set
 
             for pk in processed_keys:
                 old_row = active_set[pk]
-                action = random.choices(
-                    ["updated", "unchanged", "deleted"],
-                    weights=[p_update, p_unchanged, p_deleted]
-                )[0]
-                if action == "updated":
+                # Randomly choose to update or carry forward unchanged (50/50 chance)
+                if random.random() < 0.5:
                     new_row = generate_updated_row(columns, simulation_date, primary_key, old_row, base_time)
                     processed_rows.append(new_row)
                     diffs = []
@@ -356,21 +344,11 @@ def main():
                         if old_row[col] != new_row[col]:
                             diffs.append(f"{col}: {old_row[col]} -> {new_row[col]}")
                     summary_updated.append(f"PK {pk}: " + "; ".join(diffs))
-                elif action == "unchanged":
+                else:
                     new_row = old_row.copy()
                     new_row["partition_dt"] = simulation_date
                     processed_rows.append(new_row)
                     summary_unchanged.append(str(pk))
-                elif action == "deleted":
-                    # For a deletion event, we copy the row with the new partition_dt
-                    # but we leave pipeline_execution_ingest_delete_flag as its default (False).
-                    # We then record this PK in deleted_keys so it is not carried forward.
-                    new_row = old_row.copy()
-                    new_row["partition_dt"] = simulation_date
-                    new_row["pipeline_execution_ingest_delete_flag"] = audit_defaults["pipeline_execution_ingest_delete_flag"]
-                    processed_rows.append(new_row)
-                    summary_deleted.append(str(pk))
-                    deleted_keys.add(pk)
 
             omitted_keys = [str(pk) for pk in prev_active_keys if pk not in processed_keys]
 
@@ -391,22 +369,18 @@ def main():
                     summary_lines.append("    " + line)
             if summary_unchanged:
                 summary_lines.append("  Unchanged records: " + ", ".join(summary_unchanged))
-            if summary_deleted:
-                summary_lines.append("  Deleted records: " + ", ".join(summary_deleted))
             if omitted_keys:
                 summary_lines.append("  Omitted records: " + ", ".join(omitted_keys))
 
-            # Update active_set for next day:
-            # Only include rows from processed_rows and new_rows that are not marked as deleted.
+            # Update active_set for next day: include processed and new records.
             new_active_set = {}
             for row in processed_rows:
-                if row[primary_key] not in deleted_keys:
-                    new_active_set[row[primary_key]] = row
+                new_active_set[row[primary_key]] = row
             for row in new_rows:
                 new_active_set[row[primary_key]] = row
             active_set = new_active_set
 
-        # Ensure the partition_dt is set to the simulation_date for all rows.
+        # Make sure the partition_dt is set to the simulation_date for all rows.
         for row in daily_rows:
             row["partition_dt"] = simulation_date
 
@@ -414,7 +388,10 @@ def main():
         col_names = [col for col, _ in columns]
         values_list = []
         for row in daily_rows:
-            formatted_values = [format_sql_value_with_quote_option(row[col], schema_dict[col], col, quote_cols) for col in col_names]
+            formatted_values = [
+                format_sql_value_with_quote_option(row[col], schema_dict[col], col, quote_cols)
+                for col in col_names
+            ]
             values_list.append("(" + ", ".join(formatted_values) + ")")
         insert_stmt = (
             f"-- Day {day} (partition_dt = {simulation_date.strftime('%Y-%m-%d')})\n"
