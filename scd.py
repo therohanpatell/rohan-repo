@@ -13,8 +13,7 @@ If the provided schema does not include "partition_dt", it is automatically adde
 Audit columns in the schema are populated as follows (for every record):
   - pipeline_execution_ingest_delete_flag: False
   - pipeline_execution_brand_id: "UNK"
-  - pipeline_execution_ingest_map: "csv file_YYYYMMDD_test.csv"
-    (The substring "YYYYMMDD" will be replaced with the simulation date.)
+  - pipeline_execution_ingest_map: (a dynamic value based on the --ingest_map parameter)
 
 The simulation uses SCD Type 2 logic. For day 1, all rows are new.
 For subsequent days, a random subset of yesterday’s active rows is processed.
@@ -24,12 +23,19 @@ For each processed record an action is randomly chosen:
 Records not selected for processing (omitted) do not appear in the current day’s output.
 New rows are generated as needed so that exactly the specified number of rows are inserted each day.
 
+Additional parameters:
+  --ingest_map: The value for pipeline_execution_ingest_map (may contain the placeholder YYYYMMDD).
+  --default_values: Comma-separated list of column:default_value pairs (e.g. purchase_price:0,another_column:default).
+
 A new command‑line argument --quote_cols accepts a comma‑separated list of column names.
 For any column in this list, its value is forced to appear within single quotes in the generated INSERT statements,
 even if its native data type would normally not use quotes.
 
 Usage example:
-    python scd2_synthetic_data.py --ddl schema.json --primary_key country_code --days 5 --records_per_day 5 --delimiter "|" --target_table "myProject.myDataset.myTable" --quote_cols purchase_price,another_column
+    python scd2_synthetic_data.py --ddl schema.json --primary_key country_code --days 5 --records_per_day 5 \
+    --delimiter "|" --target_table "myProject.myDataset.myTable" \
+    --quote_cols purchase_price,another_column --ingest_map "csv file_YYYYMMDD_test.csv" \
+    --default_values "purchase_price:0,another_column:default_val"
 """
 
 import argparse
@@ -42,12 +48,16 @@ import datetime
 global_pk_counter = 1
 
 # Audit columns default values.
-# Note: The "pipeline_execution_ingest_map" value is defined as a template.
+# The pipeline_execution_ingest_map value can be overridden via an input parameter.
 audit_defaults = {
     "pipeline_execution_ingest_delete_flag": False,
     "pipeline_execution_brand_id": "UNK",
-    "pipeline_execution_ingest_map": "csv file_YYYYMMDD_test.csv"
+    "pipeline_execution_ingest_map": "csv file"  # This will be overridden by --ingest_map if provided.
 }
+
+# Global dictionary for default values for specific columns.
+# This will be populated from the --default_values parameter.
+col_defaults = {}
 
 def parse_json_schema(file_path):
     """
@@ -205,15 +215,42 @@ def format_sql_value_with_quote_option(value, data_type, col_name, quote_cols):
             return "'" + formatted + "'"
     return formatted
 
+def convert_default_value(col, val, data_type):
+    """
+    Converts the default value (passed as a string) into the appropriate Python type based on data_type.
+    """
+    norm_type = get_normalized_type(data_type)
+    try:
+        if norm_type == "int":
+            return int(val)
+        elif norm_type in ["float", "numeric"]:
+            return float(val)
+        elif norm_type == "bool":
+            return val.lower() in ["true", "1", "yes"]
+        elif norm_type == "date":
+            # Expecting format YYYY-MM-DD
+            return datetime.datetime.strptime(val, "%Y-%m-%d").date()
+        elif norm_type in ["datetime", "timestamp"]:
+            # Expecting format YYYY-MM-DD HH:MM:SS
+            return datetime.datetime.strptime(val, "%Y-%m-%d %H:%M:%S")
+        elif norm_type == "time":
+            # Expecting format HH:MM:SS
+            return datetime.datetime.strptime(val, "%H:%M:%S").time()
+        else:
+            return val
+    except Exception as e:
+        # In case of error, return the original string value.
+        return val
+
 def generate_new_row(columns, simulation_date, primary_key, base_time):
     """
     Generates a new row (a dictionary) for the given simulation_date.
     Audit columns receive constant values initially. The primary key is generated uniquely.
+    If a column is specified in the default values (via --default_values), that value is used.
     """
-    global global_pk_counter
+    global global_pk_counter, col_defaults
     row = {}
     for col, dtype in columns:
-        # Set audit columns to their default values.
         if col in audit_defaults:
             row[col] = audit_defaults[col]
             continue
@@ -225,31 +262,44 @@ def generate_new_row(columns, simulation_date, primary_key, base_time):
         elif col == "partition_dt":
             row[col] = simulation_date
         else:
-            norm_type = get_normalized_type(dtype)
-            if norm_type in ["date", "datetime", "timestamp", "time"]:
-                row[col] = generate_random_value(dtype, simulation_date, base_time=base_time)
+            if col in col_defaults:
+                row[col] = convert_default_value(col, col_defaults[col], dtype)
             else:
-                row[col] = generate_random_value(dtype, simulation_date)
+                norm_type = get_normalized_type(dtype)
+                if norm_type in ["date", "datetime", "timestamp", "time"]:
+                    row[col] = generate_random_value(dtype, simulation_date, base_time=base_time)
+                else:
+                    row[col] = generate_random_value(dtype, simulation_date)
     return row
 
 def generate_updated_row(columns, simulation_date, primary_key, old_row, base_time):
     """
     Generates an updated version of an existing row.
-    Only a subset of non‑key, non‑partition_dt, and non‑audit columns are modified.
+    For any column specified in the default values, the default is forced.
+    Otherwise, a subset of non‑key, non‑partition_dt, and non‑audit columns is updated.
     """
+    global col_defaults
     new_row = old_row.copy()
     non_key_cols = [col for col, _ in columns if col not in [primary_key, "partition_dt"] and col not in audit_defaults]
     update_cols = [col for col in non_key_cols if random.random() < 0.5]
-    if not update_cols:
+    if not update_cols and non_key_cols:
         update_cols = [random.choice(non_key_cols)]
     for col in update_cols:
         dtype = next(dt for c, dt in columns if c == col)
-        old_value = old_row[col]
-        if get_normalized_type(dtype) in ["date", "datetime", "timestamp", "time"]:
-            new_value = generate_random_value(dtype, simulation_date, is_update=True, old_value=old_value, base_time=base_time)
+        if col in col_defaults:
+            new_row[col] = convert_default_value(col, col_defaults[col], dtype)
         else:
-            new_value = generate_random_value(dtype, simulation_date, is_update=True, old_value=old_value)
-        new_row[col] = new_value
+            old_value = old_row[col]
+            if get_normalized_type(dtype) in ["date", "datetime", "timestamp", "time"]:
+                new_value = generate_random_value(dtype, simulation_date, is_update=True, old_value=old_value, base_time=base_time)
+            else:
+                new_value = generate_random_value(dtype, simulation_date, is_update=True, old_value=old_value)
+            new_row[col] = new_value
+    # Ensure that any column specified in the default values always has that value.
+    for col in col_defaults:
+        if col not in [primary_key, "partition_dt"] and col not in audit_defaults:
+            dtype = next(dt for c, dt in columns if c == col)
+            new_row[col] = convert_default_value(col, col_defaults[col], dtype)
     new_row["partition_dt"] = simulation_date
     return new_row
 
@@ -271,10 +321,28 @@ def main():
                         help="Target table in the format ProjectID.DatasetID.tableID for the INSERT scripts.")
     parser.add_argument("--quote_cols", type=str, default="",
                         help="Comma-separated list of column names to force enclosing values in single quotes in INSERT scripts.")
+    parser.add_argument("--ingest_map", type=str, default=None,
+                        help="Value for pipeline_execution_ingest_map. May contain the placeholder YYYYMMDD.")
+    parser.add_argument("--default_values", type=str, default=None,
+                        help="Comma-separated list of column:default_value pairs (e.g. purchase_price:0,other_column:default).")
     args = parser.parse_args()
 
-    # Parse the quote_cols option into a set of column names.
+    # Parse the quote_cols option into a set.
     quote_cols = set(col.strip() for col in args.quote_cols.split(',')) if args.quote_cols else set()
+
+    # Override audit_defaults["pipeline_execution_ingest_map"] if provided.
+    if args.ingest_map:
+        audit_defaults["pipeline_execution_ingest_map"] = args.ingest_map
+
+    # Parse the default_values parameter into a dictionary.
+    default_values_dict = {}
+    if args.default_values:
+        for pair in args.default_values.split(','):
+            if ':' in pair:
+                key, val = pair.split(':', 1)
+                default_values_dict[key.strip()] = val.strip()
+    global col_defaults
+    col_defaults = default_values_dict
 
     # Parse the JSON schema.
     columns = parse_json_schema(args.ddl)
@@ -297,10 +365,10 @@ def main():
     start_date = today - datetime.timedelta(days=num_days)
     base_time = datetime.datetime.now().time()
 
-    active_set = {}    # Mapping from primary key to row (active records carried forward)
-    all_rows = []      # List of all generated rows (for CSV)
-    summary_lines = [] # Summary report lines
-    insert_sql_scripts = []  # List of INSERT statements per day
+    active_set = {}    # Active records that will be carried forward.
+    all_rows = []      # List of all generated rows (for CSV).
+    summary_lines = [] # Summary report lines.
+    insert_sql_scripts = []  # List of INSERT statements per day.
 
     # For each day, simulate a mix of updated and unchanged records from the previous active set.
     for day in range(1, num_days + 1):
@@ -331,7 +399,6 @@ def main():
 
             for pk in processed_keys:
                 old_row = active_set[pk]
-                # Choose randomly to update or carry forward unchanged (50/50 chance)
                 if random.random() < 0.5:
                     new_row = generate_updated_row(columns, simulation_date, primary_key, old_row, base_time)
                     processed_rows.append(new_row)
@@ -370,7 +437,7 @@ def main():
             if omitted_keys:
                 summary_lines.append("  Omitted records: " + ", ".join(omitted_keys))
 
-            # Update active_set for next day: include processed and new records.
+            # Update active_set for next day.
             new_active_set = {}
             for row in processed_rows:
                 new_active_set[row[primary_key]] = row
