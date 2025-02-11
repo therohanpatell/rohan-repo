@@ -24,12 +24,12 @@ Records not selected for processing (omitted) do not appear in the current day�
 New rows are generated as needed so that exactly the specified number of rows are inserted each day.
 
 Additional parameters:
-  --ingest_map: The value for pipeline_execution_ingest_map (may contain the placeholder YYYYMMDD).
-  --default_values: Comma-separated list of column:default_value pairs (e.g. purchase_price:0,another_column:default).
-
-A new command‑line argument --quote_cols accepts a comma‑separated list of column names.
-For any column in this list, its value is forced to appear within single quotes in the generated INSERT statements,
-even if its native data type would normally not use quotes.
+  --ingest_map: The value for pipeline_execution_ingest_map. May contain the placeholder YYYYMMDD.
+  --default_values: Comma-separated list of column:default_value pairs (e.g. purchase_price:0,other_column:default).
+     For any column specified here the default value is forced (converted to the proper type).
+  --quote_cols: Comma-separated list of column names. For columns specified here, their SQL value will be enclosed in single quotes.
+                However, for numeric columns that are generated randomly the value will not be quoted.
+                If a numeric column is defined via --default_values and is in quote_cols then it will be quoted.
 
 Usage example:
     python scd2_synthetic_data.py --ddl schema.json --primary_key country_code --days 5 --records_per_day 5 \
@@ -48,11 +48,11 @@ import datetime
 global_pk_counter = 1
 
 # Audit columns default values.
-# The pipeline_execution_ingest_map value can be overridden via an input parameter.
+# The pipeline_execution_ingest_map value will be overridden by the --ingest_map parameter.
 audit_defaults = {
     "pipeline_execution_ingest_delete_flag": False,
     "pipeline_execution_brand_id": "UNK",
-    "pipeline_execution_ingest_map": "csv file"  # This will be overridden by --ingest_map if provided.
+    "pipeline_execution_ingest_map": "csv file"  
 }
 
 # Global dictionary for default values for specific columns.
@@ -206,13 +206,27 @@ def format_csv_value(value):
 
 def format_sql_value_with_quote_option(value, data_type, col_name, quote_cols):
     """
-    Wraps the formatted SQL value in single quotes if the column name is in the quote_cols set.
+    Formats the SQL value and then, if the column is in quote_cols, wraps it in single quotes.
+    
+    For columns not provided via --default_values:
+      - If the normalized type is numeric ("int", "float", or "numeric"), the value is not quoted.
+      - Otherwise, the value is quoted.
+    
+    For columns provided via --default_values (i.e. present in the global col_defaults),
+    if the column is in quote_cols, the value is always wrapped in single quotes (even if numeric).
     """
+    norm_type = get_normalized_type(data_type)
     formatted = format_sql_value(value, data_type)
     if col_name in quote_cols:
-        # If not already quoted (i.e. for numeric values), add quotes.
-        if not (formatted.startswith("'") and formatted.endswith("'")):
-            return "'" + formatted + "'"
+        if col_name in col_defaults:
+            # For default value columns, always wrap in quotes.
+            if not (formatted.startswith("'") and formatted.endswith("'")):
+                return "'" + formatted + "'"
+        else:
+            # For non-default columns, wrap only if non-numeric.
+            if norm_type not in ["int", "float", "numeric"]:
+                if not (formatted.startswith("'") and formatted.endswith("'")):
+                    return "'" + formatted + "'"
     return formatted
 
 def convert_default_value(col, val, data_type):
