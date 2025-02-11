@@ -13,13 +13,14 @@ If the provided schema does not include "partition_dt", it is automatically adde
 Audit columns in the schema are populated as follows (for every record):
   - pipeline_execution_ingest_delete_flag: False
   - pipeline_execution_brand_id: "UNK"
-  - pipeline_execution_ingest_map: "csv file"
+  - pipeline_execution_ingest_map: "csv file_YYYYMMDD_test.csv"
+    (The substring "YYYYMMDD" will be replaced with the simulation date.)
 
 The simulation uses SCD Type 2 logic. For day 1, all rows are new.
 For subsequent days, a random subset of yesterday’s active rows is processed.
 For each processed record an action is randomly chosen:
-  - **updated** – a new version is generated with one or more columns modified,
-  - **unchanged** – the row is simply reinserted with the current day’s partition_dt.
+  - updated – a new version is generated with one or more columns modified,
+  - unchanged – the row is simply reinserted with the current day’s partition_dt.
 Records not selected for processing (omitted) do not appear in the current day’s output.
 New rows are generated as needed so that exactly the specified number of rows are inserted each day.
 
@@ -40,11 +41,12 @@ import datetime
 # Global primary key counter (used to generate unique PK values)
 global_pk_counter = 1
 
-# Audit columns default values (these are always set to these defaults)
+# Audit columns default values.
+# Note: The "pipeline_execution_ingest_map" value is defined as a template.
 audit_defaults = {
     "pipeline_execution_ingest_delete_flag": False,
     "pipeline_execution_brand_id": "UNK",
-    "pipeline_execution_ingest_map": "csv file"
+    "pipeline_execution_ingest_map": "csv file_YYYYMMDD_test.csv"
 }
 
 def parse_json_schema(file_path):
@@ -206,7 +208,7 @@ def format_sql_value_with_quote_option(value, data_type, col_name, quote_cols):
 def generate_new_row(columns, simulation_date, primary_key, base_time):
     """
     Generates a new row (a dictionary) for the given simulation_date.
-    Audit columns receive constant values. The primary key is generated uniquely.
+    Audit columns receive constant values initially. The primary key is generated uniquely.
     """
     global global_pk_counter
     row = {}
@@ -295,13 +297,12 @@ def main():
     start_date = today - datetime.timedelta(days=num_days)
     base_time = datetime.datetime.now().time()
 
-    active_set = {}    # Mapping from primary key to row (active records that will be carried forward)
+    active_set = {}    # Mapping from primary key to row (active records carried forward)
     all_rows = []      # List of all generated rows (for CSV)
     summary_lines = [] # Summary report lines
     insert_sql_scripts = []  # List of INSERT statements per day
 
-    # Define probabilities for processed rows actions: either "updated" or "unchanged"
-    # In this refactored version we use a simple 50/50 chance.
+    # For each day, simulate a mix of updated and unchanged records from the previous active set.
     for day in range(1, num_days + 1):
         simulation_date = start_date + datetime.timedelta(days=day - 1)
         summary_lines.append(f"Day {day} (partition_dt = {simulation_date.strftime('%Y-%m-%d')}):")
@@ -320,10 +321,7 @@ def main():
             # For days 2+, process a subset of previous active rows.
             prev_active_keys = list(active_set.keys())
             num_prev = len(prev_active_keys)
-            if num_prev > 0:
-                processed_count = random.randint(1, min(num_prev, records_per_day))
-            else:
-                processed_count = 0
+            processed_count = random.randint(1, min(num_prev, records_per_day)) if num_prev > 0 else 0
             new_count = records_per_day - processed_count
 
             processed_keys = random.sample(prev_active_keys, processed_count) if processed_count > 0 else []
@@ -333,7 +331,7 @@ def main():
 
             for pk in processed_keys:
                 old_row = active_set[pk]
-                # Randomly choose to update or carry forward unchanged (50/50 chance)
+                # Choose randomly to update or carry forward unchanged (50/50 chance)
                 if random.random() < 0.5:
                     new_row = generate_updated_row(columns, simulation_date, primary_key, old_row, base_time)
                     processed_rows.append(new_row)
@@ -380,9 +378,16 @@ def main():
                 new_active_set[row[primary_key]] = row
             active_set = new_active_set
 
-        # Make sure the partition_dt is set to the simulation_date for all rows.
+        # For every row generated today, update the partition_dt and compute the dynamic file name.
         for row in daily_rows:
             row["partition_dt"] = simulation_date
+            # Use the audit default template for pipeline_execution_ingest_map.
+            template = audit_defaults["pipeline_execution_ingest_map"]
+            if "YYYYMMDD" in template:
+                dynamic_filename = template.replace("YYYYMMDD", simulation_date.strftime("%Y%m%d"))
+            else:
+                dynamic_filename = f"{template}_{simulation_date.strftime('%Y%m%d')}.csv"
+            row["pipeline_execution_ingest_map"] = dynamic_filename
 
         # Generate the SQL INSERT statement for this day.
         col_names = [col for col, _ in columns]
