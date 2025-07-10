@@ -3,8 +3,9 @@ import logging
 import json
 import re
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Union
 import sys
+from decimal import Decimal
 
 from pyspark.sql import SparkSession, DataFrame
 from pyspark.sql.functions import (
@@ -13,7 +14,7 @@ from pyspark.sql.functions import (
 )
 from pyspark.sql.types import (
     StructType, StructField, StringType, DateType, 
-    TimestampType, DecimalType, IntegerType
+    TimestampType, DecimalType, IntegerType, DoubleType
 )
 
 from google.cloud import bigquery
@@ -181,6 +182,26 @@ class MetricsPipeline:
             logger.error(f"Failed to get partition_dt: {str(e)}")
             return None
     
+    def normalize_numeric_value(self, value: Union[int, float, Decimal, None]) -> Optional[float]:
+        """
+        Normalize numeric values to consistent float type
+        
+        Args:
+            value: Numeric value of any type
+            
+        Returns:
+            Float value or None
+        """
+        if value is None:
+            return None
+        
+        try:
+            # Convert to float to ensure consistent type
+            return float(value)
+        except (ValueError, TypeError):
+            logger.warning(f"Could not convert value to float: {value}")
+            return None
+    
     def execute_sql(self, sql: str, run_date: str, partition_mode: str, 
                    partition_info_table: str) -> Dict:
         """
@@ -228,10 +249,15 @@ class MetricsPipeline:
                 # Convert row to dictionary
                 row_dict = dict(row)
                 
-                # Map columns to result dictionary
+                # Map columns to result dictionary with type normalization
                 for key in result_dict.keys():
                     if key in row_dict:
-                        result_dict[key] = row_dict[key]
+                        value = row_dict[key]
+                        # Normalize numeric values to consistent float type
+                        if key in ['metric_output', 'numerator_value', 'denominator_value']:
+                            result_dict[key] = self.normalize_numeric_value(value)
+                        else:
+                            result_dict[key] = value
                 
                 break  # Take first row only
             
@@ -288,7 +314,7 @@ class MetricsPipeline:
                     partition_info_table
                 )
                 
-                # Build final record
+                # Build final record with consistent types
                 final_record = {
                     'metric_id': record['metric_id'],
                     'metric_name': record['metric_name'],
@@ -310,11 +336,25 @@ class MetricsPipeline:
                     f"Failed to process metric_id {record['metric_id']}: {str(e)}"
                 )
         
-        # Create Spark DataFrame
+        # Create Spark DataFrame with explicit schema to avoid type conflicts
         if not processed_records:
             raise MetricsPipelineError("No records were successfully processed")
         
-        df = self.spark.createDataFrame(processed_records)
+        # Define explicit schema to prevent type inference issues
+        schema = StructType([
+            StructField("metric_id", StringType(), True),
+            StructField("metric_name", StringType(), True),
+            StructField("metric_type", StringType(), True),
+            StructField("numerator_value", DoubleType(), True),
+            StructField("denominator_value", DoubleType(), True),
+            StructField("metric_output", DoubleType(), True),
+            StructField("business_data_date", StringType(), True),
+            StructField("partition_dt", StringType(), True),
+            StructField("pipeline_execution_ts", TimestampType(), True)
+        ])
+        
+        # Create DataFrame with explicit schema
+        df = self.spark.createDataFrame(processed_records, schema)
         logger.info(f"Created DataFrame with {df.count()} records")
         
         return df
@@ -382,6 +422,8 @@ class MetricsPipeline:
                     df = df.withColumn(field.name, col(field.name).cast(TimestampType()))
                 elif field.field_type == 'NUMERIC':
                     df = df.withColumn(field.name, col(field.name).cast(DecimalType(38, 9)))
+                elif field.field_type == 'FLOAT':
+                    df = df.withColumn(field.name, col(field.name).cast(DoubleType()))
         
         logger.info(f"Schema alignment complete. Final columns: {df.columns}")
         return df
