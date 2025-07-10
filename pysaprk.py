@@ -132,8 +132,7 @@ class MetricsPipeline:
         
         if matches:
             project, dataset, table = matches[0]  # Take first match
-            project_dataset = f"{project}.{dataset}"
-            return project_dataset, table
+            return dataset, table
         
         return None, None
     
@@ -160,8 +159,6 @@ class MetricsPipeline:
             FROM `{partition_info_table}` 
             WHERE project_dataset = '{project_dataset}' 
             AND table_name = '{table_name}'
-            ORDER BY partition_dt DESC
-            LIMIT 1
             """
             
             logger.info(f"Querying partition info for {project_dataset}.{table_name}")
@@ -342,15 +339,15 @@ class MetricsPipeline:
         
         # Define explicit schema to prevent type inference issues
         schema = StructType([
-            StructField("metric_id", StringType(), True),
-            StructField("metric_name", StringType(), True),
-            StructField("metric_type", StringType(), True),
+            StructField("metric_id", StringType(), False),
+            StructField("metric_name", StringType(), False),
+            StructField("metric_type", StringType(), False),
             StructField("numerator_value", DoubleType(), True),
             StructField("denominator_value", DoubleType(), True),
             StructField("metric_output", DoubleType(), True),
-            StructField("business_data_date", StringType(), True),
-            StructField("partition_dt", StringType(), True),
-            StructField("pipeline_execution_ts", TimestampType(), True)
+            StructField("business_data_date", StringType(), False),
+            StructField("partition_dt", StringType(), False),
+            StructField("pipeline_execution_ts", TimestampType(), False)
         ])
         
         # Create DataFrame with explicit schema
@@ -546,6 +543,9 @@ def main():
         
         logger.info("Step 4: Aligning schema with BigQuery")
         aligned_df = pipeline.align_schema_with_bq(metrics_df, args.target_table)
+
+        aligned_df.printSchema()
+        aligned_df.show(truncate=False)
         
         logger.info("Step 5: Writing to BigQuery")
         pipeline.write_to_bq(aligned_df, args.target_table)
