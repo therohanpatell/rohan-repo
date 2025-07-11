@@ -88,7 +88,7 @@ class MetricsPipeline:
         """
         required_fields = [
             'metric_id', 'metric_name', 'metric_type', 
-            'sql', 'dependency', 'partition_mode'
+            'sql', 'dependency', 'partition_modes'
         ]
         
         logger.info("Validating JSON data")
@@ -106,59 +106,61 @@ class MetricsPipeline:
                         f"Record {i}: Field '{field}' is null or empty"
                     )
             
-            # Validate partition_mode values
-            if record['partition_mode'] not in ['currently', 'partition_info']:
-                raise MetricsPipelineError(
-                    f"Record {i}: Invalid partition_mode '{record['partition_mode']}'. "
-                    f"Must be 'currently' or 'partition_info'"
-                )
+            # Validate partition_modes values
+            partition_modes = record['partition_modes'].split('|')
+            for mode in partition_modes:
+                if mode.strip() not in ['currently', 'partition_info']:
+                    raise MetricsPipelineError(
+                        f"Record {i}: Invalid partition_mode '{mode}'. "
+                        f"Must be 'currently' or 'partition_info'"
+                    )
         
         logger.info(f"Successfully validated {len(json_data)} records")
         return json_data
     
-    def parse_table_from_sql(self, sql: str) -> Optional[Tuple[str, str]]:
+    def parse_tables_from_sql(self, sql: str) -> List[Tuple[str, str]]:
         """
-        Parse project_dataset and table_name from SQL query
+        Parse all project_dataset and table_name from SQL query
         
         Args:
             sql: SQL query string
             
         Returns:
-            Tuple of (project_dataset, table_name) or None if not found
+            List of tuples (project_dataset, table_name)
         """
         # Pattern to match BigQuery table references like `project.dataset.table`
         pattern = r'`([^.]+)\.([^.]+)\.([^`]+)`'
         matches = re.findall(pattern, sql)
         
         if matches:
-            project, dataset, table = matches[0]  # Take first match
-            return dataset, table
+            # Return dataset and table name for each match
+            tables = []
+            for project, dataset, table in matches:
+                tables.append((dataset, table))
+            return tables
         
-        return None, None
+        return []
     
-    def get_partition_dt(self, sql: str, partition_info_table: str) -> Optional[str]:
+    def get_partition_dt(self, project_dataset: str, table_name: str, partition_info_table: str) -> Optional[str]:
         """
         Get latest partition_dt from metadata table
         
         Args:
-            sql: SQL query to parse table from
+            project_dataset: Dataset name
+            table_name: Table name
             partition_info_table: Metadata table name
             
         Returns:
             Latest partition date as string or None
         """
-        project_dataset, table_name = self.parse_table_from_sql(sql)
-        
-        if not project_dataset or not table_name:
-            logger.warning(f"Could not parse table from SQL: {sql}")
-            return None
-        
         try:
             query = f"""
             SELECT partition_dt 
             FROM `{partition_info_table}` 
             WHERE project_dataset = '{project_dataset}' 
             AND table_name = '{table_name}'
+            ORDER BY partition_dt DESC
+            LIMIT 1
             """
             
             logger.info(f"Querying partition info for {project_dataset}.{table_name}")
@@ -176,8 +178,88 @@ class MetricsPipeline:
             return None
             
         except Exception as e:
-            logger.error(f"Failed to get partition_dt: {str(e)}")
+            logger.error(f"Failed to get partition_dt for {project_dataset}.{table_name}: {str(e)}")
             return None
+    
+    def get_replacement_dates(self, sql: str, run_date: str, partition_modes: str, 
+                             partition_info_table: str) -> List[str]:
+        """
+        Get replacement dates for all tables based on partition modes
+        
+        Args:
+            sql: SQL query string
+            run_date: CLI provided run date
+            partition_modes: Pipe-separated partition modes
+            partition_info_table: Metadata table name
+            
+        Returns:
+            List of replacement dates for each table
+        """
+        # Parse all tables from SQL
+        tables = self.parse_tables_from_sql(sql)
+        
+        # Parse partition modes
+        modes = [mode.strip() for mode in partition_modes.split('|')]
+        
+        # Validate that number of tables matches number of modes
+        if len(tables) != len(modes):
+            raise MetricsPipelineError(
+                f"Number of tables ({len(tables)}) doesn't match number of partition modes ({len(modes)}). "
+                f"Tables: {tables}, Modes: {modes}"
+            )
+        
+        replacement_dates = []
+        
+        for i, (project_dataset, table_name) in enumerate(tables):
+            mode = modes[i]
+            
+            if mode == 'currently':
+                replacement_date = run_date
+            else:  # partition_info
+                replacement_date = self.get_partition_dt(project_dataset, table_name, partition_info_table)
+                if not replacement_date:
+                    raise MetricsPipelineError(
+                        f"Could not determine partition_dt for table {project_dataset}.{table_name}"
+                    )
+            
+            replacement_dates.append(replacement_date)
+            logger.info(f"Table {project_dataset}.{table_name} will use date: {replacement_date} (mode: {mode})")
+        
+        return replacement_dates
+    
+    def replace_run_dates_in_sql(self, sql: str, replacement_dates: List[str]) -> str:
+        """
+        Replace {run_date} placeholders in SQL with corresponding dates
+        
+        Args:
+            sql: SQL query string with {run_date} placeholders
+            replacement_dates: List of dates to replace placeholders
+            
+        Returns:
+            SQL with all {run_date} placeholders replaced
+        """
+        # Find all {run_date} occurrences
+        run_date_pattern = r'\{run_date\}'
+        matches = list(re.finditer(run_date_pattern, sql))
+        
+        if len(matches) != len(replacement_dates):
+            raise MetricsPipelineError(
+                f"Number of {{run_date}} placeholders ({len(matches)}) doesn't match "
+                f"number of replacement dates ({len(replacement_dates)})"
+            )
+        
+        # Replace from end to beginning to preserve indices
+        final_sql = sql
+        for i, match in enumerate(reversed(matches)):
+            replacement_index = len(matches) - 1 - i
+            replacement_date = replacement_dates[replacement_index]
+            start, end = match.span()
+            final_sql = final_sql[:start] + f"'{replacement_date}'" + final_sql[end:]
+        
+        logger.info(f"Replaced {len(matches)} {{run_date}} placeholders")
+        logger.debug(f"Final SQL: {final_sql}")
+        
+        return final_sql
     
     def normalize_numeric_value(self, value: Union[int, float, Decimal, None]) -> Optional[float]:
         """
@@ -199,36 +281,30 @@ class MetricsPipeline:
             logger.warning(f"Could not convert value to float: {value}")
             return None
     
-    def execute_sql(self, sql: str, run_date: str, partition_mode: str, 
+    def execute_sql(self, sql: str, run_date: str, partition_modes: str, 
                    partition_info_table: str) -> Dict:
         """
-        Execute SQL query with dynamic date replacement
+        Execute SQL query with dynamic date replacement for multiple tables
         
         Args:
             sql: SQL query string
             run_date: CLI provided run date
-            partition_mode: 'currently' or 'partition_info'
+            partition_modes: Pipe-separated partition modes
             partition_info_table: Metadata table name
             
         Returns:
             Dictionary with query results
         """
         try:
-            # Determine the date to use for {run_date} replacement
-            if partition_mode == 'currently':
-                replacement_date = run_date
-            else:  # partition_info
-                replacement_date = self.get_partition_dt(sql, partition_info_table)
-                if not replacement_date:
-                    raise MetricsPipelineError(
-                        f"Could not determine partition_dt for SQL: {sql}"
-                    )
+            # Get replacement dates for all tables
+            replacement_dates = self.get_replacement_dates(
+                sql, run_date, partition_modes, partition_info_table
+            )
             
-            # Replace {run_date} in SQL
-            final_sql = sql.replace('{run_date}', f"'{replacement_date}'")
+            # Replace all {run_date} placeholders
+            final_sql = self.replace_run_dates_in_sql(sql, replacement_dates)
             
-            logger.info(f"Executing SQL with date {replacement_date}")
-            logger.debug(f"Final SQL: {final_sql}")
+            logger.info(f"Executing SQL with multiple date replacements: {replacement_dates}")
             
             # Execute query
             query_job = self.bq_client.query(final_sql)
@@ -259,7 +335,8 @@ class MetricsPipeline:
                 break  # Take first row only
             
             # Calculate business_data_date (one day before the reference date)
-            ref_date = datetime.strptime(replacement_date, '%Y-%m-%d')
+            # Use the first replacement date as reference
+            ref_date = datetime.strptime(replacement_dates[0], '%Y-%m-%d')
             business_date = ref_date - timedelta(days=1)
             result_dict['business_data_date'] = business_date.strftime('%Y-%m-%d')
             
@@ -307,7 +384,7 @@ class MetricsPipeline:
                 sql_results = self.execute_sql(
                     record['sql'], 
                     run_date, 
-                    record['partition_mode'], 
+                    record['partition_modes'], 
                     partition_info_table
                 )
                 
