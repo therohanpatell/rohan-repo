@@ -6,6 +6,10 @@ from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Tuple, Union
 import sys
 from decimal import Decimal
+import os
+import tempfile
+from contextlib import contextmanager
+import uuid
 
 from pyspark.sql import SparkSession, DataFrame
 from pyspark.sql.functions import (
@@ -18,7 +22,7 @@ from pyspark.sql.types import (
 )
 
 from google.cloud import bigquery
-from google.cloud.exceptions import NotFound
+from google.cloud.exceptions import NotFound, GoogleCloudError
 
 
 # Configure logging
@@ -40,6 +44,40 @@ class MetricsPipeline:
     def __init__(self, spark: SparkSession, bq_client: bigquery.Client):
         self.spark = spark
         self.bq_client = bq_client
+        self.execution_id = str(uuid.uuid4())
+        self.processed_metrics = []  # Track processed metrics for rollback
+        
+    def validate_gcs_path(self, gcs_path: str) -> str:
+        """
+        Validate GCS path format and accessibility
+        
+        Args:
+            gcs_path: GCS path to validate
+            
+        Returns:
+            Validated GCS path
+            
+        Raises:
+            MetricsPipelineError: If path is invalid or inaccessible
+        """
+        # Check basic format
+        if not gcs_path.startswith('gs://'):
+            raise MetricsPipelineError(f"Invalid GCS path format: {gcs_path}. Must start with 'gs://'")
+        
+        # Check path structure
+        path_parts = gcs_path.replace('gs://', '').split('/')
+        if len(path_parts) < 2:
+            raise MetricsPipelineError(f"Invalid GCS path structure: {gcs_path}")
+        
+        # Test accessibility by attempting to read file info
+        try:
+            # Try to read just the schema/structure without loading data
+            test_df = self.spark.read.option("multiline", "true").json(gcs_path).limit(0)
+            test_df.printSchema()  # This will fail if file doesn't exist
+            logger.info(f"GCS path validated successfully: {gcs_path}")
+            return gcs_path
+        except Exception as e:
+            raise MetricsPipelineError(f"GCS path inaccessible: {gcs_path}. Error: {str(e)}")
         
     def read_json_from_gcs(self, gcs_path: str) -> List[Dict]:
         """
@@ -55,13 +93,16 @@ class MetricsPipeline:
             MetricsPipelineError: If file cannot be read or parsed
         """
         try:
-            logger.info(f"Reading JSON from GCS: {gcs_path}")
+            # Validate GCS path first
+            validated_path = self.validate_gcs_path(gcs_path)
+            
+            logger.info(f"Reading JSON from GCS: {validated_path}")
             
             # Read JSON file using Spark
-            df = self.spark.read.option("multiline", "true").json(gcs_path)
+            df = self.spark.read.option("multiline", "true").json(validated_path)
             
             if df.count() == 0:
-                raise MetricsPipelineError(f"No data found in JSON file: {gcs_path}")
+                raise MetricsPipelineError(f"No data found in JSON file: {validated_path}")
             
             # Convert to list of dictionaries
             json_data = [row.asDict() for row in df.collect()]
@@ -75,7 +116,7 @@ class MetricsPipeline:
     
     def validate_json(self, json_data: List[Dict]) -> List[Dict]:
         """
-        Validate JSON data for required fields
+        Validate JSON data for required fields and duplicates
         
         Args:
             json_data: List of metric definitions
@@ -93,7 +134,11 @@ class MetricsPipeline:
         
         logger.info("Validating JSON data")
         
+        # Track metric IDs to check for duplicates
+        metric_ids = set()
+        
         for i, record in enumerate(json_data):
+            # Check for required fields
             for field in required_fields:
                 if field not in record:
                     raise MetricsPipelineError(
@@ -101,21 +146,42 @@ class MetricsPipeline:
                     )
                 
                 value = record[field]
+                # Enhanced validation for empty/whitespace-only strings
                 if value is None or (isinstance(value, str) and value.strip() == ""):
                     raise MetricsPipelineError(
-                        f"Record {i}: Field '{field}' is null or empty"
+                        f"Record {i}: Field '{field}' is null, empty, or contains only whitespace"
                     )
             
+            # Check for duplicate metric IDs
+            metric_id = record['metric_id'].strip()
+            if metric_id in metric_ids:
+                raise MetricsPipelineError(
+                    f"Record {i}: Duplicate metric_id '{metric_id}' found"
+                )
+            metric_ids.add(metric_id)
+            
             # Validate partition_mode values
-            partition_mode = record['partition_mode'].split('|')
-            for mode in partition_mode:
-                if mode.strip() not in ['currently', 'partition_info']:
+            partition_mode = record['partition_mode'].strip()
+            if not partition_mode:
+                raise MetricsPipelineError(
+                    f"Record {i}: partition_mode cannot be empty"
+                )
+            
+            partition_modes = [mode.strip() for mode in partition_mode.split('|')]
+            valid_modes = {'currently', 'partition_info'}
+            
+            for mode in partition_modes:
+                if not mode:  # Empty mode after split
+                    raise MetricsPipelineError(
+                        f"Record {i}: Empty partition_mode found in '{partition_mode}'"
+                    )
+                if mode not in valid_modes:
                     raise MetricsPipelineError(
                         f"Record {i}: Invalid partition_mode '{mode}'. "
                         f"Must be 'currently' or 'partition_info'"
                     )
         
-        logger.info(f"Successfully validated {len(json_data)} records")
+        logger.info(f"Successfully validated {len(json_data)} records with {len(metric_ids)} unique metric IDs")
         return json_data
     
     def parse_tables_from_sql(self, sql: str) -> List[Tuple[str, str]]:
@@ -215,12 +281,17 @@ class MetricsPipeline:
             
             if mode == 'currently':
                 replacement_date = run_date
-            else:  # partition_info
+            elif mode == 'partition_info':
                 replacement_date = self.get_partition_dt(project_dataset, table_name, partition_info_table)
                 if not replacement_date:
                     raise MetricsPipelineError(
                         f"Could not determine partition_dt for table {project_dataset}.{table_name}"
                     )
+            else:
+                # This should not happen due to validation, but adding safety check
+                raise MetricsPipelineError(
+                    f"Invalid partition mode '{mode}' for table {project_dataset}.{table_name}"
+                )
             
             replacement_dates.append(replacement_date)
             logger.info(f"Table {project_dataset}.{table_name} will use date: {replacement_date} (mode: {mode})")
@@ -261,25 +332,85 @@ class MetricsPipeline:
         
         return final_sql
     
-    def normalize_numeric_value(self, value: Union[int, float, Decimal, None]) -> Optional[float]:
+    def normalize_numeric_value(self, value: Union[int, float, Decimal, None]) -> Optional[str]:
         """
-        Normalize numeric values to consistent float type
+        Normalize numeric values to string representation to preserve precision
         
         Args:
             value: Numeric value of any type
             
         Returns:
-            Float value or None
+            String representation of the number or None
         """
         if value is None:
             return None
         
         try:
-            # Convert to float to ensure consistent type
-            return float(value)
-        except (ValueError, TypeError):
-            logger.warning(f"Could not convert value to float: {value}")
+            # Handle different numeric types with precision preservation
+            if isinstance(value, Decimal):
+                # Keep as string to preserve precision
+                return str(value)
+            elif isinstance(value, (int, float)):
+                # Convert to Decimal first to handle large numbers properly
+                decimal_val = Decimal(str(value))
+                return str(decimal_val)
+            elif isinstance(value, str):
+                # Try to parse as Decimal to validate it's a valid number
+                try:
+                    decimal_val = Decimal(value)
+                    return str(decimal_val)
+                except:
+                    logger.warning(f"Could not parse string as number: {value}")
+                    return None
+            else:
+                # Try to convert to string and then to Decimal
+                decimal_val = Decimal(str(value))
+                return str(decimal_val)
+                
+        except (ValueError, TypeError, OverflowError, Exception) as e:
+            logger.warning(f"Could not normalize numeric value: {value}, error: {e}")
             return None
+    
+    def safe_decimal_conversion(self, value: Optional[str]) -> Optional[Decimal]:
+        """
+        Safely convert string to Decimal for BigQuery
+        
+        Args:
+            value: String representation of number
+            
+        Returns:
+            Decimal value or None
+        """
+        if value is None:
+            return None
+        
+        try:
+            return Decimal(value)
+        except (ValueError, TypeError, OverflowError):
+            logger.warning(f"Could not convert to Decimal: {value}")
+            return None
+    
+    def check_dependencies_exist(self, json_data: List[Dict], dependencies: List[str]) -> None:
+        """
+        Check if all specified dependencies exist in the JSON data
+        
+        Args:
+            json_data: List of metric definitions
+            dependencies: List of dependencies to check
+            
+        Raises:
+            MetricsPipelineError: If any dependency is missing
+        """
+        available_dependencies = set(record['dependency'] for record in json_data)
+        missing_dependencies = set(dependencies) - available_dependencies
+        
+        if missing_dependencies:
+            raise MetricsPipelineError(
+                f"Missing dependencies in JSON data: {missing_dependencies}. "
+                f"Available dependencies: {available_dependencies}"
+            )
+        
+        logger.info(f"All dependencies found: {dependencies}")
     
     def execute_sql(self, sql: str, run_date: str, partition_mode: str, 
                    partition_info_table: str) -> Dict:
@@ -322,11 +453,11 @@ class MetricsPipeline:
                 # Convert row to dictionary
                 row_dict = dict(row)
                 
-                # Map columns to result dictionary with type normalization
+                # Map columns to result dictionary with precision preservation
                 for key in result_dict.keys():
                     if key in row_dict:
                         value = row_dict[key]
-                        # Normalize numeric values to consistent float type
+                        # Normalize numeric values to preserve precision
                         if key in ['metric_output', 'numerator_value', 'denominator_value']:
                             result_dict[key] = self.normalize_numeric_value(value)
                         else:
@@ -346,6 +477,51 @@ class MetricsPipeline:
             logger.error(f"Failed to execute SQL: {str(e)}")
             raise MetricsPipelineError(f"Failed to execute SQL: {str(e)}")
     
+    def rollback_metric(self, metric_id: str, target_table: str, partition_dt: str) -> None:
+        """
+        Rollback a specific metric from the target table
+        
+        Args:
+            metric_id: Metric ID to rollback
+            target_table: Target BigQuery table
+            partition_dt: Partition date for the metric
+        """
+        try:
+            delete_query = f"""
+            DELETE FROM `{target_table}` 
+            WHERE metric_id = '{metric_id}' 
+            AND partition_dt = '{partition_dt}'
+            AND pipeline_execution_ts >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 1 HOUR)
+            """
+            
+            logger.info(f"Rolling back metric {metric_id} from {target_table}")
+            
+            query_job = self.bq_client.query(delete_query)
+            query_job.result()
+            
+            logger.info(f"Successfully rolled back metric {metric_id}")
+            
+        except Exception as e:
+            logger.error(f"Failed to rollback metric {metric_id}: {str(e)}")
+    
+    def rollback_processed_metrics(self, target_table: str, partition_dt: str) -> None:
+        """
+        Rollback all processed metrics in case of failure
+        
+        Args:
+            target_table: Target BigQuery table
+            partition_dt: Partition date for rollback
+        """
+        logger.info("Starting rollback of processed metrics")
+        
+        for metric_id in self.processed_metrics:
+            try:
+                self.rollback_metric(metric_id, target_table, partition_dt)
+            except Exception as e:
+                logger.error(f"Failed to rollback metric {metric_id}: {str(e)}")
+        
+        logger.info("Rollback process completed")
+    
     def process_metrics(self, json_data: List[Dict], run_date: str, 
                        dependencies: List[str], partition_info_table: str) -> DataFrame:
         """
@@ -361,9 +537,11 @@ class MetricsPipeline:
             Spark DataFrame with processed metrics
         """
         logger.info(f"Processing metrics for dependencies: {dependencies}")
+        
+        # Check if all dependencies exist
+        self.check_dependencies_exist(json_data, dependencies)
 
         partition_dt = datetime.now().strftime('%Y-%m-%d')
-
         logger.info(f"Using pipeline run date as partition_dt: {partition_dt}")
         
         # Filter records by dependency
@@ -392,14 +570,14 @@ class MetricsPipeline:
                     partition_info_table
                 )
                 
-                # Build final record with consistent types
+                # Build final record with precision preservation
                 final_record = {
                     'metric_id': record['metric_id'],
                     'metric_name': record['metric_name'],
                     'metric_type': record['metric_type'],
-                    'numerator_value': sql_results['numerator_value'],
-                    'denominator_value': sql_results['denominator_value'],
-                    'metric_output': sql_results['metric_output'],
+                    'numerator_value': self.safe_decimal_conversion(sql_results['numerator_value']),
+                    'denominator_value': self.safe_decimal_conversion(sql_results['denominator_value']),
+                    'metric_output': self.safe_decimal_conversion(sql_results['metric_output']),
                     'business_data_date': sql_results['business_data_date'],
                     'partition_dt': partition_dt,
                     'pipeline_execution_ts': datetime.utcnow()
@@ -418,14 +596,14 @@ class MetricsPipeline:
         if not processed_records:
             raise MetricsPipelineError("No records were successfully processed")
         
-        # Define explicit schema to prevent type inference issues
+        # Define explicit schema with high precision for numeric fields
         schema = StructType([
             StructField("metric_id", StringType(), False),
             StructField("metric_name", StringType(), False),
             StructField("metric_type", StringType(), False),
-            StructField("numerator_value", DoubleType(), True),
-            StructField("denominator_value", DoubleType(), True),
-            StructField("metric_output", DoubleType(), True),
+            StructField("numerator_value", DecimalType(38, 9), True),
+            StructField("denominator_value", DecimalType(38, 9), True),
+            StructField("metric_output", DecimalType(38, 9), True),
             StructField("business_data_date", StringType(), False),
             StructField("partition_dt", StringType(), False),
             StructField("pipeline_execution_ts", TimestampType(), False)
@@ -508,7 +686,7 @@ class MetricsPipeline:
     
     def write_to_bq(self, df: DataFrame, target_table: str) -> None:
         """
-        Write DataFrame to BigQuery table
+        Write DataFrame to BigQuery table with transaction safety
         
         Args:
             df: Spark DataFrame to write
@@ -516,6 +694,10 @@ class MetricsPipeline:
         """
         try:
             logger.info(f"Writing DataFrame to BigQuery table: {target_table}")
+            
+            # Collect metric IDs for rollback tracking
+            metric_ids = [row['metric_id'] for row in df.select('metric_id').collect()]
+            self.processed_metrics.extend(metric_ids)
             
             # Write to BigQuery using Spark BigQuery connector
             df.write \
@@ -530,6 +712,40 @@ class MetricsPipeline:
         except Exception as e:
             logger.error(f"Failed to write to BigQuery: {str(e)}")
             raise MetricsPipelineError(f"Failed to write to BigQuery: {str(e)}")
+
+
+@contextmanager
+def managed_spark_session(app_name: str = "MetricsPipeline"):
+    """
+    Context manager for Spark session with proper cleanup
+    
+    Args:
+        app_name: Spark application name
+        
+    Yields:
+        SparkSession instance
+    """
+    spark = None
+    try:
+        spark = SparkSession.builder \
+            .appName(app_name) \
+            .config("spark.sql.adaptive.enabled", "true") \
+            .config("spark.sql.adaptive.coalescePartitions.enabled", "true") \
+            .getOrCreate()
+        
+        logger.info(f"Spark session created successfully: {app_name}")
+        yield spark
+        
+    except Exception as e:
+        logger.error(f"Error in Spark session: {str(e)}")
+        raise
+    finally:
+        if spark:
+            try:
+                spark.stop()
+                logger.info("Spark session stopped successfully")
+            except Exception as e:
+                logger.error(f"Error stopping Spark session: {str(e)}")
 
 
 def parse_arguments():
@@ -576,7 +792,10 @@ def validate_date_format(date_str: str) -> None:
 
 
 def main():
-    """Main function"""
+    """Main function with improved error handling and resource management"""
+    pipeline = None
+    partition_dt = None
+    
     try:
         # Parse arguments
         args = parse_arguments()
@@ -584,8 +803,11 @@ def main():
         # Validate date format
         validate_date_format(args.run_date)
         
-        # Parse dependencies
-        dependencies = [dep.strip() for dep in args.dependencies.split(',')]
+        # Parse dependencies (strip whitespace)
+        dependencies = [dep.strip() for dep in args.dependencies.split(',') if dep.strip()]
+        
+        if not dependencies:
+            raise MetricsPipelineError("No valid dependencies provided")
         
         logger.info("Starting Metrics Pipeline")
         logger.info(f"GCS Path: {args.gcs_path}")
@@ -594,55 +816,68 @@ def main():
         logger.info(f"Partition Info Table: {args.partition_info_table}")
         logger.info(f"Target Table: {args.target_table}")
         
-        # Initialize Spark session
-        spark = SparkSession.builder \
-            .appName("MetricsPipeline") \
-            .config("spark.sql.adaptive.enabled", "true") \
-            .config("spark.sql.adaptive.coalescePartitions.enabled", "true") \
-            .getOrCreate()
-        
-        # Initialize BigQuery client
-        bq_client = bigquery.Client()
-        
-        # Initialize pipeline
-        pipeline = MetricsPipeline(spark, bq_client)
-        
-        # Execute pipeline steps
-        logger.info("Step 1: Reading JSON from GCS")
-        json_data = pipeline.read_json_from_gcs(args.gcs_path)
-        
-        logger.info("Step 2: Validating JSON data")
-        validated_data = pipeline.validate_json(json_data)
-        
-        logger.info("Step 3: Processing metrics")
-        metrics_df = pipeline.process_metrics(
-            validated_data, 
-            args.run_date, 
-            dependencies, 
-            args.partition_info_table
-        )
-        
-        logger.info("Step 4: Aligning schema with BigQuery")
-        aligned_df = pipeline.align_schema_with_bq(metrics_df, args.target_table)
+        # Use managed Spark session
+        with managed_spark_session("MetricsPipeline") as spark:
+            # Initialize BigQuery client
+            bq_client = bigquery.Client()
+            
+            # Initialize pipeline
+            pipeline = MetricsPipeline(spark, bq_client)
+            
+            # Execute pipeline steps
+            logger.info("Step 1: Reading JSON from GCS")
+            json_data = pipeline.read_json_from_gcs(args.gcs_path)
+            
+            logger.info("Step 2: Validating JSON data")
+            validated_data = pipeline.validate_json(json_data)
+            
+            logger.info("Step 3: Processing metrics")
+            metrics_df = pipeline.process_metrics(
+                validated_data, 
+                args.run_date, 
+                dependencies, 
+                args.partition_info_table
+            )
+            
+            # Store partition_dt for potential rollback
+            partition_dt = datetime.now().strftime('%Y-%m-%d')
+            
+            logger.info("Step 4: Aligning schema with BigQuery")
+            aligned_df = pipeline.align_schema_with_bq(metrics_df, args.target_table)
 
-        aligned_df.printSchema()
-        aligned_df.show(truncate=False)
-        
-        logger.info("Step 5: Writing to BigQuery")
-        pipeline.write_to_bq(aligned_df, args.target_table)
-        
-        logger.info("Pipeline completed successfully!")
+            aligned_df.printSchema()
+            aligned_df.show(truncate=False)
+            
+            logger.info("Step 5: Writing to BigQuery")
+            pipeline.write_to_bq(aligned_df, args.target_table)
+            
+            logger.info("Pipeline completed successfully!")
         
     except MetricsPipelineError as e:
         logger.error(f"Pipeline failed: {str(e)}")
+        
+        # Attempt rollback if we have processed metrics
+        if pipeline and pipeline.processed_metrics and partition_dt:
+            try:
+                logger.info("Attempting to rollback processed metrics")
+                pipeline.rollback_processed_metrics(args.target_table, partition_dt)
+            except Exception as rollback_error:
+                logger.error(f"Rollback failed: {str(rollback_error)}")
+        
         sys.exit(1)
+        
     except Exception as e:
         logger.error(f"Unexpected error: {str(e)}")
+        
+        # Attempt rollback if we have processed metrics
+        if pipeline and pipeline.processed_metrics and partition_dt:
+            try:
+                logger.info("Attempting to rollback processed metrics")
+                pipeline.rollback_processed_metrics(args.target_table, partition_dt)
+            except Exception as rollback_error:
+                logger.error(f"Rollback failed: {str(rollback_error)}")
+        
         sys.exit(1)
-    finally:
-        # Clean up Spark session
-        if 'spark' in locals():
-            spark.stop()
 
 
 if __name__ == "__main__":
