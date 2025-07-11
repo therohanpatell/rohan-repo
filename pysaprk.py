@@ -88,7 +88,7 @@ class MetricsPipeline:
         """
         required_fields = [
             'metric_id', 'metric_name', 'metric_type', 
-            'sql', 'dependency', 'partition_modes'
+            'sql', 'dependency', 'partition_mode'
         ]
         
         logger.info("Validating JSON data")
@@ -106,9 +106,9 @@ class MetricsPipeline:
                         f"Record {i}: Field '{field}' is null or empty"
                     )
             
-            # Validate partition_modes values
-            partition_modes = record['partition_modes'].split('|')
-            for mode in partition_modes:
+            # Validate partition_mode values
+            partition_mode = record['partition_mode'].split('|')
+            for mode in partition_mode:
                 if mode.strip() not in ['currently', 'partition_info']:
                     raise MetricsPipelineError(
                         f"Record {i}: Invalid partition_mode '{mode}'. "
@@ -181,7 +181,7 @@ class MetricsPipeline:
             logger.error(f"Failed to get partition_dt for {project_dataset}.{table_name}: {str(e)}")
             return None
     
-    def get_replacement_dates(self, sql: str, run_date: str, partition_modes: str, 
+    def get_replacement_dates(self, sql: str, run_date: str, partition_mode: str, 
                              partition_info_table: str) -> List[str]:
         """
         Get replacement dates for all tables based on partition modes
@@ -189,7 +189,7 @@ class MetricsPipeline:
         Args:
             sql: SQL query string
             run_date: CLI provided run date
-            partition_modes: Pipe-separated partition modes
+            partition_mode: Pipe-separated partition modes
             partition_info_table: Metadata table name
             
         Returns:
@@ -199,7 +199,7 @@ class MetricsPipeline:
         tables = self.parse_tables_from_sql(sql)
         
         # Parse partition modes
-        modes = [mode.strip() for mode in partition_modes.split('|')]
+        modes = [mode.strip() for mode in partition_mode.split('|')]
         
         # Validate that number of tables matches number of modes
         if len(tables) != len(modes):
@@ -281,7 +281,7 @@ class MetricsPipeline:
             logger.warning(f"Could not convert value to float: {value}")
             return None
     
-    def execute_sql(self, sql: str, run_date: str, partition_modes: str, 
+    def execute_sql(self, sql: str, run_date: str, partition_mode: str, 
                    partition_info_table: str) -> Dict:
         """
         Execute SQL query with dynamic date replacement for multiple tables
@@ -289,7 +289,7 @@ class MetricsPipeline:
         Args:
             sql: SQL query string
             run_date: CLI provided run date
-            partition_modes: Pipe-separated partition modes
+            partition_mode: Pipe-separated partition modes
             partition_info_table: Metadata table name
             
         Returns:
@@ -298,7 +298,7 @@ class MetricsPipeline:
         try:
             # Get replacement dates for all tables
             replacement_dates = self.get_replacement_dates(
-                sql, run_date, partition_modes, partition_info_table
+                sql, run_date, partition_mode, partition_info_table
             )
             
             # Replace all {run_date} placeholders
@@ -384,7 +384,7 @@ class MetricsPipeline:
                 sql_results = self.execute_sql(
                     record['sql'], 
                     run_date, 
-                    record['partition_modes'], 
+                    record['partition_mode'], 
                     partition_info_table
                 )
                 
