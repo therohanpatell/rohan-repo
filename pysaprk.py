@@ -361,6 +361,10 @@ class MetricsPipeline:
             Spark DataFrame with processed metrics
         """
         logger.info(f"Processing metrics for dependencies: {dependencies}")
+
+        partition_dt = datetime.now().strftime('%Y-%m-%d')
+
+        logger.info(f"Using pipeline run date as partition_dt: {partition_dt}")
         
         # Filter records by dependency
         filtered_data = [
@@ -397,7 +401,7 @@ class MetricsPipeline:
                     'denominator_value': sql_results['denominator_value'],
                     'metric_output': sql_results['metric_output'],
                     'business_data_date': sql_results['business_data_date'],
-                    'partition_dt': run_date,
+                    'partition_dt': partition_dt,
                     'pipeline_execution_ts': datetime.utcnow()
                 }
                 
