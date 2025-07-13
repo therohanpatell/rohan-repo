@@ -1,4 +1,6 @@
 ```mermaid
+%%{ init: { "theme": "default", "themeVariables": { "fontSize": "16px", "fontFamily": "Arial", "primaryColor": "#ffffff", "primaryTextColor": "#000000", "tertiaryTextColor": "#000000", "textColor": "#000000" } } }%%
+
 graph TD
     A[Start Pipeline] --> B[Read Configuration File<br/>from Cloud Storage]
     B --> C[Validate Configuration<br/>and Dependencies]
