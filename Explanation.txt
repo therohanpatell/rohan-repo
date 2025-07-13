@@ -1,0 +1,68 @@
+validate_json
+
+The validate_json method processes the provided JSON data as follows:
+
+It checks each record for the presence of required fields (metric_id, metric_name, metric_type, sql, dependency, partition_mode).
+It ensures that none of the required fields are empty or contain only whitespace.
+It checks for duplicate metric_id values across all records.
+It validates that the partition_mode field contains only valid modes ('currently' or 'partition_info').
+If all checks pass, it logs a success message and returns the validated JSON data.
+For the given JSON data, all records pass the validation checks, and the method would output a success message and return the original data.
+
+Real Example:
+
+Record 1:
+
+metric_id: "1008"
+metric_name: "Headcount"
+metric_type: "Count"
+partition_mode: "currently"
+Record 2:
+
+metric_id: "1009"
+metric_name: "Headcount"
+metric_type: "Count"
+partition_mode: "partition_info"
+Record 3:
+
+metric_id: "1010"
+metric_name: "Headcount"
+metric_type: "Percentage"
+partition_mode: "currently"
+Record 4:
+
+metric_id: "1011"
+metric_name: "Proportion of Permanent Employees"
+metric_type: "Percentage"
+partition_mode: "currently|partition_info"
+Validation Process
+Step 1: Check Required Fields
+For each record, the method checks if all required fields (metric_id, metric_name, metric_type, sql, dependency, partition_mode) are present.
+
+All records have all required fields.
+Step 2: Check Non-empty Values
+The method ensures that none of the required fields are empty or contain only whitespace.
+
+All required fields in all records have non-empty values.
+Step 3: Check for Duplicate metric_id
+The method keeps track of metric_id values to ensure no duplicates.
+
+metric_id values are: "1008", "1009", "1010", "1011"
+No duplicates found.
+Step 4: Validate partition_mode
+The method checks that the partition_mode field contains only valid modes ('currently' or 'partition_info').
+
+Record 1:
+
+partition_mode: "currently" → Valid
+Record 2:
+
+partition_mode: "partition_info" → Valid
+Record 3:
+
+partition_mode: "currently" → Valid
+Record 4:
+
+partition_mode: "currently|partition_info" → Split into ["currently", "partition_info"] → Both valid
+Step 5: Log Validation Success
+After validating all records, the method logs a success message.
