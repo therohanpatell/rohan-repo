@@ -27,7 +27,7 @@ graph TD
     N --> O[Pipeline Failed<br/>✗ Error Reported]
     
     %% Input/Output Boxes
-    INPUT[Input Requirements:<br/>• Json File Location<br/>• Business Date<br/>• Metric Filter<br/>• Data Source Tables]
+    INPUT[Input Requirements:<br/>• Json File Location<br/>• Business Date<br/>• Metric Dependencies<br/>• Data Source Tables]
     OUTPUT[Output Delivered:<br/>• Calculated Business Metrics<br/>Stored in Bigquery Table]
     
     %% Styling
