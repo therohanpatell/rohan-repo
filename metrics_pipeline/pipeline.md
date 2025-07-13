@@ -2,15 +2,15 @@
 %%{ init: { "theme": "default", "themeVariables": { "fontSize": "16px", "fontFamily": "Arial", "primaryColor": "#ffffff", "primaryTextColor": "#000000", "tertiaryTextColor": "#000000", "textColor": "#000000" } } }%%
 
 graph TD
-    A[Start Pipeline] --> B[Read Configuration File<br/>from Cloud Storage]
+    A[Start Pipeline] --> B[Read Metric Json File<br/>from GCS Bucket]
     B --> C[Validate Configuration<br/>and Dependencies]
     C --> D[Process Business Metrics]
     
     D --> E[Execute SQL Queries<br/>for Each Metric]
     E --> F[Calculate Metric Values<br/>numerator, denominator, output]
-    F --> G[Prepare Data for Storage]
+    F --> G[Prepare Data for Bigquery]
     
-    G --> H[Write Results to<br/>BigQuery Data Warehouse]
+    G --> H[Write Results to<br/>BigQuery Table]
     H --> I[Pipeline Complete<br/>✓ Success]
     
     %% Error Path
@@ -27,8 +27,8 @@ graph TD
     N --> O[Pipeline Failed<br/>✗ Error Reported]
     
     %% Input/Output Boxes
-    INPUT[Input Requirements:<br/>• Configuration File Location<br/>• Business Date<br/>• Metric Categories<br/>• Data Source Tables]
-    OUTPUT[Output Delivered:<br/>• Calculated Business Metrics<br/>• Performance Indicators<br/>• Historical Data Points<br/>• Ready for Reporting]
+    INPUT[Input Requirements:<br/>• Json File Location<br/>• Business Date<br/>• Metric Filter<br/>• Data Source Tables]
+    OUTPUT[Output Delivered:<br/>• Calculated Business Metrics<br/>Stored in Bigquery Table]
     
     %% Styling
     classDef inputStyle fill:#e3f2fd,stroke:#1976d2,stroke-width:3px
