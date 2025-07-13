@@ -12,7 +12,7 @@ from google.cloud import bigquery
 
 from .utils import configure_logging, validate_date_format, managed_spark_session
 from .gcs_operations import read_json_from_gcs
-from .validation import validate_json
+from .validation import validate_json, validate_gcs_path
 from .pipeline import MetricsPipeline
 from .exceptions import MetricsPipelineError
 
