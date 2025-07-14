@@ -131,7 +131,7 @@ class MetricsPipeline:
         """
         required_fields = [
             'metric_id', 'metric_name', 'metric_type', 
-            'sql', 'dependency', 'partition_mode', 'target_table'
+            'sql', 'dependency', 'target_table'
         ]
         
         logger.info("Validating JSON data")
@@ -162,27 +162,6 @@ class MetricsPipeline:
                 )
             metric_ids.add(metric_id)
             
-            # Validate partition_mode values
-            partition_mode = record['partition_mode'].strip()
-            if not partition_mode:
-                raise MetricsPipelineError(
-                    f"Record {i}: partition_mode cannot be empty"
-                )
-            
-            partition_modes = [mode.strip() for mode in partition_mode.split('|')]
-            valid_modes = {'currently', 'partition_info'}
-            
-            for mode in partition_modes:
-                if not mode:  # Empty mode after split
-                    raise MetricsPipelineError(
-                        f"Record {i}: Empty partition_mode found in '{partition_mode}'"
-                    )
-                if mode not in valid_modes:
-                    raise MetricsPipelineError(
-                        f"Record {i}: Invalid partition_mode '{mode}'. "
-                        f"Must be 'currently' or 'partition_info'"
-                    )
-            
             # Validate target_table format (should look like project.dataset.table)
             target_table = record['target_table'].strip()
             if not target_table:
@@ -204,32 +183,79 @@ class MetricsPipeline:
                     raise MetricsPipelineError(
                         f"Record {i}: target_table '{target_table}' has empty {part_names[part_idx]} part"
                     )
+            
+            # Validate SQL contains valid placeholders
+            sql_query = record['sql'].strip()
+            if sql_query:
+                # Check for valid placeholders
+                currently_count = len(re.findall(r'\{currently\}', sql_query))
+                partition_info_count = len(re.findall(r'\{partition_info\}', sql_query))
+                
+                if currently_count == 0 and partition_info_count == 0:
+                    logger.warning(f"Record {i}: SQL query contains no placeholders ({{currently}} or {{partition_info}})")
+                else:
+                    logger.debug(f"Record {i}: Found {currently_count} {{currently}} and {partition_info_count} {{partition_info}} placeholders")
         
         logger.info(f"Successfully validated {len(json_data)} records with {len(metric_ids)} unique metric IDs")
         return json_data
     
-    def parse_tables_from_sql(self, sql: str) -> List[Tuple[str, str]]:
+    def find_placeholder_positions(self, sql: str) -> List[Tuple[str, int, int]]:
         """
-        Parse all project_dataset and table_name from SQL query
+        Find all {currently} and {partition_info} placeholders in SQL with their positions
         
         Args:
             sql: SQL query string
             
         Returns:
-            List of tuples (project_dataset, table_name)
+            List of tuples (placeholder_type, start_pos, end_pos)
         """
-        # Pattern to match BigQuery table references like `project.dataset.table`
-        pattern = r'`([^.]+)\.([^.]+)\.([^`]+)`'
-        matches = re.findall(pattern, sql)
+        placeholders = []
         
-        if matches:
-            # Return dataset and table name for each match
-            tables = []
-            for project, dataset, table in matches:
-                tables.append((dataset, table))
-            return tables
+        # Find {currently} placeholders
+        currently_pattern = r'\{currently\}'
+        for match in re.finditer(currently_pattern, sql):
+            placeholders.append(('currently', match.start(), match.end()))
         
-        return []
+        # Find {partition_info} placeholders
+        partition_info_pattern = r'\{partition_info\}'
+        for match in re.finditer(partition_info_pattern, sql):
+            placeholders.append(('partition_info', match.start(), match.end()))
+        
+        # Sort by position for consistent replacement
+        placeholders.sort(key=lambda x: x[1])
+        
+        return placeholders
+    
+    def get_table_for_placeholder(self, sql: str, placeholder_pos: int) -> Optional[Tuple[str, str]]:
+        """
+        Find the table associated with a placeholder based on its position in the SQL
+        
+        Args:
+            sql: SQL query string
+            placeholder_pos: Position of the placeholder in the SQL
+            
+        Returns:
+            Tuple (dataset, table_name) or None if not found
+        """
+        # Find all table references with their positions
+        table_pattern = r'`([^.]+)\.([^.]+)\.([^`]+)`'
+        
+        # Find the table reference that comes before this placeholder
+        best_table = None
+        best_distance = float('inf')
+        
+        for match in re.finditer(table_pattern, sql):
+            table_end_pos = match.end()
+            
+            # Check if this table comes before the placeholder
+            if table_end_pos < placeholder_pos:
+                distance = placeholder_pos - table_end_pos
+                if distance < best_distance:
+                    best_distance = distance
+                    project, dataset, table = match.groups()
+                    best_table = (dataset, table)
+        
+        return best_table
     
     def get_partition_dt(self, project_dataset: str, table_name: str, partition_info_table: str) -> Optional[str]:
         """
@@ -271,90 +297,66 @@ class MetricsPipeline:
             logger.error(f"Failed to get partition_dt for {project_dataset}.{table_name}: {str(e)}")
             return None
     
-    def get_replacement_dates(self, sql: str, run_date: str, partition_mode: str, 
-                             partition_info_table: str) -> List[str]:
+    def replace_sql_placeholders(self, sql: str, run_date: str, partition_info_table: str) -> str:
         """
-        Get replacement dates for all tables based on partition modes
+        Replace {currently} and {partition_info} placeholders in SQL with appropriate dates
         
         Args:
-            sql: SQL query string
+            sql: SQL query string with placeholders
             run_date: CLI provided run date
-            partition_mode: Pipe-separated partition modes
             partition_info_table: Metadata table name
             
         Returns:
-            List of replacement dates for each table
+            SQL with all placeholders replaced
         """
-        # Parse all tables from SQL
-        tables = self.parse_tables_from_sql(sql)
-        
-        # Parse partition modes
-        modes = [mode.strip() for mode in partition_mode.split('|')]
-        
-        # Validate that number of tables matches number of modes
-        if len(tables) != len(modes):
-            raise MetricsPipelineError(
-                f"Number of tables ({len(tables)}) doesn't match number of partition modes ({len(modes)}). "
-                f"Tables: {tables}, Modes: {modes}"
-            )
-        
-        replacement_dates = []
-        
-        for i, (project_dataset, table_name) in enumerate(tables):
-            mode = modes[i]
+        try:
+            # Find all placeholders
+            placeholders = self.find_placeholder_positions(sql)
             
-            if mode == 'currently':
-                replacement_date = run_date
-            elif mode == 'partition_info':
-                replacement_date = self.get_partition_dt(project_dataset, table_name, partition_info_table)
-                if not replacement_date:
-                    raise MetricsPipelineError(
-                        f"Could not determine partition_dt for table {project_dataset}.{table_name}"
-                    )
-            else:
-                # This should not happen due to validation, but adding safety check
-                raise MetricsPipelineError(
-                    f"Invalid partition mode '{mode}' for table {project_dataset}.{table_name}"
-                )
+            if not placeholders:
+                logger.info("No placeholders found in SQL")
+                return sql
             
-            replacement_dates.append(replacement_date)
-            logger.info(f"Table {project_dataset}.{table_name} will use date: {replacement_date} (mode: {mode})")
-        
-        return replacement_dates
-    
-    def replace_run_dates_in_sql(self, sql: str, replacement_dates: List[str]) -> str:
-        """
-        Replace {run_date} placeholders in SQL with corresponding dates
-        
-        Args:
-            sql: SQL query string with {run_date} placeholders
-            replacement_dates: List of dates to replace placeholders
+            logger.info(f"Found {len(placeholders)} placeholders: {[p[0] for p in placeholders]}")
             
-        Returns:
-            SQL with all {run_date} placeholders replaced
-        """
-        # Find all {run_date} occurrences
-        run_date_pattern = r'\{run_date\}'
-        matches = list(re.finditer(run_date_pattern, sql))
-        
-        if len(matches) != len(replacement_dates):
-            raise MetricsPipelineError(
-                f"Number of {{run_date}} placeholders ({len(matches)}) doesn't match "
-                f"number of replacement dates ({len(replacement_dates)})"
-            )
-        
-        # Replace from end to beginning to preserve indices
-        final_sql = sql
-        for i, match in enumerate(reversed(matches)):
-            replacement_index = len(matches) - 1 - i
-            replacement_date = replacement_dates[replacement_index]
-            start, end = match.span()
-            final_sql = final_sql[:start] + f"'{replacement_date}'" + final_sql[end:]
-        
-        logger.info(f"Replaced {len(matches)} {{run_date}} placeholders")
-        logger.debug(f"Final SQL: {final_sql}")
-        
-        return final_sql
+            # Process replacements from end to beginning to preserve positions
+            final_sql = sql
+            
+            for placeholder_type, start_pos, end_pos in reversed(placeholders):
+                if placeholder_type == 'currently':
+                    replacement_date = run_date
+                    logger.info(f"Replacing {{currently}} with run_date: {replacement_date}")
+                    
+                elif placeholder_type == 'partition_info':
+                    # Find the table associated with this placeholder
+                    table_info = self.get_table_for_placeholder(sql, start_pos)
+                    
+                    if table_info:
+                        dataset, table_name = table_info
+                        replacement_date = self.get_partition_dt(dataset, table_name, partition_info_table)
+                        
+                        if not replacement_date:
+                            raise MetricsPipelineError(
+                                f"Could not determine partition_dt for table {dataset}.{table_name}"
+                            )
+                        
+                        logger.info(f"Replacing {{partition_info}} with partition_dt: {replacement_date} for table {dataset}.{table_name}")
+                    else:
+                        raise MetricsPipelineError(
+                            f"Could not find table reference for {{partition_info}} placeholder at position {start_pos}"
+                        )
+                
+                # Replace the placeholder with the date
+                final_sql = final_sql[:start_pos] + f"'{replacement_date}'" + final_sql[end_pos:]
+            
+            logger.info(f"Replaced {len(placeholders)} placeholders in SQL")
+            logger.debug(f"Final SQL: {final_sql}")
+            
+            return final_sql
+            
+        except Exception as e:
+            logger.error(f"Failed to replace SQL placeholders: {str(e)}")
+            raise MetricsPipelineError(f"Failed to replace SQL placeholders: {str(e)}")
     
     def normalize_numeric_value(self, value: Union[int, float, Decimal, None]) -> Optional[str]:
         """
@@ -436,15 +438,13 @@ class MetricsPipeline:
         
         logger.info(f"All dependencies found: {dependencies}")
     
-    def execute_sql(self, sql: str, run_date: str, partition_mode: str, 
-                   partition_info_table: str, metric_id: Optional[str] = None) -> Dict:
+    def execute_sql(self, sql: str, run_date: str, partition_info_table: str, metric_id: Optional[str] = None) -> Dict:
         """
-        Execute SQL query with dynamic date replacement for multiple tables
+        Execute SQL query with dynamic placeholder replacement
         
         Args:
-            sql: SQL query string
+            sql: SQL query string with {currently} and {partition_info} placeholders
             run_date: CLI provided run date
-            partition_mode: Pipe-separated partition modes
             partition_info_table: Metadata table name
             metric_id: Optional metric ID for better error reporting
             
@@ -452,15 +452,10 @@ class MetricsPipeline:
             Dictionary with query results
         """
         try:
-            # Get replacement dates for all tables
-            replacement_dates = self.get_replacement_dates(
-                sql, run_date, partition_mode, partition_info_table
-            )
+            # Replace placeholders with appropriate dates
+            final_sql = self.replace_sql_placeholders(sql, run_date, partition_info_table)
             
-            # Replace all {run_date} placeholders
-            final_sql = self.replace_run_dates_in_sql(sql, replacement_dates)
-            
-            logger.info(f"Executing SQL with multiple date replacements: {replacement_dates}")
+            logger.info(f"Executing SQL with placeholder replacements")
             
             # Execute query
             query_job = self.bq_client.query(final_sql)
@@ -517,9 +512,8 @@ class MetricsPipeline:
                     # If we can't convert to decimal, log warning but continue
                     logger.warning(f"Could not validate denominator_value: {result_dict['denominator_value']}")
             
-            # Calculate business_data_date (one day before the reference date)
-            # Use the first replacement date as reference
-            ref_date = datetime.strptime(replacement_dates[0], '%Y-%m-%d')
+            # Calculate business_data_date (one day before run_date)
+            ref_date = datetime.strptime(run_date, '%Y-%m-%d')
             business_date = ref_date - timedelta(days=1)
             result_dict['business_data_date'] = business_date.strftime('%Y-%m-%d')
             
@@ -652,7 +646,6 @@ class MetricsPipeline:
                     sql_results = self.execute_sql(
                         record['sql'], 
                         run_date, 
-                        record['partition_mode'], 
                         partition_info_table,
                         record['metric_id'] # Pass metric_id for error reporting
                     )
@@ -1089,7 +1082,8 @@ def main():
         logger.info(f"Partition Info Table: {args.partition_info_table}")
         logger.info("Pipeline will check for existing metrics and overwrite them if found")
         logger.info("Target tables will be read from JSON configuration")
-        logger.info("JSON must contain: metric_id, metric_name, metric_type, sql, dependency, partition_mode, target_table")
+        logger.info("JSON must contain: metric_id, metric_name, metric_type, sql, dependency, target_table")
+        logger.info("SQL placeholders: {currently} = run_date, {partition_info} = partition_dt from metadata table")
         
         # Use managed Spark session
         with managed_spark_session("MetricsPipeline") as spark:
