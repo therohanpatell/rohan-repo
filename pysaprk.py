@@ -47,6 +47,7 @@ class MetricsPipeline:
         self.execution_id = str(uuid.uuid4())
         self.processed_metrics = []  # Track processed metrics for rollback
         self.overwritten_metrics = []  # Track overwritten metrics for rollback
+        self.target_tables = set()  # Track target tables for rollback
         
     def validate_gcs_path(self, gcs_path: str) -> str:
         """
@@ -130,7 +131,7 @@ class MetricsPipeline:
         """
         required_fields = [
             'metric_id', 'metric_name', 'metric_type', 
-            'sql', 'dependency', 'partition_mode'
+            'sql', 'dependency', 'partition_mode', 'target_table'
         ]
         
         logger.info("Validating JSON data")
@@ -180,6 +181,28 @@ class MetricsPipeline:
                     raise MetricsPipelineError(
                         f"Record {i}: Invalid partition_mode '{mode}'. "
                         f"Must be 'currently' or 'partition_info'"
+                    )
+            
+            # Validate target_table format (should look like project.dataset.table)
+            target_table = record['target_table'].strip()
+            if not target_table:
+                raise MetricsPipelineError(
+                    f"Record {i}: target_table cannot be empty"
+                )
+            
+            # Basic validation for BigQuery table format
+            table_parts = target_table.split('.')
+            if len(table_parts) != 3:
+                raise MetricsPipelineError(
+                    f"Record {i}: target_table '{target_table}' must be in format 'project.dataset.table'"
+                )
+            
+            # Check each part is not empty
+            for part_idx, part in enumerate(table_parts):
+                if not part.strip():
+                    part_names = ['project', 'dataset', 'table']
+                    raise MetricsPipelineError(
+                        f"Record {i}: target_table '{target_table}' has empty {part_names[part_idx]} part"
                     )
         
         logger.info(f"Successfully validated {len(json_data)} records with {len(metric_ids)} unique metric IDs")
@@ -570,9 +593,9 @@ class MetricsPipeline:
         logger.info("Rollback process completed")
     
     def process_metrics(self, json_data: List[Dict], run_date: str, 
-                       dependencies: List[str], partition_info_table: str) -> DataFrame:
+                       dependencies: List[str], partition_info_table: str) -> Dict[str, DataFrame]:
         """
-        Process metrics and create Spark DataFrame
+        Process metrics and create Spark DataFrames grouped by target_table
         
         Args:
             json_data: List of metric definitions
@@ -581,7 +604,7 @@ class MetricsPipeline:
             partition_info_table: Metadata table name
             
         Returns:
-            Spark DataFrame with processed metrics
+            Dictionary mapping target_table to Spark DataFrame with processed metrics
         """
         logger.info(f"Processing metrics for dependencies: {dependencies}")
         
@@ -604,64 +627,84 @@ class MetricsPipeline:
         
         logger.info(f"Found {len(filtered_data)} records to process")
         
-        # Process each record
-        processed_records = []
-        
+        # Group records by target_table
+        records_by_table = {}
         for record in filtered_data:
-            try:
-                # Execute SQL and get results
-                sql_results = self.execute_sql(
-                    record['sql'], 
-                    run_date, 
-                    record['partition_mode'], 
-                    partition_info_table,
-                    record['metric_id'] # Pass metric_id for error reporting
-                )
+            target_table = record['target_table'].strip()
+            if target_table not in records_by_table:
+                records_by_table[target_table] = []
+            records_by_table[target_table].append(record)
+        
+        logger.info(f"Records grouped into {len(records_by_table)} target tables: {list(records_by_table.keys())}")
+        
+        # Process each group and create DataFrames
+        result_dfs = {}
+        
+        for target_table, records in records_by_table.items():
+            logger.info(f"Processing {len(records)} metrics for target table: {target_table}")
+            
+            # Process each record for this target table
+            processed_records = []
+            
+            for record in records:
+                try:
+                    # Execute SQL and get results
+                    sql_results = self.execute_sql(
+                        record['sql'], 
+                        run_date, 
+                        record['partition_mode'], 
+                        partition_info_table,
+                        record['metric_id'] # Pass metric_id for error reporting
+                    )
+                    
+                    # Build final record with precision preservation
+                    final_record = {
+                        'metric_id': record['metric_id'],
+                        'metric_name': record['metric_name'],
+                        'metric_type': record['metric_type'],
+                        'numerator_value': self.safe_decimal_conversion(sql_results['numerator_value']),
+                        'denominator_value': self.safe_decimal_conversion(sql_results['denominator_value']),
+                        'metric_output': self.safe_decimal_conversion(sql_results['metric_output']),
+                        'business_data_date': sql_results['business_data_date'],
+                        'partition_dt': partition_dt,
+                        'pipeline_execution_ts': datetime.utcnow()
+                    }
+                    
+                    processed_records.append(final_record)
+                    logger.info(f"Successfully processed metric_id: {record['metric_id']} for table: {target_table}")
+                    
+                except Exception as e:
+                    logger.error(f"Failed to process metric_id {record['metric_id']} for table {target_table}: {str(e)}")
+                    raise MetricsPipelineError(
+                        f"Failed to process metric_id {record['metric_id']} for table {target_table}: {str(e)}"
+                    )
+            
+            # Create Spark DataFrame for this target table
+            if processed_records:
+                # Define explicit schema with high precision for numeric fields
+                schema = StructType([
+                    StructField("metric_id", StringType(), False),
+                    StructField("metric_name", StringType(), False),
+                    StructField("metric_type", StringType(), False),
+                    StructField("numerator_value", DecimalType(38, 9), True),
+                    StructField("denominator_value", DecimalType(38, 9), True),
+                    StructField("metric_output", DecimalType(38, 9), True),
+                    StructField("business_data_date", StringType(), False),
+                    StructField("partition_dt", StringType(), False),
+                    StructField("pipeline_execution_ts", TimestampType(), False)
+                ])
                 
-                # Build final record with precision preservation
-                final_record = {
-                    'metric_id': record['metric_id'],
-                    'metric_name': record['metric_name'],
-                    'metric_type': record['metric_type'],
-                    'numerator_value': self.safe_decimal_conversion(sql_results['numerator_value']),
-                    'denominator_value': self.safe_decimal_conversion(sql_results['denominator_value']),
-                    'metric_output': self.safe_decimal_conversion(sql_results['metric_output']),
-                    'business_data_date': sql_results['business_data_date'],
-                    'partition_dt': partition_dt,
-                    'pipeline_execution_ts': datetime.utcnow()
-                }
-                
-                processed_records.append(final_record)
-                logger.info(f"Successfully processed metric_id: {record['metric_id']}")
-                
-            except Exception as e:
-                logger.error(f"Failed to process metric_id {record['metric_id']}: {str(e)}")
-                raise MetricsPipelineError(
-                    f"Failed to process metric_id {record['metric_id']}: {str(e)}"
-                )
+                # Create DataFrame with explicit schema
+                df = self.spark.createDataFrame(processed_records, schema)
+                result_dfs[target_table] = df
+                logger.info(f"Created DataFrame for {target_table} with {df.count()} records")
+            else:
+                logger.warning(f"No records processed for target table: {target_table}")
         
-        # Create Spark DataFrame with explicit schema to avoid type conflicts
-        if not processed_records:
-            raise MetricsPipelineError("No records were successfully processed")
+        if not result_dfs:
+            raise MetricsPipelineError("No records were successfully processed for any target table")
         
-        # Define explicit schema with high precision for numeric fields
-        schema = StructType([
-            StructField("metric_id", StringType(), False),
-            StructField("metric_name", StringType(), False),
-            StructField("metric_type", StringType(), False),
-            StructField("numerator_value", DecimalType(38, 9), True),
-            StructField("denominator_value", DecimalType(38, 9), True),
-            StructField("metric_output", DecimalType(38, 9), True),
-            StructField("business_data_date", StringType(), False),
-            StructField("partition_dt", StringType(), False),
-            StructField("pipeline_execution_ts", TimestampType(), False)
-        ])
-        
-        # Create DataFrame with explicit schema
-        df = self.spark.createDataFrame(processed_records, schema)
-        logger.info(f"Created DataFrame with {df.count()} records")
-        
-        return df
+        return result_dfs
     
     def get_bq_table_schema(self, table_name: str) -> List[bigquery.SchemaField]:
         """
@@ -857,6 +900,9 @@ class MetricsPipeline:
         try:
             logger.info(f"Writing DataFrame to BigQuery table with overwrite: {target_table}")
             
+            # Track target table for rollback
+            self.target_tables.add(target_table)
+            
             # Collect metric IDs and partition date from the DataFrame
             metric_records = df.select('metric_id', 'partition_dt').distinct().collect()
             
@@ -903,6 +949,47 @@ class MetricsPipeline:
         except Exception as e:
             logger.error(f"Failed to write to BigQuery with overwrite: {str(e)}")
             raise MetricsPipelineError(f"Failed to write to BigQuery with overwrite: {str(e)}")
+    
+    def rollback_all_processed_metrics(self, partition_dt: str) -> None:
+        """
+        Rollback all processed metrics from all target tables in case of failure
+        
+        Args:
+            partition_dt: Partition date for rollback
+        """
+        logger.info("Starting rollback of processed metrics from all target tables")
+        
+        if not self.processed_metrics:
+            logger.info("No metrics to rollback")
+            return
+        
+        if not self.target_tables:
+            logger.info("No target tables to rollback from")
+            return
+        
+        # Only rollback newly inserted metrics (not overwritten ones)
+        new_metrics = [mid for mid in self.processed_metrics if mid not in self.overwritten_metrics]
+        
+        if new_metrics:
+            logger.info(f"Rolling back {len(new_metrics)} newly inserted metrics from {len(self.target_tables)} tables")
+            
+            for target_table in self.target_tables:
+                logger.info(f"Rolling back metrics from table: {target_table}")
+                
+                # Find metrics that were inserted into this specific table
+                # We need to filter metrics by target table if we have that information
+                for metric_id in new_metrics:
+                    try:
+                        self.rollback_metric(metric_id, target_table, partition_dt)
+                    except Exception as e:
+                        logger.error(f"Failed to rollback metric {metric_id} from table {target_table}: {str(e)}")
+        else:
+            logger.info("No newly inserted metrics to rollback")
+        
+        if self.overwritten_metrics:
+            logger.warning(f"Note: {len(self.overwritten_metrics)} overwritten metrics cannot be automatically restored: {self.overwritten_metrics}")
+        
+        logger.info("Rollback process completed")
 
 
 @contextmanager
@@ -965,11 +1052,6 @@ def parse_arguments():
         required=True, 
         help='BigQuery table for partition info (project.dataset.table)'
     )
-    parser.add_argument(
-        '--target_table', 
-        required=True, 
-        help='Target BigQuery table (project.dataset.table)'
-    )
     
     return parser.parse_args()
 
@@ -1005,8 +1087,9 @@ def main():
         logger.info(f"Run Date: {args.run_date}")
         logger.info(f"Dependencies: {dependencies}")
         logger.info(f"Partition Info Table: {args.partition_info_table}")
-        logger.info(f"Target Table: {args.target_table}")
         logger.info("Pipeline will check for existing metrics and overwrite them if found")
+        logger.info("Target tables will be read from JSON configuration")
+        logger.info("JSON must contain: metric_id, metric_name, metric_type, sql, dependency, partition_mode, target_table")
         
         # Use managed Spark session
         with managed_spark_session("MetricsPipeline") as spark:
@@ -1024,7 +1107,7 @@ def main():
             validated_data = pipeline.validate_json(json_data)
             
             logger.info("Step 3: Processing metrics")
-            metrics_df = pipeline.process_metrics(
+            metrics_dfs = pipeline.process_metrics(
                 validated_data, 
                 args.run_date, 
                 dependencies, 
@@ -1034,14 +1117,24 @@ def main():
             # Store partition_dt for potential rollback
             partition_dt = datetime.now().strftime('%Y-%m-%d')
             
-            logger.info("Step 4: Aligning schema with BigQuery")
-            aligned_df = pipeline.align_schema_with_bq(metrics_df, args.target_table)
-
-            aligned_df.printSchema()
-            aligned_df.show(truncate=False)
-            
-            logger.info("Step 5: Writing to BigQuery with overwrite capability")
-            pipeline.write_to_bq_with_overwrite(aligned_df, args.target_table)
+            logger.info("Step 4: Aligning schema with BigQuery and writing to tables")
+            # Process each target table
+            for target_table, df in metrics_dfs.items():
+                logger.info(f"Processing target table: {target_table}")
+                
+                # Align schema with BigQuery
+                aligned_df = pipeline.align_schema_with_bq(df, target_table)
+                
+                # Show schema and data for debugging
+                logger.info(f"Schema for {target_table}:")
+                aligned_df.printSchema()
+                aligned_df.show(truncate=False)
+                
+                # Write to BigQuery with overwrite capability
+                logger.info(f"Writing to BigQuery table: {target_table}")
+                pipeline.write_to_bq_with_overwrite(aligned_df, target_table)
+                
+                logger.info(f"Successfully processed table: {target_table}")
             
             logger.info("Pipeline completed successfully!")
             
@@ -1063,7 +1156,7 @@ def main():
         if pipeline and pipeline.processed_metrics and partition_dt:
             try:
                 logger.info("Attempting to rollback processed metrics")
-                pipeline.rollback_processed_metrics(args.target_table, partition_dt)
+                pipeline.rollback_all_processed_metrics(partition_dt)
             except Exception as rollback_error:
                 logger.error(f"Rollback failed: {str(rollback_error)}")
         
@@ -1076,7 +1169,7 @@ def main():
         if pipeline and pipeline.processed_metrics and partition_dt:
             try:
                 logger.info("Attempting to rollback processed metrics")
-                pipeline.rollback_processed_metrics(args.target_table, partition_dt)
+                pipeline.rollback_all_processed_metrics(partition_dt)
             except Exception as rollback_error:
                 logger.error(f"Rollback failed: {str(rollback_error)}")
         
