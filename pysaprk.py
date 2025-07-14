@@ -75,7 +75,8 @@ class MetricsPipeline:
         try:
             # Try to read just the schema/structure without loading data
             test_df = self.spark.read.option("multiline", "true").json(gcs_path).limit(0)
-            test_df.printSchema()  # This will fail if file doesn't exist
+            # Force execution to actually check if file exists
+            test_df.count()  # This will fail if file doesn't exist or is inaccessible
             logger.info(f"GCS path validated successfully: {gcs_path}")
             return gcs_path
         except Exception as e:

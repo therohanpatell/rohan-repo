@@ -46,8 +46,10 @@ import string
 import datetime
 import sys
 import os
+import threading
 
-# Global primary key counter
+# Thread-safe primary key counter
+_pk_counter_lock = threading.Lock()
 global_pk_counter = 1
 
 # Audit columns default values.
@@ -252,8 +254,10 @@ def generate_new_row(columns, simulation_date, primary_key, base_time):
             continue
         if col == primary_key:
             norm_type = get_normalized_type(dtype)
-            value = global_pk_counter if norm_type == "int" else f"PK{global_pk_counter}"
-            global_pk_counter += 1
+            # Thread-safe primary key generation
+            with _pk_counter_lock:
+                value = global_pk_counter if norm_type == "int" else f"PK{global_pk_counter}"
+                global_pk_counter += 1
             row[col] = value
         elif col == "partition_dt":
             row[col] = simulation_date
