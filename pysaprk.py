@@ -46,6 +46,7 @@ class MetricsPipeline:
         self.bq_client = bq_client
         self.execution_id = str(uuid.uuid4())
         self.processed_metrics = []  # Track processed metrics for rollback
+        self.overwritten_metrics = []  # Track overwritten metrics for rollback
         
     def validate_gcs_path(self, gcs_path: str) -> str:
         """
@@ -413,7 +414,7 @@ class MetricsPipeline:
         logger.info(f"All dependencies found: {dependencies}")
     
     def execute_sql(self, sql: str, run_date: str, partition_mode: str, 
-                   partition_info_table: str) -> Dict:
+                   partition_info_table: str, metric_id: Optional[str] = None) -> Dict:
         """
         Execute SQL query with dynamic date replacement for multiple tables
         
@@ -422,6 +423,7 @@ class MetricsPipeline:
             run_date: CLI provided run date
             partition_mode: Pipe-separated partition modes
             partition_info_table: Metadata table name
+            metric_id: Optional metric ID for better error reporting
             
         Returns:
             Dictionary with query results
@@ -465,6 +467,33 @@ class MetricsPipeline:
                 
                 break  # Take first row only
             
+            # Validate denominator_value is not zero
+            if result_dict['denominator_value'] is not None:
+                try:
+                    denominator_decimal = self.safe_decimal_conversion(result_dict['denominator_value'])
+                    if denominator_decimal is not None:
+                        if denominator_decimal == 0:
+                            error_msg = f"Invalid denominator value: denominator_value is 0. Cannot calculate metrics with zero denominator."
+                            if metric_id:
+                                error_msg = f"Metric '{metric_id}': {error_msg}"
+                            logger.error(error_msg)
+                            raise MetricsPipelineError(error_msg)
+                        elif denominator_decimal < 0:
+                            error_msg = f"Invalid denominator value: denominator_value is negative ({denominator_decimal}). Negative denominators are not allowed."
+                            if metric_id:
+                                error_msg = f"Metric '{metric_id}': {error_msg}"
+                            logger.error(error_msg)
+                            raise MetricsPipelineError(error_msg)
+                        # Log warning for very small positive denominators that might cause precision issues
+                        elif abs(denominator_decimal) < Decimal('0.0000001'):
+                            warning_msg = f"Very small denominator value detected: {denominator_decimal}. This may cause precision issues."
+                            if metric_id:
+                                warning_msg = f"Metric '{metric_id}': {warning_msg}"
+                            logger.warning(warning_msg)
+                except (ValueError, TypeError):
+                    # If we can't convert to decimal, log warning but continue
+                    logger.warning(f"Could not validate denominator_value: {result_dict['denominator_value']}")
+            
             # Calculate business_data_date (one day before the reference date)
             # Use the first replacement date as reference
             ref_date = datetime.strptime(replacement_dates[0], '%Y-%m-%d')
@@ -474,8 +503,11 @@ class MetricsPipeline:
             return result_dict
             
         except Exception as e:
-            logger.error(f"Failed to execute SQL: {str(e)}")
-            raise MetricsPipelineError(f"Failed to execute SQL: {str(e)}")
+            error_msg = f"Failed to execute SQL: {str(e)}"
+            if metric_id:
+                error_msg = f"Metric '{metric_id}': {error_msg}"
+            logger.error(error_msg)
+            raise MetricsPipelineError(error_msg)
     
     def rollback_metric(self, metric_id: str, target_table: str, partition_dt: str) -> None:
         """
@@ -507,6 +539,7 @@ class MetricsPipeline:
     def rollback_processed_metrics(self, target_table: str, partition_dt: str) -> None:
         """
         Rollback all processed metrics in case of failure
+        Note: This only rolls back newly inserted metrics, not overwritten ones
         
         Args:
             target_table: Target BigQuery table
@@ -514,11 +547,25 @@ class MetricsPipeline:
         """
         logger.info("Starting rollback of processed metrics")
         
-        for metric_id in self.processed_metrics:
-            try:
-                self.rollback_metric(metric_id, target_table, partition_dt)
-            except Exception as e:
-                logger.error(f"Failed to rollback metric {metric_id}: {str(e)}")
+        if not self.processed_metrics:
+            logger.info("No metrics to rollback")
+            return
+        
+        # Only rollback newly inserted metrics (not overwritten ones)
+        new_metrics = [mid for mid in self.processed_metrics if mid not in self.overwritten_metrics]
+        
+        if new_metrics:
+            logger.info(f"Rolling back {len(new_metrics)} newly inserted metrics")
+            for metric_id in new_metrics:
+                try:
+                    self.rollback_metric(metric_id, target_table, partition_dt)
+                except Exception as e:
+                    logger.error(f"Failed to rollback metric {metric_id}: {str(e)}")
+        else:
+            logger.info("No newly inserted metrics to rollback")
+        
+        if self.overwritten_metrics:
+            logger.warning(f"Note: {len(self.overwritten_metrics)} overwritten metrics cannot be automatically restored: {self.overwritten_metrics}")
         
         logger.info("Rollback process completed")
     
@@ -567,7 +614,8 @@ class MetricsPipeline:
                     record['sql'], 
                     run_date, 
                     record['partition_mode'], 
-                    partition_info_table
+                    partition_info_table,
+                    record['metric_id'] # Pass metric_id for error reporting
                 )
                 
                 # Build final record with precision preservation
@@ -712,6 +760,149 @@ class MetricsPipeline:
         except Exception as e:
             logger.error(f"Failed to write to BigQuery: {str(e)}")
             raise MetricsPipelineError(f"Failed to write to BigQuery: {str(e)}")
+    
+    def check_existing_metrics(self, metric_ids: List[str], partition_dt: str, target_table: str) -> List[str]:
+        """
+        Check which metric IDs already exist in BigQuery table for the given partition date
+        
+        Args:
+            metric_ids: List of metric IDs to check
+            partition_dt: Partition date to check
+            target_table: Target BigQuery table
+            
+        Returns:
+            List of existing metric IDs
+        """
+        try:
+            if not metric_ids:
+                return []
+            
+            # Escape single quotes in metric IDs for safety
+            escaped_metric_ids = [mid.replace("'", "''") for mid in metric_ids]
+            metric_ids_str = "', '".join(escaped_metric_ids)
+            
+            query = f"""
+            SELECT DISTINCT metric_id 
+            FROM `{target_table}` 
+            WHERE metric_id IN ('{metric_ids_str}') 
+            AND partition_dt = '{partition_dt}'
+            """
+            
+            logger.info(f"Checking existing metrics for partition_dt: {partition_dt}")
+            logger.debug(f"Query: {query}")
+            
+            query_job = self.bq_client.query(query)
+            results = query_job.result()
+            
+            existing_metrics = [row.metric_id for row in results]
+            
+            if existing_metrics:
+                logger.info(f"Found {len(existing_metrics)} existing metrics: {existing_metrics}")
+            else:
+                logger.info("No existing metrics found")
+            
+            return existing_metrics
+            
+        except Exception as e:
+            logger.error(f"Failed to check existing metrics: {str(e)}")
+            raise MetricsPipelineError(f"Failed to check existing metrics: {str(e)}")
+    
+    def delete_existing_metrics(self, metric_ids: List[str], partition_dt: str, target_table: str) -> None:
+        """
+        Delete existing metrics from BigQuery table for the given partition date
+        
+        Args:
+            metric_ids: List of metric IDs to delete
+            partition_dt: Partition date for deletion
+            target_table: Target BigQuery table
+        """
+        try:
+            if not metric_ids:
+                logger.info("No metrics to delete")
+                return
+            
+            # Escape single quotes in metric IDs for safety
+            escaped_metric_ids = [mid.replace("'", "''") for mid in metric_ids]
+            metric_ids_str = "', '".join(escaped_metric_ids)
+            
+            delete_query = f"""
+            DELETE FROM `{target_table}` 
+            WHERE metric_id IN ('{metric_ids_str}') 
+            AND partition_dt = '{partition_dt}'
+            """
+            
+            logger.info(f"Deleting existing metrics: {metric_ids} for partition_dt: {partition_dt}")
+            logger.debug(f"Delete query: {delete_query}")
+            
+            query_job = self.bq_client.query(delete_query)
+            results = query_job.result()
+            
+            # Get the number of deleted rows
+            deleted_count = results.num_dml_affected_rows if hasattr(results, 'num_dml_affected_rows') else 0
+            
+            logger.info(f"Successfully deleted {deleted_count} existing records for metrics: {metric_ids}")
+            
+        except Exception as e:
+            logger.error(f"Failed to delete existing metrics: {str(e)}")
+            raise MetricsPipelineError(f"Failed to delete existing metrics: {str(e)}")
+    
+    def write_to_bq_with_overwrite(self, df: DataFrame, target_table: str) -> None:
+        """
+        Write DataFrame to BigQuery table with overwrite capability for existing metrics
+        
+        Args:
+            df: Spark DataFrame to write
+            target_table: Target BigQuery table
+        """
+        try:
+            logger.info(f"Writing DataFrame to BigQuery table with overwrite: {target_table}")
+            
+            # Collect metric IDs and partition date from the DataFrame
+            metric_records = df.select('metric_id', 'partition_dt').distinct().collect()
+            
+            if not metric_records:
+                logger.warning("No records to process")
+                return
+            
+            # Get partition date (assuming all records have the same partition_dt)
+            partition_dt = metric_records[0]['partition_dt']
+            metric_ids = [row['metric_id'] for row in metric_records]
+            
+            logger.info(f"Processing {len(metric_ids)} metrics for partition_dt: {partition_dt}")
+            
+            # Check which metrics already exist
+            existing_metrics = self.check_existing_metrics(metric_ids, partition_dt, target_table)
+            
+            # Track overwritten vs new metrics
+            new_metrics = [mid for mid in metric_ids if mid not in existing_metrics]
+            
+            # Delete existing metrics if any
+            if existing_metrics:
+                logger.info(f"Overwriting {len(existing_metrics)} existing metrics: {existing_metrics}")
+                self.delete_existing_metrics(existing_metrics, partition_dt, target_table)
+                # Track overwritten metrics separately
+                self.overwritten_metrics.extend(existing_metrics)
+            
+            if new_metrics:
+                logger.info(f"Adding {len(new_metrics)} new metrics: {new_metrics}")
+            
+            # Add all metric IDs to processed metrics for rollback tracking
+            self.processed_metrics.extend(metric_ids)
+            
+            # Write the DataFrame to BigQuery
+            df.write \
+                .format("bigquery") \
+                .option("table", target_table) \
+                .option("writeMethod", "direct") \
+                .mode("append") \
+                .save()
+            
+            logger.info(f"Successfully wrote {df.count()} records to {target_table}")
+            logger.info(f"Summary: {len(existing_metrics)} overwritten, {len(new_metrics)} new metrics")
+            
+        except Exception as e:
+            logger.error(f"Failed to write to BigQuery with overwrite: {str(e)}")
+            raise MetricsPipelineError(f"Failed to write to BigQuery with overwrite: {str(e)}")
 
 
 @contextmanager
@@ -815,6 +1006,7 @@ def main():
         logger.info(f"Dependencies: {dependencies}")
         logger.info(f"Partition Info Table: {args.partition_info_table}")
         logger.info(f"Target Table: {args.target_table}")
+        logger.info("Pipeline will check for existing metrics and overwrite them if found")
         
         # Use managed Spark session
         with managed_spark_session("MetricsPipeline") as spark:
@@ -848,10 +1040,21 @@ def main():
             aligned_df.printSchema()
             aligned_df.show(truncate=False)
             
-            logger.info("Step 5: Writing to BigQuery")
-            pipeline.write_to_bq(aligned_df, args.target_table)
+            logger.info("Step 5: Writing to BigQuery with overwrite capability")
+            pipeline.write_to_bq_with_overwrite(aligned_df, args.target_table)
             
             logger.info("Pipeline completed successfully!")
+            
+            # Log summary statistics
+            if pipeline.processed_metrics:
+                logger.info(f"Total metrics processed: {len(pipeline.processed_metrics)}")
+                if pipeline.overwritten_metrics:
+                    logger.info(f"Metrics overwritten: {len(pipeline.overwritten_metrics)}")
+                    logger.info(f"New metrics added: {len(pipeline.processed_metrics) - len(pipeline.overwritten_metrics)}")
+                else:
+                    logger.info("All metrics were new (no existing metrics overwritten)")
+            else:
+                logger.info("No metrics were processed")
         
     except MetricsPipelineError as e:
         logger.error(f"Pipeline failed: {str(e)}")
