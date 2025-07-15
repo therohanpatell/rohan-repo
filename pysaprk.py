@@ -46,6 +46,14 @@ class MetricsPipeline:
         'partition_info': r'\{partition_info\}'
     }
     
+    # Quote handling patterns
+    QUOTE_PATTERNS = {
+        'double_quoted_strings': r'"([^"]*)"',
+        'single_quoted_strings': r"'([^']*)'",
+        'double_quoted_identifiers': r'`([^`]*)`',
+        'table_references': r'`([^.]+)\.([^.]+)\.([^`]+)`'
+    }
+    
     def __init__(self, spark: SparkSession, bq_client: bigquery.Client):
         self.spark = spark
         self.bq_client = bq_client
@@ -53,6 +61,7 @@ class MetricsPipeline:
         self.processed_metrics = []
         self.overwritten_metrics = []
         self.target_tables = set()
+        self.quote_conversions = []  # Track quote conversions for debugging
         
     def _handle_operation(self, operation: Callable, operation_name: str, *args, **kwargs) -> Any:
         """Generic error handling wrapper for operations"""
@@ -62,6 +71,160 @@ class MetricsPipeline:
             error_msg = f"{operation_name} failed: {str(e)}"
             logger.error(error_msg)
             raise MetricsPipelineError(error_msg)
+    
+    def _detect_quote_issues(self, sql: str, metric_id: Optional[str] = None) -> Dict[str, Any]:
+        """Detect potential quote issues in SQL query"""
+        issues = {
+            'has_double_quotes': False,
+            'has_single_quotes': False,
+            'has_backticks': False,
+            'double_quote_count': 0,
+            'single_quote_count': 0,
+            'backtick_count': 0,
+            'potential_string_literals': [],
+            'potential_identifiers': []
+        }
+        
+        # Count different quote types
+        issues['double_quote_count'] = sql.count('"')
+        issues['single_quote_count'] = sql.count("'")
+        issues['backtick_count'] = sql.count('`')
+        
+        issues['has_double_quotes'] = issues['double_quote_count'] > 0
+        issues['has_single_quotes'] = issues['single_quote_count'] > 0
+        issues['has_backticks'] = issues['backtick_count'] > 0
+        
+        # Find potential string literals in double quotes
+        double_quoted_matches = re.findall(self.QUOTE_PATTERNS['double_quoted_strings'], sql)
+        issues['potential_string_literals'] = double_quoted_matches
+        
+        # Find potential identifiers in backticks
+        backtick_matches = re.findall(self.QUOTE_PATTERNS['double_quoted_identifiers'], sql)
+        issues['potential_identifiers'] = backtick_matches
+        
+        # Log findings
+        if issues['has_double_quotes']:
+            prefix = f"Metric '{metric_id}': " if metric_id else ""
+            logger.info(f"{prefix}Found {issues['double_quote_count']} double quotes in SQL")
+            if issues['potential_string_literals']:
+                logger.info(f"{prefix}Potential string literals: {issues['potential_string_literals']}")
+        
+        return issues
+    
+    def _normalize_quotes_in_sql(self, sql: str, metric_id: Optional[str] = None) -> str:
+        """Normalize quotes in SQL query - convert double quotes to single quotes for string literals"""
+        if not sql or not sql.strip():
+            return sql
+        
+        # Detect quote issues first
+        quote_issues = self._detect_quote_issues(sql, metric_id)
+        
+        # If no double quotes, return as is
+        if not quote_issues['has_double_quotes']:
+            return sql
+        
+        prefix = f"Metric '{metric_id}': " if metric_id else ""
+        logger.info(f"{prefix}Normalizing quotes in SQL query")
+        
+        # Store original for comparison
+        original_sql = sql
+        normalized_sql = sql
+        
+        # Strategy: Replace double quotes with single quotes, but preserve backticks for identifiers
+        # This is a simplified approach - for production, you might want more sophisticated parsing
+        
+        # First, protect table references (backticks) by temporarily replacing them
+        table_references = re.findall(self.QUOTE_PATTERNS['table_references'], normalized_sql)
+        temp_replacements = {}
+        
+        for i, (project, dataset, table) in enumerate(table_references):
+            temp_key = f"__TABLE_REF_{i}__"
+            original_ref = f"`{project}.{dataset}.{table}`"
+            temp_replacements[temp_key] = original_ref
+            normalized_sql = normalized_sql.replace(original_ref, temp_key)
+        
+        # Now replace double quotes with single quotes for string literals
+        # This regex finds double-quoted strings that are not part of identifiers
+        def replace_double_quotes(match):
+            content = match.group(1)
+            # Escape single quotes within the string content
+            escaped_content = content.replace("'", "''")
+            return f"'{escaped_content}'"
+        
+        # Replace double-quoted strings with single-quoted strings
+        normalized_sql = re.sub(self.QUOTE_PATTERNS['double_quoted_strings'], replace_double_quotes, normalized_sql)
+        
+        # Restore table references
+        for temp_key, original_ref in temp_replacements.items():
+            normalized_sql = normalized_sql.replace(temp_key, original_ref)
+        
+        # Track the conversion for debugging
+        if normalized_sql != original_sql:
+            conversion_info = {
+                'metric_id': metric_id,
+                'original_sql': original_sql,
+                'normalized_sql': normalized_sql,
+                'quote_issues': quote_issues
+            }
+            self.quote_conversions.append(conversion_info)
+            logger.info(f"{prefix}Quote normalization completed")
+            logger.debug(f"{prefix}Original: {original_sql}")
+            logger.debug(f"{prefix}Normalized: {normalized_sql}")
+        
+        return normalized_sql
+    
+    def _validate_sql_syntax(self, sql: str, metric_id: Optional[str] = None) -> bool:
+        """Basic SQL syntax validation after quote normalization"""
+        if not sql or not sql.strip():
+            return False
+        
+        # Basic checks
+        sql_lower = sql.lower().strip()
+        
+        # Check for basic SQL structure
+        if not any(sql_lower.startswith(keyword) for keyword in ['select', 'with', '(']):
+            prefix = f"Metric '{metric_id}': " if metric_id else ""
+            logger.warning(f"{prefix}SQL query doesn't start with expected keywords")
+            return False
+        
+        # Check for balanced quotes
+        single_quote_count = sql.count("'")
+        double_quote_count = sql.count('"')
+        backtick_count = sql.count('`')
+        
+        if single_quote_count % 2 != 0:
+            prefix = f"Metric '{metric_id}': " if metric_id else ""
+            logger.warning(f"{prefix}Unbalanced single quotes in SQL")
+            return False
+        
+        if double_quote_count % 2 != 0:
+            prefix = f"Metric '{metric_id}': " if metric_id else ""
+            logger.warning(f"{prefix}Unbalanced double quotes in SQL")
+            return False
+        
+        if backtick_count % 2 != 0:
+            prefix = f"Metric '{metric_id}': " if metric_id else ""
+            logger.warning(f"{prefix}Unbalanced backticks in SQL")
+            return False
+        
+        return True
+    
+    def _preprocess_sql_query(self, sql: str, metric_id: Optional[str] = None) -> str:
+        """Preprocess SQL query to handle quotes and other issues"""
+        if not sql or not sql.strip():
+            raise MetricsPipelineError(f"Metric '{metric_id}': SQL query is empty")
+        
+        # Step 1: Normalize quotes
+        normalized_sql = self._normalize_quotes_in_sql(sql, metric_id)
+        
+        # Step 2: Validate syntax
+        if not self._validate_sql_syntax(normalized_sql, metric_id):
+            logger.warning(f"Metric '{metric_id}': SQL syntax validation failed, proceeding with caution")
+        
+        # Step 3: Clean up extra whitespace
+        cleaned_sql = ' '.join(normalized_sql.split())
+        
+        return cleaned_sql
     
     def _execute_bq_query(self, query: str, operation_name: str = "BigQuery query") -> Any:
         """Execute BigQuery query with error handling"""
@@ -217,9 +380,15 @@ class MetricsPipeline:
             # Validate target table format
             self._validate_table_format(record['target_table'], i)
             
-            # Validate SQL placeholders
+            # Validate SQL query and check for quote issues
             sql_query = record['sql'].strip()
             if sql_query:
+                # Check for quote issues in SQL
+                quote_issues = self._detect_quote_issues(sql_query, metric_id)
+                if quote_issues['has_double_quotes']:
+                    logger.info(f"Record {i}: SQL query contains double quotes - will be normalized during processing")
+                
+                # Validate SQL placeholders
                 placeholder_counts = {
                     name: len(re.findall(pattern, sql_query))
                     for name, pattern in self.PLACEHOLDER_PATTERNS.items()
@@ -229,6 +398,10 @@ class MetricsPipeline:
                     logger.warning(f"Record {i}: SQL query contains no date placeholders")
                 else:
                     logger.debug(f"Record {i}: Found placeholders: {placeholder_counts}")
+                
+                # Basic SQL syntax validation
+                if not self._validate_sql_syntax(sql_query, metric_id):
+                    logger.warning(f"Record {i}: SQL syntax validation failed")
         
         logger.info(f"Successfully validated {len(json_data)} records with {len(metric_ids)} unique metric IDs")
         return json_data
@@ -356,10 +529,22 @@ class MetricsPipeline:
             logger.warning(f"Could not validate denominator_value: {result_dict['denominator_value']}")
     
     def execute_sql(self, sql: str, run_date: str, partition_info_table: str, metric_id: Optional[str] = None) -> Dict:
-        """Execute SQL query with dynamic placeholder replacement"""
+        """Execute SQL query with dynamic placeholder replacement and quote handling"""
         def execute_and_process():
-            final_sql = self.replace_sql_placeholders(sql, run_date, partition_info_table)
-            logger.info(f"Executing SQL query with placeholder replacements")
+            # Step 1: Preprocess SQL to handle quotes and other issues
+            preprocessed_sql = self._preprocess_sql_query(sql, metric_id)
+            
+            # Step 2: Replace placeholders
+            final_sql = self.replace_sql_placeholders(preprocessed_sql, run_date, partition_info_table)
+            
+            prefix = f"Metric '{metric_id}': " if metric_id else ""
+            logger.info(f"{prefix}Executing SQL query with placeholder replacements and quote normalization")
+            
+            # Log final SQL for debugging (truncated)
+            if len(final_sql) > 200:
+                logger.debug(f"{prefix}Final SQL (truncated): {final_sql[:200]}...")
+            else:
+                logger.debug(f"{prefix}Final SQL: {final_sql}")
             
             results = self._execute_bq_query(final_sql, "SQL execution")
             
@@ -881,7 +1066,9 @@ class MetricsPipeline:
             execution_status = 'success' if is_success else 'failed'
             
             try:
-                final_sql = self.replace_sql_placeholders(record['sql'], run_date, partition_info_table)
+                # Preprocess SQL with quote handling before placeholder replacement
+                preprocessed_sql = self._preprocess_sql_query(record['sql'], metric_id)
+                final_sql = self.replace_sql_placeholders(preprocessed_sql, run_date, partition_info_table)
                 recon_record = self.build_recon_record(
                     record, final_sql, run_date, env, execution_status, partition_dt, error_message
                 )
@@ -894,6 +1081,49 @@ class MetricsPipeline:
         
         logger.info(f"Created {len(all_recon_records)} recon records based on execution and write results")
         return all_recon_records
+    
+    def log_quote_conversion_summary(self) -> None:
+        """Log summary of quote conversions performed during pipeline execution"""
+        if not self.quote_conversions:
+            logger.info("No quote conversions were performed during pipeline execution")
+            return
+        
+        logger.info(f"Quote Conversion Summary: {len(self.quote_conversions)} SQL queries had quotes normalized")
+        
+        for i, conversion in enumerate(self.quote_conversions, 1):
+            metric_id = conversion['metric_id']
+            quote_issues = conversion['quote_issues']
+            
+            logger.info(f"Conversion {i}: Metric '{metric_id}'")
+            logger.info(f"  - Double quotes found: {quote_issues['double_quote_count']}")
+            logger.info(f"  - String literals converted: {len(quote_issues['potential_string_literals'])}")
+            if quote_issues['potential_string_literals']:
+                logger.info(f"  - Converted literals: {quote_issues['potential_string_literals']}")
+            
+            # Log original and normalized SQL (truncated for readability)
+            original_truncated = conversion['original_sql'][:100] + "..." if len(conversion['original_sql']) > 100 else conversion['original_sql']
+            normalized_truncated = conversion['normalized_sql'][:100] + "..." if len(conversion['normalized_sql']) > 100 else conversion['normalized_sql']
+            
+            logger.debug(f"  - Original SQL: {original_truncated}")
+            logger.debug(f"  - Normalized SQL: {normalized_truncated}")
+        
+        logger.info(f"Quote conversion summary complete. Total conversions: {len(self.quote_conversions)}")
+    
+    def get_quote_conversion_report(self) -> Dict[str, Any]:
+        """Get detailed report of quote conversions for external analysis"""
+        return {
+            'total_conversions': len(self.quote_conversions),
+            'conversions': self.quote_conversions,
+            'summary': {
+                'metrics_with_double_quotes': len(self.quote_conversions),
+                'total_double_quotes_converted': sum(
+                    conv['quote_issues']['double_quote_count'] for conv in self.quote_conversions
+                ),
+                'total_string_literals_converted': sum(
+                    len(conv['quote_issues']['potential_string_literals']) for conv in self.quote_conversions
+                )
+            }
+        }
 
 @contextmanager
 def managed_spark_session(app_name: str = "MetricsPipeline"):
@@ -1072,6 +1302,9 @@ def main():
             
             # Log comprehensive summary
             log_pipeline_summary(pipeline, successful_writes, failed_execution_metrics, failed_write_metrics)
+            
+            # Log quote conversion summary
+            pipeline.log_quote_conversion_summary()
             
             # Log recon summary
             if recon_records:
