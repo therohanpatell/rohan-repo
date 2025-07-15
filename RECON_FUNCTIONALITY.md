@@ -69,13 +69,15 @@ The following columns have static values:
 
 ## How It Works
 
-1. **Metric Processing**: Each metric is processed normally
-2. **Recon Record Creation**: For each metric (success or failure), a recon record is created
-3. **Source Table Extraction**: The source table dataset and name are extracted from the SQL query using regex
-4. **Target Table Extraction**: The target table dataset and name are extracted from the JSON `target_table` field
-5. **Status Tracking**: Success/failure status is tracked and reflected in multiple columns
-6. **Timestamp Recording**: Current timestamp and run date are recorded for audit purposes
-7. **Recon Table Write**: All recon records are written to the specified recon table
+1. **Metric Processing**: Each metric SQL is processed and executed normally
+2. **Metric Table Write**: Processed metrics are written to their respective target tables
+3. **Write Success Tracking**: The pipeline tracks which metrics were successfully written to target tables
+4. **Recon Record Creation**: For each metric, a recon record is created based on actual write success/failure
+5. **Source Table Extraction**: The source table dataset and name are extracted from the SQL query using regex
+6. **Target Table Extraction**: The target table dataset and name are extracted from the JSON `target_table` field
+7. **Status Tracking**: Success/failure status is based on actual write results to target tables
+8. **Timestamp Recording**: Current timestamp and run date are recorded for audit purposes
+9. **Recon Table Write**: All recon records are written to the specified recon table after metric writes
 
 ## Example Usage
 
@@ -91,9 +93,10 @@ python pysaprk.py \
 
 ## Key Features
 
+- **Write-Based Tracking**: Recon records reflect actual success/failure of writing to target tables
 - **Comprehensive Tracking**: Every metric gets a recon record regardless of success/failure
 - **Source Table Detection**: Automatically extracts source table information from SQL queries
-- **Status Mapping**: Maps execution status to multiple recon fields for different reporting needs
+- **Status Mapping**: Maps target table write success/failure to multiple recon fields for different reporting needs
 - **Audit Trail**: Provides complete audit trail with timestamps and execution metadata
 - **Error Resilience**: Continues processing even if individual recon records fail to create
 

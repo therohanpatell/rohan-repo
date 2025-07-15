@@ -53,19 +53,22 @@ Each metric processed (successful or failed) generates a recon record with:
 
 ### 5. Key Features
 
+- **Write-Based Tracking**: Recon records reflect actual success/failure of writing to target tables
 - **Comprehensive Tracking**: Every metric gets a recon record regardless of outcome
 - **Error Resilience**: Continues processing even if individual recon records fail
 - **Automatic Extraction**: Automatically extracts source table info from SQL
-- **Status Mapping**: Maps execution status to multiple recon fields
+- **Status Mapping**: Maps write success/failure to multiple recon fields
 - **Audit Trail**: Complete audit trail with timestamps and metadata
 
 ### 6. Updated Pipeline Flow
 
 1. Read and validate JSON from GCS
-2. Process metrics with recon record creation
-3. **Write recon records to recon table** ← NEW STEP
-4. Write metric results to target tables
-5. Complete with comprehensive logging
+2. Process metrics (SQL execution and calculation)
+3. **Write metric results to target tables** ← FIRST
+4. **Track successful and failed writes** ← NEW STEP
+5. **Create recon records based on write success** ← NEW STEP
+6. **Write recon records to recon table** ← FINAL STEP
+7. Complete with comprehensive logging
 
 ### 7. Example Usage
 
