@@ -1183,8 +1183,13 @@ class MetricsPipeline:
                 StructField("Job_Name", StringType(), False)  # REQUIRED STRING - Note: space in field name
             ])
             
-            # Create DataFrame
             recon_df = self.spark.createDataFrame(recon_records, recon_schema)
+            
+            # Show schema and data for debugging
+            logger.info(f"Recon Schema for {recon_table}:")
+            recon_df.printSchema()
+            logger.info(f"Recon Data for {recon_table}:")
+            recon_df.show(truncate=False)
             
             # Write to BigQuery
             recon_df.write \
