@@ -192,9 +192,9 @@ class MetricsPipeline:
                 partition_info_count = len(re.findall(r'\{partition_info\}', sql_query))
                 
                 if currently_count == 0 and partition_info_count == 0:
-                    logger.warning(f"Record {i}: SQL query contains no placeholders ({{currently}} or {{partition_info}})")
+                    logger.warning(f"Record {i}: SQL query contains no date placeholders ({{currently}} or {{partition_info}})")
                 else:
-                    logger.debug(f"Record {i}: Found {currently_count} {{currently}} and {partition_info_count} {{partition_info}} placeholders")
+                    logger.debug(f"Record {i}: Found {currently_count} {{currently}} and {partition_info_count} {{partition_info}} placeholders in SQL")
         
         logger.info(f"Successfully validated {len(json_data)} records with {len(metric_ids)} unique metric IDs")
         return json_data
@@ -314,10 +314,10 @@ class MetricsPipeline:
             placeholders = self.find_placeholder_positions(sql)
             
             if not placeholders:
-                logger.info("No placeholders found in SQL")
+                logger.info("No placeholders found in SQL query")
                 return sql
             
-            logger.info(f"Found {len(placeholders)} placeholders: {[p[0] for p in placeholders]}")
+            logger.info(f"Found {len(placeholders)} placeholders in SQL: {[p[0] for p in placeholders]}")
             
             # Process replacements from end to beginning to preserve positions
             final_sql = sql
@@ -325,7 +325,7 @@ class MetricsPipeline:
             for placeholder_type, start_pos, end_pos in reversed(placeholders):
                 if placeholder_type == 'currently':
                     replacement_date = run_date
-                    logger.info(f"Replacing {{currently}} with run_date: {replacement_date}")
+                    logger.info(f"Replacing {{currently}} placeholder with run_date: {replacement_date}")
                     
                 elif placeholder_type == 'partition_info':
                     # Find the table associated with this placeholder
@@ -340,7 +340,7 @@ class MetricsPipeline:
                                 f"Could not determine partition_dt for table {dataset}.{table_name}"
                             )
                         
-                        logger.info(f"Replacing {{partition_info}} with partition_dt: {replacement_date} for table {dataset}.{table_name}")
+                        logger.info(f"Replacing {{partition_info}} placeholder with partition_dt: {replacement_date} for table {dataset}.{table_name}")
                     else:
                         raise MetricsPipelineError(
                             f"Could not find table reference for {{partition_info}} placeholder at position {start_pos}"
@@ -349,8 +349,8 @@ class MetricsPipeline:
                 # Replace the placeholder with the date
                 final_sql = final_sql[:start_pos] + f"'{replacement_date}'" + final_sql[end_pos:]
             
-            logger.info(f"Replaced {len(placeholders)} placeholders in SQL")
-            logger.debug(f"Final SQL: {final_sql}")
+            logger.info(f"Successfully replaced {len(placeholders)} placeholders in SQL")
+            logger.debug(f"Final SQL after placeholder replacement: {final_sql}")
             
             return final_sql
             
@@ -455,7 +455,7 @@ class MetricsPipeline:
             # Replace placeholders with appropriate dates
             final_sql = self.replace_sql_placeholders(sql, run_date, partition_info_table)
             
-            logger.info(f"Executing SQL with placeholder replacements")
+            logger.info(f"Executing SQL query with placeholder replacements")
             
             # Execute query
             query_job = self.bq_client.query(final_sql)
