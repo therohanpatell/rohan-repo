@@ -1085,8 +1085,8 @@ class MetricsPipeline:
                 'clcltn_ds': 'Success' if is_success else 'Failed',  # Column 17
                 'excldd_vl': '0' if is_success else '1',  # Column 18 - STRING type
                 'excldd_reason_tx': 'Metric data was successfully written.' if is_success else 'Metric data was failed written.',  # Column 19
-                'tolnrc_pc': 'NA',  # Column 20
-                'rcncln_tolnrc_pass_in': 'NA'  # Column 22
+                'tolrnc_pc': 'NA',  # Column 20
+                'rcncln_tolrnc_pass_in': 'NA'  # Column 22
             })
             
             logger.debug(f"Built recon record for metric {metric_record['metric_id']}: {execution_status}")
@@ -1132,9 +1132,9 @@ class MetricsPipeline:
                 StructField("clcltn_ds", StringType(), True),  # NULLABLE STRING
                 StructField("excldd_vl", StringType(), True),  # NULLABLE STRING
                 StructField("excldd_reason_tx", StringType(), True),  # NULLABLE STRING
-                StructField("tolnrc_pc", StringType(), True),  # NULLABLE STRING
+                StructField("tolrnc_pc", StringType(), True),  # NULLABLE STRING
                 StructField("rcncln_exact_pass_in", StringType(), False),  # REQUIRED STRING
-                StructField("rcncln_tolnrc_pass_in", StringType(), True),  # NULLABLE STRING
+                StructField("rcncln_tolrnc_pass_in", StringType(), True),  # NULLABLE STRING
                 StructField("latest_source_parttn_dt", StringType(), False),  # REQUIRED STRING
                 StructField("latest_target_parttn_dt", StringType(), False),  # REQUIRED STRING
                 StructField("load_ts", StringType(), False),  # REQUIRED STRING
