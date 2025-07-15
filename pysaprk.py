@@ -1100,10 +1100,10 @@ class MetricsPipeline:
                 'source_vl': '0',  # Column 15 - STRING type, always 0 per requirements
                 'target_vl': '0' if is_success else '1',  # Column 16 - STRING type, 0 if success, 1 if failed
                 'rcncln_exact_pass_in': 'Passed' if is_success else 'Failed',  # Column 21
-                'latest_source_parttn_dt': datetime.strptime(run_date, '%Y-%m-%d').date(),  # Column 23
-                'latest_target_parttn_dt': datetime.strptime(run_date, '%Y-%m-%d').date(),  # Column 24
+                'latest_source_parttn_dt': run_date,  # Column 23
+                'latest_target_parttn_dt': run_date,  # Column 24
                 'load_ts': current_timestamp.strftime('%Y-%m-%d %H:%M:%S'),  # Column 25 - STRING type
-                'schdld_dt': partition_dt,  # Column 26 - DATE type
+                'schdld_dt': datetime.strptime(partition_dt, '%Y-%m-%d').date(),  # Column 26 - DATE type
                 'source_system_id': metric_record['metric_id'],  # Column 27
                 'schdld_yr': current_year,  # Column 28
                 'Job_Name': metric_record['metric_name']  # Column 29 - Note: space in field name
