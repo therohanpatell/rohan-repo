@@ -513,10 +513,10 @@ class MetricsPipeline:
                     # If we can't convert to decimal, log warning but continue
                     logger.warning(f"Could not validate denominator_value: {result_dict['denominator_value']}")
             
-            # Calculate business_data_date (one day before run_date)
-            ref_date = datetime.strptime(run_date, '%Y-%m-%d')
-            business_date = ref_date - timedelta(days=1)
-            result_dict['business_data_date'] = business_date.strftime('%Y-%m-%d')
+            if result_dict['business_data_date'] is not None:
+                result_dict['business_data_date'] = result_dict['business_data_date'].strftime('%Y-%m-%d')
+            else:
+                raise MetricsPipelineError("business_data_date is required but was not returned by the SQL query")
             
             return result_dict
             
@@ -985,6 +985,318 @@ class MetricsPipeline:
         
         logger.info("Rollback process completed")
 
+    def get_source_table_info(self, sql: str) -> Tuple[Optional[str], Optional[str]]:
+        """
+        Extract source table dataset and table name from SQL query
+        
+        Args:
+            sql: SQL query string
+            
+        Returns:
+            Tuple of (dataset_name, table_name) or (None, None) if not found
+        """
+        try:
+            # Pattern to match BigQuery table references like `project.dataset.table`
+            table_pattern = r'`([^.]+)\.([^.]+)\.([^`]+)`'
+            
+            # Find all table references in the SQL
+            matches = re.findall(table_pattern, sql)
+            
+            if matches:
+                # Take the first table reference as the source table
+                project, dataset, table = matches[0]
+                logger.debug(f"Extracted source table info: dataset={dataset}, table={table}")
+                return dataset, table
+            else:
+                logger.warning("No source table found in SQL query")
+                return None, None
+                
+        except Exception as e:
+            logger.error(f"Failed to extract source table info: {str(e)}")
+            return None, None
+    
+    def build_recon_record(self, metric_record: Dict, sql: str, run_date: str, 
+                          env: str, execution_status: str, partition_dt: str) -> Dict:
+        """
+        Build a reconciliation record for a metric
+        
+        Args:
+            metric_record: Original metric record from JSON
+            sql: SQL query string
+            run_date: Run date from CLI
+            env: Environment from CLI
+            execution_status: 'success' or 'failed'
+            partition_dt: Partition date used in SQL
+            
+        Returns:
+            Dictionary containing recon record
+        """
+        try:
+            # Extract source table info from SQL
+            source_dataset, source_table = self.get_source_table_info(sql)
+            
+            # Extract target table info
+            target_table_parts = metric_record['target_table'].split('.')
+            target_dataset = target_table_parts[1] if len(target_table_parts) >= 2 else None
+            target_table = target_table_parts[2] if len(target_table_parts) >= 3 else None
+            
+            # Current timestamp and year
+            current_timestamp = datetime.utcnow()
+            current_year = current_timestamp.year
+            
+            # Status-dependent values
+            is_success = execution_status == 'success'
+            
+            # Build recon record with only required columns
+            recon_record = {
+                'module_id': '101702',  # Column 1 - STRING type
+                'module_type_nm': 'ROWCOUNT/Duplicate check',  # Column 2
+                'source_server_nm': env,  # Column 8
+                'target_server_nm': env,  # Column 14
+                'source_vl': '0',  # Column 15 - STRING type, always 0 per requirements
+                'target_vl': '0' if is_success else '1',  # Column 16 - STRING type, 0 if success, 1 if failed
+                'rcncln_exact_pass_in': 'Passed' if is_success else 'Failed',  # Column 21
+                'latest_source_parttn_dt': partition_dt,  # Column 23
+                'latest_target_parttn_dt': partition_dt,  # Column 24
+                'load_ts': current_timestamp.strftime('%Y-%m-%d %H:%M:%S'),  # Column 25 - STRING type
+                'schdld_dt': datetime.strptime(run_date, '%Y-%m-%d').date(),  # Column 26 - DATE type
+                'source_system_id': metric_record['metric_id'],  # Column 27
+                'schdld_yr': current_year,  # Column 28
+                'Job Name': metric_record['metric_name']  # Column 29 - Note: space in field name
+            }
+            
+            # Add optional columns for completeness (not in required list but good for context)
+            recon_record.update({
+                'source_databs_nm': source_dataset or 'UNKNOWN',  # Column 3
+                'source_table_nm': source_table or 'UNKNOWN',  # Column 4
+                'source_column_nm': 'NA',  # Column 5
+                'source_file_nm': 'NA',  # Column 6
+                'source_contrl_file_nm': 'NA',  # Column 7
+                'target_databs_nm': target_dataset or 'UNKNOWN',  # Column 9
+                'target_table_nm': target_table or 'UNKNOWN',  # Column 10
+                'target_column_nm': 'NA',  # Column 11
+                'target_file_nm': 'NA',  # Column 12
+                'target_contrl_file_nm': 'NA',  # Column 13
+                'clcltn_ds': 'Success' if is_success else 'Failed',  # Column 17
+                'excldd_vl': '0' if is_success else '1',  # Column 18 - STRING type
+                'excldd_reason_tx': 'Metric data was successfully written.' if is_success else 'Metric data was failed written.',  # Column 19
+                'tolnrc_pc': 'NA',  # Column 20
+                'rcncln_tolnrc_pass_in': 'NA'  # Column 22
+            })
+            
+            logger.debug(f"Built recon record for metric {metric_record['metric_id']}: {execution_status}")
+            return recon_record
+            
+        except Exception as e:
+            logger.error(f"Failed to build recon record for metric {metric_record['metric_id']}: {str(e)}")
+            raise MetricsPipelineError(f"Failed to build recon record: {str(e)}")
+    
+    def write_recon_to_bq(self, recon_records: List[Dict], recon_table: str) -> None:
+        """
+        Write reconciliation records to BigQuery recon table
+        
+        Args:
+            recon_records: List of recon records to write
+            recon_table: Target recon table name
+        """
+        try:
+            if not recon_records:
+                logger.info("No recon records to write")
+                return
+            
+            logger.info(f"Writing {len(recon_records)} recon records to {recon_table}")
+            
+            # Define schema for recon table - matching BigQuery DDL exactly
+            recon_schema = StructType([
+                StructField("module_id", StringType(), False),  # REQUIRED STRING
+                StructField("module_type_nm", StringType(), False),  # REQUIRED STRING
+                StructField("source_databs_nm", StringType(), True),  # NULLABLE STRING
+                StructField("source_table_nm", StringType(), True),  # NULLABLE STRING
+                StructField("source_column_nm", StringType(), True),  # NULLABLE STRING
+                StructField("source_file_nm", StringType(), True),  # NULLABLE STRING
+                StructField("source_contrl_file_nm", StringType(), True),  # NULLABLE STRING
+                StructField("source_server_nm", StringType(), False),  # REQUIRED STRING
+                StructField("target_databs_nm", StringType(), True),  # NULLABLE STRING
+                StructField("target_table_nm", StringType(), True),  # NULLABLE STRING
+                StructField("target_column_nm", StringType(), True),  # NULLABLE STRING
+                StructField("target_file_nm", StringType(), True),  # NULLABLE STRING
+                StructField("target_contrl_file_nm", StringType(), True),  # NULLABLE STRING
+                StructField("target_server_nm", StringType(), False),  # REQUIRED STRING
+                StructField("source_vl", StringType(), False),  # REQUIRED STRING
+                StructField("target_vl", StringType(), False),  # REQUIRED STRING
+                StructField("clcltn_ds", StringType(), True),  # NULLABLE STRING
+                StructField("excldd_vl", StringType(), True),  # NULLABLE STRING
+                StructField("excldd_reason_tx", StringType(), True),  # NULLABLE STRING
+                StructField("tolnrc_pc", StringType(), True),  # NULLABLE STRING
+                StructField("rcncln_exact_pass_in", StringType(), False),  # REQUIRED STRING
+                StructField("rcncln_tolnrc_pass_in", StringType(), True),  # NULLABLE STRING
+                StructField("latest_source_parttn_dt", StringType(), False),  # REQUIRED STRING
+                StructField("latest_target_parttn_dt", StringType(), False),  # REQUIRED STRING
+                StructField("load_ts", StringType(), False),  # REQUIRED STRING
+                StructField("schdld_dt", DateType(), False),  # REQUIRED DATE
+                StructField("source_system_id", StringType(), False),  # REQUIRED STRING
+                StructField("schdld_yr", IntegerType(), False),  # REQUIRED INTEGER
+                StructField("Job Name", StringType(), False)  # REQUIRED STRING - Note: space in field name
+            ])
+            
+            # Create DataFrame
+            recon_df = self.spark.createDataFrame(recon_records, recon_schema)
+            
+            # Write to BigQuery
+            recon_df.write \
+                .format("bigquery") \
+                .option("table", recon_table) \
+                .option("writeMethod", "direct") \
+                .mode("append") \
+                .save()
+            
+            logger.info(f"Successfully wrote {len(recon_records)} recon records to {recon_table}")
+            
+        except Exception as e:
+            logger.error(f"Failed to write recon records to BigQuery: {str(e)}")
+            raise MetricsPipelineError(f"Failed to write recon records: {str(e)}")
+    
+    def process_metrics_with_recon(self, json_data: List[Dict], run_date: str, 
+                                  dependencies: List[str], partition_info_table: str,
+                                  env: str, recon_table: str) -> Tuple[Dict[str, DataFrame], List[Dict]]:
+        """
+        Process metrics and create both metric DataFrames and recon records
+        
+        Args:
+            json_data: List of metric definitions
+            run_date: CLI provided run date
+            dependencies: List of dependencies to process
+            partition_info_table: Metadata table name
+            env: Environment name
+            recon_table: Recon table name
+            
+        Returns:
+            Tuple of (metrics DataFrames dict, recon records list)
+        """
+        logger.info(f"Processing metrics with recon for dependencies: {dependencies}")
+        
+        # Check if all dependencies exist
+        self.check_dependencies_exist(json_data, dependencies)
+
+        partition_dt = datetime.now().strftime('%Y-%m-%d')
+        logger.info(f"Using pipeline run date as partition_dt: {partition_dt}")
+        
+        # Filter records by dependency
+        filtered_data = [
+            record for record in json_data 
+            if record['dependency'] in dependencies
+        ]
+        
+        if not filtered_data:
+            raise MetricsPipelineError(
+                f"No records found for dependencies: {dependencies}"
+            )
+        
+        logger.info(f"Found {len(filtered_data)} records to process")
+        
+        # Group records by target_table
+        records_by_table = {}
+        for record in filtered_data:
+            target_table = record['target_table'].strip()
+            if target_table not in records_by_table:
+                records_by_table[target_table] = []
+            records_by_table[target_table].append(record)
+        
+        logger.info(f"Records grouped into {len(records_by_table)} target tables: {list(records_by_table.keys())}")
+        
+        # Process each group and create DataFrames
+        result_dfs = {}
+        all_recon_records = []
+        
+        for target_table, records in records_by_table.items():
+            logger.info(f"Processing {len(records)} metrics for target table: {target_table}")
+            
+            # Process each record for this target table
+            processed_records = []
+            
+            for record in records:
+                execution_status = 'success'
+                sql_with_placeholders = record['sql']
+                
+                try:
+                    # Execute SQL and get results
+                    sql_results = self.execute_sql(
+                        record['sql'], 
+                        run_date, 
+                        partition_info_table,
+                        record['metric_id']
+                    )
+                    
+                    # Build final record with precision preservation
+                    final_record = {
+                        'metric_id': record['metric_id'],
+                        'metric_name': record['metric_name'],
+                        'metric_type': record['metric_type'],
+                        'numerator_value': self.safe_decimal_conversion(sql_results['numerator_value']),
+                        'denominator_value': self.safe_decimal_conversion(sql_results['denominator_value']),
+                        'metric_output': self.safe_decimal_conversion(sql_results['metric_output']),
+                        'business_data_date': sql_results['business_data_date'],
+                        'partition_dt': partition_dt,
+                        'pipeline_execution_ts': datetime.utcnow()
+                    }
+                    
+                    processed_records.append(final_record)
+                    logger.info(f"Successfully processed metric_id: {record['metric_id']} for table: {target_table}")
+                    
+                except Exception as e:
+                    execution_status = 'failed'
+                    logger.error(f"Failed to process metric_id {record['metric_id']} for table {target_table}: {str(e)}")
+                    
+                    # Continue processing other metrics but mark this one as failed
+                    # Don't add to processed_records but still create recon record
+                
+                # Create recon record for this metric (success or failure)
+                try:
+                    # Get the final SQL with placeholders replaced for recon
+                    final_sql = self.replace_sql_placeholders(sql_with_placeholders, run_date, partition_info_table)
+                    
+                    recon_record = self.build_recon_record(
+                        record, 
+                        final_sql, 
+                        run_date, 
+                        env, 
+                        execution_status,
+                        partition_dt
+                    )
+                    all_recon_records.append(recon_record)
+                    
+                    logger.debug(f"Created recon record for metric {record['metric_id']}: {execution_status}")
+                    
+                except Exception as recon_error:
+                    logger.error(f"Failed to create recon record for metric {record['metric_id']}: {str(recon_error)}")
+                    # Don't fail the entire pipeline for recon issues, just log and continue
+            
+            # Create Spark DataFrame for this target table if we have successful records
+            if processed_records:
+                # Define explicit schema with high precision for numeric fields
+                schema = StructType([
+                    StructField("metric_id", StringType(), False),
+                    StructField("metric_name", StringType(), False),
+                    StructField("metric_type", StringType(), False),
+                    StructField("numerator_value", DecimalType(38, 9), True),
+                    StructField("denominator_value", DecimalType(38, 9), True),
+                    StructField("metric_output", DecimalType(38, 9), True),
+                    StructField("business_data_date", StringType(), False),
+                    StructField("partition_dt", StringType(), False),
+                    StructField("pipeline_execution_ts", TimestampType(), False)
+                ])
+                
+                # Create DataFrame with explicit schema
+                df = self.spark.createDataFrame(processed_records, schema)
+                result_dfs[target_table] = df
+                logger.info(f"Created DataFrame for {target_table} with {df.count()} records")
+            else:
+                logger.warning(f"No records processed successfully for target table: {target_table}")
+        
+        logger.info(f"Created {len(all_recon_records)} recon records")
+        
+        return result_dfs, all_recon_records
+
 
 @contextmanager
 def managed_spark_session(app_name: str = "MetricsPipeline"):
@@ -1046,6 +1358,16 @@ def parse_arguments():
         required=True, 
         help='BigQuery table for partition info (project.dataset.table)'
     )
+    parser.add_argument(
+        '--env', 
+        required=True, 
+        help='Environment name (e.g., BLD, PRD, DEV)'
+    )
+    parser.add_argument(
+        '--recon_table', 
+        required=True, 
+        help='BigQuery table for reconciliation data (project.dataset.table)'
+    )
     
     return parser.parse_args()
 
@@ -1081,10 +1403,13 @@ def main():
         logger.info(f"Run Date: {args.run_date}")
         logger.info(f"Dependencies: {dependencies}")
         logger.info(f"Partition Info Table: {args.partition_info_table}")
+        logger.info(f"Environment: {args.env}")
+        logger.info(f"Recon Table: {args.recon_table}")
         logger.info("Pipeline will check for existing metrics and overwrite them if found")
         logger.info("Target tables will be read from JSON configuration")
         logger.info("JSON must contain: metric_id, metric_name, metric_type, sql, dependency, target_table")
         logger.info("SQL placeholders: {currently} = run_date, {partition_info} = partition_dt from metadata table")
+        logger.info("Reconciliation records will be written to recon table for each metric")
         
         # Use managed Spark session
         with managed_spark_session("MetricsPipeline") as spark:
@@ -1101,18 +1426,23 @@ def main():
             logger.info("Step 2: Validating JSON data")
             validated_data = pipeline.validate_json(json_data)
             
-            logger.info("Step 3: Processing metrics")
-            metrics_dfs = pipeline.process_metrics(
+            logger.info("Step 3: Processing metrics and creating recon records")
+            metrics_dfs, recon_records = pipeline.process_metrics_with_recon(
                 validated_data, 
                 args.run_date, 
                 dependencies, 
-                args.partition_info_table
+                args.partition_info_table,
+                args.env,
+                args.recon_table
             )
             
             # Store partition_dt for potential rollback
             partition_dt = datetime.now().strftime('%Y-%m-%d')
             
-            logger.info("Step 4: Aligning schema with BigQuery and writing to tables")
+            logger.info("Step 4: Writing reconciliation records to recon table")
+            pipeline.write_recon_to_bq(recon_records, args.recon_table)
+            
+            logger.info("Step 5: Aligning schema with BigQuery and writing to tables")
             # Process each target table
             for target_table, df in metrics_dfs.items():
                 logger.info(f"Processing target table: {target_table}")
@@ -1143,6 +1473,17 @@ def main():
                     logger.info("All metrics were new (no existing metrics overwritten)")
             else:
                 logger.info("No metrics were processed")
+            
+            # Log recon statistics
+            if recon_records:
+                logger.info(f"Total recon records created: {len(recon_records)}")
+                success_count = sum(1 for r in recon_records if r.get('rcncln_exact_pass_in') == 'Passed')
+                failed_count = len(recon_records) - success_count
+                logger.info(f"Successful metric reconciliations: {success_count}")
+                if failed_count > 0:
+                    logger.info(f"Failed metric reconciliations: {failed_count}")
+            else:
+                logger.info("No recon records were created")
         
     except MetricsPipelineError as e:
         logger.error(f"Pipeline failed: {str(e)}")
