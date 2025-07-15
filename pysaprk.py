@@ -588,7 +588,7 @@ class MetricsPipeline:
         logger.info("Rollback process completed")
     
     def process_metrics(self, json_data: List[Dict], run_date: str, 
-                       dependencies: List[str], partition_info_table: str) -> Dict[str, DataFrame]:
+                       dependencies: List[str], partition_info_table: str) -> Tuple[Dict[str, DataFrame], List[Dict], List[Dict]]:
         """
         Process metrics and create Spark DataFrames grouped by target_table
         
@@ -599,7 +599,7 @@ class MetricsPipeline:
             partition_info_table: Metadata table name
             
         Returns:
-            Dictionary mapping target_table to Spark DataFrame with processed metrics
+            Tuple of (DataFrames dict, successful_metrics list, failed_metrics list)
         """
         logger.info(f"Processing metrics for dependencies: {dependencies}")
         
@@ -634,6 +634,8 @@ class MetricsPipeline:
         
         # Process each group and create DataFrames
         result_dfs = {}
+        successful_metrics = []
+        failed_metrics = []
         
         for target_table, records in records_by_table.items():
             logger.info(f"Processing {len(records)} metrics for target table: {target_table}")
@@ -665,15 +667,16 @@ class MetricsPipeline:
                     }
                     
                     processed_records.append(final_record)
+                    successful_metrics.append(record)
                     logger.info(f"Successfully processed metric_id: {record['metric_id']} for table: {target_table}")
                     
                 except Exception as e:
                     logger.error(f"Failed to process metric_id {record['metric_id']} for table {target_table}: {str(e)}")
-                    raise MetricsPipelineError(
-                        f"Failed to process metric_id {record['metric_id']} for table {target_table}: {str(e)}"
-                    )
+                    failed_metrics.append(record)
+                    # Continue processing other metrics instead of failing the entire pipeline
+                    continue
             
-            # Create Spark DataFrame for this target table
+            # Create Spark DataFrame for this target table if we have successful records
             if processed_records:
                 # Define explicit schema with high precision for numeric fields
                 schema = StructType([
@@ -693,12 +696,15 @@ class MetricsPipeline:
                 result_dfs[target_table] = df
                 logger.info(f"Created DataFrame for {target_table} with {df.count()} records")
             else:
-                logger.warning(f"No records processed for target table: {target_table}")
+                logger.warning(f"No records processed successfully for target table: {target_table}")
         
-        if not result_dfs:
-            raise MetricsPipelineError("No records were successfully processed for any target table")
+        # Log summary of processing results
+        logger.info(f"Processing complete: {len(successful_metrics)} successful, {len(failed_metrics)} failed")
         
-        return result_dfs
+        if failed_metrics:
+            logger.warning(f"Failed metrics: {[m['metric_id'] for m in failed_metrics]}")
+        
+        return result_dfs, successful_metrics, failed_metrics
     
     def get_bq_table_schema(self, table_name: str) -> List[bigquery.SchemaField]:
         """
@@ -1054,17 +1060,17 @@ class MetricsPipeline:
             
             # Build recon record with only required columns
             recon_record = {
-                'module_id': '101702',  # Column 1 - STRING type
-                'module_type_nm': 'ROWCOUNT/Duplicate check',  # Column 2
+                'module_id': '103',  # Column 1 - STRING type
+                'module_type_nm': 'Metrics',  # Column 2
                 'source_server_nm': env,  # Column 8
                 'target_server_nm': env,  # Column 14
                 'source_vl': '0',  # Column 15 - STRING type, always 0 per requirements
                 'target_vl': '0' if is_success else '1',  # Column 16 - STRING type, 0 if success, 1 if failed
                 'rcncln_exact_pass_in': 'Passed' if is_success else 'Failed',  # Column 21
-                'latest_source_parttn_dt': partition_dt,  # Column 23
-                'latest_target_parttn_dt': partition_dt,  # Column 24
+                'latest_source_parttn_dt': datetime.strptime(run_date, '%Y-%m-%d').date(),  # Column 23
+                'latest_target_parttn_dt': datetime.strptime(run_date, '%Y-%m-%d').date(),  # Column 24
                 'load_ts': current_timestamp.strftime('%Y-%m-%d %H:%M:%S'),  # Column 25 - STRING type
-                'schdld_dt': datetime.strptime(run_date, '%Y-%m-%d').date(),  # Column 26 - DATE type
+                'schdld_dt': partition_dt,  # Column 26 - DATE type
                 'source_system_id': metric_record['metric_id'],  # Column 27
                 'schdld_yr': current_year,  # Column 28
                 'Job_Name': metric_record['metric_name']  # Column 29 - Note: space in field name
@@ -1497,7 +1503,7 @@ def main():
             validated_data = pipeline.validate_json(json_data)
             
             logger.info("Step 3: Processing metrics")
-            metrics_dfs = pipeline.process_metrics(
+            metrics_dfs, successful_execution_metrics, failed_execution_metrics = pipeline.process_metrics(
                 validated_data, 
                 args.run_date, 
                 dependencies, 
@@ -1511,32 +1517,44 @@ def main():
             successful_writes = {}
             failed_writes = {}
             
-            # Process each target table
-            for target_table, df in metrics_dfs.items():
-                logger.info(f"Processing target table: {target_table}")
-                
-                # Align schema with BigQuery
-                aligned_df = pipeline.align_schema_with_bq(df, target_table)
-                
-                # Show schema and data for debugging
-                logger.info(f"Schema for {target_table}:")
-                aligned_df.printSchema()
-                aligned_df.show(truncate=False)
-                
-                # Write to BigQuery with overwrite capability
-                logger.info(f"Writing to BigQuery table: {target_table}")
-                try:
-                    written_metric_ids = pipeline.write_to_bq_with_overwrite(aligned_df, target_table)
-                    successful_writes[target_table] = written_metric_ids
-                    logger.info(f"Successfully wrote {len(written_metric_ids)} metrics to {target_table}")
-                except Exception as e:
-                    # Get metric IDs that failed to write
-                    failed_metric_ids = [row['metric_id'] for row in aligned_df.select('metric_id').collect()]
-                    failed_writes[target_table] = failed_metric_ids
-                    logger.error(f"Failed to write metrics to {target_table}: {str(e)}")
-                    raise  # Re-raise to trigger rollback
+            # Process each target table that has successfully executed metrics
+            if metrics_dfs:
+                logger.info(f"Found {len(metrics_dfs)} target tables with successful metrics to write")
+                for target_table, df in metrics_dfs.items():
+                    logger.info(f"Processing target table: {target_table}")
+                    
+                    # Align schema with BigQuery
+                    aligned_df = pipeline.align_schema_with_bq(df, target_table)
+                    
+                    # Show schema and data for debugging
+                    logger.info(f"Schema for {target_table}:")
+                    aligned_df.printSchema()
+                    aligned_df.show(truncate=False)
+                    
+                    # Write to BigQuery with overwrite capability
+                    logger.info(f"Writing to BigQuery table: {target_table}")
+                    try:
+                        written_metric_ids = pipeline.write_to_bq_with_overwrite(aligned_df, target_table)
+                        successful_writes[target_table] = written_metric_ids
+                        logger.info(f"Successfully wrote {len(written_metric_ids)} metrics to {target_table}")
+                    except Exception as e:
+                        # Get metric IDs that failed to write
+                        failed_metric_ids = [row['metric_id'] for row in aligned_df.select('metric_id').collect()]
+                        failed_writes[target_table] = failed_metric_ids
+                        logger.error(f"Failed to write metrics to {target_table}: {str(e)}")
+                        # Continue processing other tables instead of failing the entire pipeline
+                        continue
+            else:
+                logger.warning("No metrics were successfully executed, skipping target table writes")
             
-            logger.info("Step 5: Creating and writing reconciliation records based on write results")
+            # Add execution failures to the failed metrics tracking
+            for failed_metric in failed_execution_metrics:
+                target_table = failed_metric['target_table'].strip()
+                if target_table not in failed_writes:
+                    failed_writes[target_table] = []
+                failed_writes[target_table].append(failed_metric['metric_id'])
+            
+            logger.info("Step 5: Creating and writing reconciliation records based on execution and write results")
             recon_records = pipeline.create_recon_records_from_write_results(
                 validated_data,
                 args.run_date,
@@ -1564,6 +1582,12 @@ def main():
             else:
                 logger.info("No metrics were processed")
             
+            # Log execution statistics
+            logger.info(f"Execution results: {len(successful_execution_metrics)} successful, {len(failed_execution_metrics)} failed")
+            
+            if failed_execution_metrics:
+                logger.warning(f"Failed to execute metrics: {[m['metric_id'] for m in failed_execution_metrics]}")
+            
             # Log write statistics
             total_successful = sum(len(metrics) for metrics in successful_writes.values())
             total_failed = sum(len(metrics) for metrics in failed_writes.values())
@@ -1576,7 +1600,7 @@ def main():
                     logger.info(f"  {table}: {len(metrics)} metrics")
             
             if failed_writes:
-                logger.warning("Failed to write metrics by table:")
+                logger.warning("Failed metrics by table (execution + write failures):")
                 for table, metrics in failed_writes.items():
                     logger.warning(f"  {table}: {len(metrics)} metrics")
             

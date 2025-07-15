@@ -69,15 +69,16 @@ The following columns have static values:
 
 ## How It Works
 
-1. **Metric Processing**: Each metric SQL is processed and executed normally
-2. **Metric Table Write**: Processed metrics are written to their respective target tables
+1. **Metric Processing**: Each metric SQL is processed and executed - individual failures don't stop the pipeline
+2. **Metric Table Write**: Successfully processed metrics are written to their respective target tables
 3. **Write Success Tracking**: The pipeline tracks which metrics were successfully written to target tables
-4. **Recon Record Creation**: For each metric, a recon record is created based on actual write success/failure
-5. **Source Table Extraction**: The source table dataset and name are extracted from the SQL query using regex
-6. **Target Table Extraction**: The target table dataset and name are extracted from the JSON `target_table` field
-7. **Status Tracking**: Success/failure status is based on actual write results to target tables
-8. **Timestamp Recording**: Current timestamp and run date are recorded for audit purposes
-9. **Recon Table Write**: All recon records are written to the specified recon table after metric writes
+4. **Resilient Processing**: Failed metrics (execution or write failures) are tracked but don't stop processing of other metrics
+5. **Recon Record Creation**: For each metric, a recon record is created based on actual execution and write success/failure
+6. **Source Table Extraction**: The source table dataset and name are extracted from the SQL query using regex
+7. **Target Table Extraction**: The target table dataset and name are extracted from the JSON `target_table` field
+8. **Status Tracking**: Success/failure status is based on actual execution and write results to target tables
+9. **Timestamp Recording**: Current timestamp and run date are recorded for audit purposes
+10. **Recon Table Write**: All recon records are written to the specified recon table after metric processing
 
 ## Example Usage
 
@@ -94,11 +95,12 @@ python pysaprk.py \
 ## Key Features
 
 - **Write-Based Tracking**: Recon records reflect actual success/failure of writing to target tables
+- **Resilient Processing**: Pipeline continues processing other metrics even if individual metrics fail during execution or writing
 - **Comprehensive Tracking**: Every metric gets a recon record regardless of success/failure
 - **Source Table Detection**: Automatically extracts source table information from SQL queries
 - **Status Mapping**: Maps target table write success/failure to multiple recon fields for different reporting needs
 - **Audit Trail**: Provides complete audit trail with timestamps and execution metadata
-- **Error Resilience**: Continues processing even if individual recon records fail to create
+- **Error Resilience**: Continues processing even if individual metrics or recon records fail
 
 ## Benefits
 

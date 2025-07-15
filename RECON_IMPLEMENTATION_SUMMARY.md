@@ -54,21 +54,22 @@ Each metric processed (successful or failed) generates a recon record with:
 ### 5. Key Features
 
 - **Write-Based Tracking**: Recon records reflect actual success/failure of writing to target tables
+- **Resilient Processing**: Pipeline continues processing other metrics even if individual metrics fail during execution or writing
 - **Comprehensive Tracking**: Every metric gets a recon record regardless of outcome
-- **Error Resilience**: Continues processing even if individual recon records fail
+- **Error Resilience**: Continues processing even if individual metrics or recon records fail
 - **Automatic Extraction**: Automatically extracts source table info from SQL
-- **Status Mapping**: Maps write success/failure to multiple recon fields
+- **Status Mapping**: Maps execution and write success/failure to multiple recon fields
 - **Audit Trail**: Complete audit trail with timestamps and metadata
 
 ### 6. Updated Pipeline Flow
 
 1. Read and validate JSON from GCS
-2. Process metrics (SQL execution and calculation)
-3. **Write metric results to target tables** ← FIRST
-4. **Track successful and failed writes** ← NEW STEP
-5. **Create recon records based on write success** ← NEW STEP
+2. **Process metrics with resilient execution** ← Individual failures don't stop pipeline
+3. **Write successful metrics to target tables** ← FIRST
+4. **Track execution and write success/failures** ← NEW STEP
+5. **Create recon records based on actual results** ← NEW STEP
 6. **Write recon records to recon table** ← FINAL STEP
-7. Complete with comprehensive logging
+7. Complete with comprehensive logging (even if some metrics failed)
 
 ### 7. Example Usage
 
@@ -96,8 +97,20 @@ The implementation has been tested and verified to:
 
 - **Complete Audit Trail**: Every metric processing event is recorded
 - **Failure Tracking**: Detailed context for troubleshooting failed metrics
+- **Resilient Processing**: Pipeline continues even if individual metrics fail
 - **Compliance**: Meets audit and reconciliation requirements
 - **Monitoring**: Enables pipeline health monitoring and reporting
 - **No Schema Mismatches**: Direct write to BigQuery without data type issues
+- **Improved Reliability**: Partial successes are captured instead of complete pipeline failures
 
-The recon functionality is now fully integrated into your metrics pipeline and ready for production use! 
+## Resilient Processing Behavior
+
+The pipeline now handles failures gracefully:
+
+- **Individual Metric Failures**: If a metric fails during SQL execution, the pipeline continues processing other metrics
+- **Individual Table Write Failures**: If writing to one target table fails, the pipeline continues with other tables
+- **Comprehensive Recon Records**: Failed metrics get proper recon records marked as "Failed"
+- **Partial Success Handling**: Pipeline completes successfully even if some metrics fail
+- **Detailed Failure Tracking**: All execution and write failures are logged and tracked
+
+The recon functionality is now fully integrated into your metrics pipeline with resilient processing and ready for production use! 
