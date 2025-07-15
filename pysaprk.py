@@ -600,6 +600,7 @@ class MetricsPipeline:
             
         Returns:
             Tuple of (DataFrames dict, successful_metrics list, failed_metrics list)
+            Note: failed_metrics list contains dictionaries with 'metric_record' and 'error_message' keys
         """
         logger.info(f"Processing metrics for dependencies: {dependencies}")
         
@@ -671,8 +672,13 @@ class MetricsPipeline:
                     logger.info(f"Successfully processed metric_id: {record['metric_id']} for table: {target_table}")
                     
                 except Exception as e:
-                    logger.error(f"Failed to process metric_id {record['metric_id']} for table {target_table}: {str(e)}")
-                    failed_metrics.append(record)
+                    error_message = str(e)
+                    logger.error(f"Failed to process metric_id {record['metric_id']} for table {target_table}: {error_message}")
+                    # Store both the record and the error message
+                    failed_metrics.append({
+                        'metric_record': record,
+                        'error_message': error_message
+                    })
                     # Continue processing other metrics instead of failing the entire pipeline
                     continue
             
@@ -702,7 +708,7 @@ class MetricsPipeline:
         logger.info(f"Processing complete: {len(successful_metrics)} successful, {len(failed_metrics)} failed")
         
         if failed_metrics:
-            logger.warning(f"Failed metrics: {[m['metric_id'] for m in failed_metrics]}")
+            logger.warning(f"Failed metrics: {[fm['metric_record']['metric_id'] for fm in failed_metrics]}")
         
         return result_dfs, successful_metrics, failed_metrics
     
@@ -889,7 +895,7 @@ class MetricsPipeline:
             logger.error(f"Failed to delete existing metrics: {str(e)}")
             raise MetricsPipelineError(f"Failed to delete existing metrics: {str(e)}")
     
-    def write_to_bq_with_overwrite(self, df: DataFrame, target_table: str) -> List[str]:
+    def write_to_bq_with_overwrite(self, df: DataFrame, target_table: str) -> Tuple[List[str], List[Dict]]:
         """
         Write DataFrame to BigQuery table with overwrite capability for existing metrics
         
@@ -898,7 +904,8 @@ class MetricsPipeline:
             target_table: Target BigQuery table
             
         Returns:
-            List of metric IDs that were successfully written
+            Tuple of (successful_metric_ids list, failed_metrics list)
+            Note: failed_metrics list contains dictionaries with 'metric_id' and 'error_message' keys
         """
         try:
             logger.info(f"Writing DataFrame to BigQuery table with overwrite: {target_table}")
@@ -911,7 +918,7 @@ class MetricsPipeline:
             
             if not metric_records:
                 logger.warning("No records to process")
-                return []
+                return [], []
             
             # Get partition date (assuming all records have the same partition_dt)
             partition_dt = metric_records[0]['partition_dt']
@@ -949,11 +956,22 @@ class MetricsPipeline:
             logger.info(f"Successfully wrote {df.count()} records to {target_table}")
             logger.info(f"Summary: {len(existing_metrics)} overwritten, {len(new_metrics)} new metrics")
             
-            return metric_ids
+            return metric_ids, []
             
         except Exception as e:
-            logger.error(f"Failed to write to BigQuery with overwrite: {str(e)}")
-            raise MetricsPipelineError(f"Failed to write to BigQuery with overwrite: {str(e)}")
+            error_message = str(e)
+            logger.error(f"Failed to write to BigQuery with overwrite: {error_message}")
+            
+            # Return all metric IDs as failed with the error message
+            failed_metrics = []
+            metric_records = df.select('metric_id').distinct().collect()
+            for row in metric_records:
+                failed_metrics.append({
+                    'metric_id': row['metric_id'],
+                    'error_message': error_message
+                })
+            
+            return [], failed_metrics
     
     def rollback_all_processed_metrics(self, partition_dt: str) -> None:
         """
@@ -1027,7 +1045,8 @@ class MetricsPipeline:
             return None, None
     
     def build_recon_record(self, metric_record: Dict, sql: str, run_date: str, 
-                          env: str, execution_status: str, partition_dt: str) -> Dict:
+                          env: str, execution_status: str, partition_dt: str, 
+                          error_message: Optional[str] = None) -> Dict:
         """
         Build a reconciliation record for a metric
         
@@ -1038,6 +1057,7 @@ class MetricsPipeline:
             env: Environment from CLI
             execution_status: 'success' or 'failed'
             partition_dt: Partition date used in SQL
+            error_message: Optional error message if metric failed
             
         Returns:
             Dictionary containing recon record
@@ -1057,6 +1077,19 @@ class MetricsPipeline:
             
             # Status-dependent values
             is_success = execution_status == 'success'
+            
+            # Build detailed error message for failed metrics
+            if is_success:
+                exclusion_reason = 'Metric data was successfully written.'
+            else:
+                exclusion_reason = 'Metric data was failed written.'
+                if error_message:
+                    # Clean up the error message for better readability
+                    clean_error = error_message.replace('\n', ' ').replace('\r', ' ').strip()
+                    # Limit error message length to prevent excessively long recon records
+                    if len(clean_error) > 500:
+                        clean_error = clean_error[:497] + '...'
+                    exclusion_reason += f' Error: {clean_error}'
             
             # Build recon record with only required columns
             recon_record = {
@@ -1090,7 +1123,7 @@ class MetricsPipeline:
                 'target_contrl_file_nm': 'NA',  # Column 13
                 'clcltn_ds': 'Success' if is_success else 'Failed',  # Column 17
                 'excldd_vl': '0' if is_success else '1',  # Column 18 - STRING type
-                'excldd_reason_tx': 'Metric data was successfully written.' if is_success else 'Metric data was failed written.',  # Column 19
+                'excldd_reason_tx': exclusion_reason,  # Column 19 - Enhanced with error details
                 'tolrnc_pc': 'NA',  # Column 20
                 'rcncln_tolrnc_pass_in': 'NA'  # Column 22
             })
@@ -1167,154 +1200,16 @@ class MetricsPipeline:
             logger.error(f"Failed to write recon records to BigQuery: {str(e)}")
             raise MetricsPipelineError(f"Failed to write recon records: {str(e)}")
     
-    def process_metrics_with_recon(self, json_data: List[Dict], run_date: str, 
-                                  dependencies: List[str], partition_info_table: str,
-                                  env: str, recon_table: str) -> Tuple[Dict[str, DataFrame], List[Dict]]:
-        """
-        Process metrics and create both metric DataFrames and recon records
-        
-        Args:
-            json_data: List of metric definitions
-            run_date: CLI provided run date
-            dependencies: List of dependencies to process
-            partition_info_table: Metadata table name
-            env: Environment name
-            recon_table: Recon table name
-            
-        Returns:
-            Tuple of (metrics DataFrames dict, recon records list)
-        """
-        logger.info(f"Processing metrics with recon for dependencies: {dependencies}")
-        
-        # Check if all dependencies exist
-        self.check_dependencies_exist(json_data, dependencies)
 
-        partition_dt = datetime.now().strftime('%Y-%m-%d')
-        logger.info(f"Using pipeline run date as partition_dt: {partition_dt}")
-        
-        # Filter records by dependency
-        filtered_data = [
-            record for record in json_data 
-            if record['dependency'] in dependencies
-        ]
-        
-        if not filtered_data:
-            raise MetricsPipelineError(
-                f"No records found for dependencies: {dependencies}"
-            )
-        
-        logger.info(f"Found {len(filtered_data)} records to process")
-        
-        # Group records by target_table
-        records_by_table = {}
-        for record in filtered_data:
-            target_table = record['target_table'].strip()
-            if target_table not in records_by_table:
-                records_by_table[target_table] = []
-            records_by_table[target_table].append(record)
-        
-        logger.info(f"Records grouped into {len(records_by_table)} target tables: {list(records_by_table.keys())}")
-        
-        # Process each group and create DataFrames
-        result_dfs = {}
-        all_recon_records = []
-        
-        for target_table, records in records_by_table.items():
-            logger.info(f"Processing {len(records)} metrics for target table: {target_table}")
-            
-            # Process each record for this target table
-            processed_records = []
-            
-            for record in records:
-                execution_status = 'success'
-                sql_with_placeholders = record['sql']
-                
-                try:
-                    # Execute SQL and get results
-                    sql_results = self.execute_sql(
-                        record['sql'], 
-                        run_date, 
-                        partition_info_table,
-                        record['metric_id']
-                    )
-                    
-                    # Build final record with precision preservation
-                    final_record = {
-                        'metric_id': record['metric_id'],
-                        'metric_name': record['metric_name'],
-                        'metric_type': record['metric_type'],
-                        'numerator_value': self.safe_decimal_conversion(sql_results['numerator_value']),
-                        'denominator_value': self.safe_decimal_conversion(sql_results['denominator_value']),
-                        'metric_output': self.safe_decimal_conversion(sql_results['metric_output']),
-                        'business_data_date': sql_results['business_data_date'],
-                        'partition_dt': partition_dt,
-                        'pipeline_execution_ts': datetime.utcnow()
-                    }
-                    
-                    processed_records.append(final_record)
-                    logger.info(f"Successfully processed metric_id: {record['metric_id']} for table: {target_table}")
-                    
-                except Exception as e:
-                    execution_status = 'failed'
-                    logger.error(f"Failed to process metric_id {record['metric_id']} for table {target_table}: {str(e)}")
-                    
-                    # Continue processing other metrics but mark this one as failed
-                    # Don't add to processed_records but still create recon record
-                
-                # Create recon record for this metric (success or failure)
-                try:
-                    # Get the final SQL with placeholders replaced for recon
-                    final_sql = self.replace_sql_placeholders(sql_with_placeholders, run_date, partition_info_table)
-                    
-                    recon_record = self.build_recon_record(
-                        record, 
-                        final_sql, 
-                        run_date, 
-                        env, 
-                        execution_status,
-                        partition_dt
-                    )
-                    all_recon_records.append(recon_record)
-                    
-                    logger.debug(f"Created recon record for metric {record['metric_id']}: {execution_status}")
-                    
-                except Exception as recon_error:
-                    logger.error(f"Failed to create recon record for metric {record['metric_id']}: {str(recon_error)}")
-                    # Don't fail the entire pipeline for recon issues, just log and continue
-            
-            # Create Spark DataFrame for this target table if we have successful records
-            if processed_records:
-                # Define explicit schema with high precision for numeric fields
-                schema = StructType([
-                    StructField("metric_id", StringType(), False),
-                    StructField("metric_name", StringType(), False),
-                    StructField("metric_type", StringType(), False),
-                    StructField("numerator_value", DecimalType(38, 9), True),
-                    StructField("denominator_value", DecimalType(38, 9), True),
-                    StructField("metric_output", DecimalType(38, 9), True),
-                    StructField("business_data_date", StringType(), False),
-                    StructField("partition_dt", StringType(), False),
-                    StructField("pipeline_execution_ts", TimestampType(), False)
-                ])
-                
-                # Create DataFrame with explicit schema
-                df = self.spark.createDataFrame(processed_records, schema)
-                result_dfs[target_table] = df
-                logger.info(f"Created DataFrame for {target_table} with {df.count()} records")
-            else:
-                logger.warning(f"No records processed successfully for target table: {target_table}")
-        
-        logger.info(f"Created {len(all_recon_records)} recon records")
-        
-        return result_dfs, all_recon_records
     
     def create_recon_records_from_write_results(self, json_data: List[Dict], run_date: str, 
                                               dependencies: List[str], partition_info_table: str,
                                               env: str, successful_writes: Dict[str, List[str]],
-                                              failed_writes: Dict[str, List[str]], 
+                                              failed_execution_metrics: List[Dict], 
+                                              failed_write_metrics: Dict[str, List[Dict]],
                                               partition_dt: str) -> List[Dict]:
         """
-        Create recon records based on actual write success/failure to target tables
+        Create recon records based on execution results and write success/failure to target tables
         
         Args:
             json_data: List of metric definitions
@@ -1323,13 +1218,14 @@ class MetricsPipeline:
             partition_info_table: Metadata table name
             env: Environment name
             successful_writes: Dict mapping target_table to list of successfully written metric IDs
-            failed_writes: Dict mapping target_table to list of failed metric IDs
+            failed_execution_metrics: List of dicts with 'metric_record' and 'error_message' keys
+            failed_write_metrics: Dict mapping target_table to list of failed write metrics with error messages
             partition_dt: Partition date used
             
         Returns:
             List of recon records
         """
-        logger.info("Creating recon records based on write results")
+        logger.info("Creating recon records based on execution and write results")
         
         # Filter records by dependency
         filtered_data = [
@@ -1337,16 +1233,41 @@ class MetricsPipeline:
             if record['dependency'] in dependencies
         ]
         
+        # Create lookup dictionaries for failed metrics and their error messages
+        failed_execution_lookup = {}
+        for failed_metric in failed_execution_metrics:
+            metric_id = failed_metric['metric_record']['metric_id']
+            failed_execution_lookup[metric_id] = failed_metric['error_message']
+        
+        failed_write_lookup = {}
+        for target_table, failed_metrics in failed_write_metrics.items():
+            for failed_metric in failed_metrics:
+                metric_id = failed_metric['metric_id']
+                failed_write_lookup[metric_id] = failed_metric['error_message']
+        
         all_recon_records = []
         
         for record in filtered_data:
             metric_id = record['metric_id']
             target_table = record['target_table'].strip()
             
-            # Determine if this metric was successfully written
+            # Determine status and error message
             is_success = False
+            error_message = None
+            
+            # Check if metric was successfully written
             if target_table in successful_writes and metric_id in successful_writes[target_table]:
                 is_success = True
+            else:
+                # Check if it failed during execution
+                if metric_id in failed_execution_lookup:
+                    error_message = failed_execution_lookup[metric_id]
+                # Check if it failed during write
+                elif metric_id in failed_write_lookup:
+                    error_message = failed_write_lookup[metric_id]
+                else:
+                    # Unknown failure - should not happen but handle gracefully
+                    error_message = "Unknown failure occurred during processing"
             
             execution_status = 'success' if is_success else 'failed'
             
@@ -1360,7 +1281,8 @@ class MetricsPipeline:
                     run_date, 
                     env, 
                     execution_status,
-                    partition_dt
+                    partition_dt,
+                    error_message
                 )
                 all_recon_records.append(recon_record)
                 
@@ -1370,7 +1292,7 @@ class MetricsPipeline:
                 logger.error(f"Failed to create recon record for metric {metric_id}: {str(recon_error)}")
                 # Continue processing other metrics
         
-        logger.info(f"Created {len(all_recon_records)} recon records based on write results")
+        logger.info(f"Created {len(all_recon_records)} recon records based on execution and write results")
         return all_recon_records
 
 
@@ -1485,7 +1407,7 @@ def main():
         logger.info("Target tables will be read from JSON configuration")
         logger.info("JSON must contain: metric_id, metric_name, metric_type, sql, dependency, target_table")
         logger.info("SQL placeholders: {currently} = run_date, {partition_info} = partition_dt from metadata table")
-        logger.info("Reconciliation records will be written to recon table for each metric")
+        logger.info("Reconciliation records will be written to recon table for each metric with detailed error messages")
         
         # Use managed Spark session
         with managed_spark_session("MetricsPipeline") as spark:
@@ -1515,7 +1437,7 @@ def main():
             
             logger.info("Step 4: Writing metrics to target tables")
             successful_writes = {}
-            failed_writes = {}
+            failed_write_metrics = {}
             
             # Process each target table that has successfully executed metrics
             if metrics_dfs:
@@ -1533,26 +1455,17 @@ def main():
                     
                     # Write to BigQuery with overwrite capability
                     logger.info(f"Writing to BigQuery table: {target_table}")
-                    try:
-                        written_metric_ids = pipeline.write_to_bq_with_overwrite(aligned_df, target_table)
+                    written_metric_ids, failed_metrics_for_table = pipeline.write_to_bq_with_overwrite(aligned_df, target_table)
+                    
+                    if written_metric_ids:
                         successful_writes[target_table] = written_metric_ids
                         logger.info(f"Successfully wrote {len(written_metric_ids)} metrics to {target_table}")
-                    except Exception as e:
-                        # Get metric IDs that failed to write
-                        failed_metric_ids = [row['metric_id'] for row in aligned_df.select('metric_id').collect()]
-                        failed_writes[target_table] = failed_metric_ids
-                        logger.error(f"Failed to write metrics to {target_table}: {str(e)}")
-                        # Continue processing other tables instead of failing the entire pipeline
-                        continue
+                    
+                    if failed_metrics_for_table:
+                        failed_write_metrics[target_table] = failed_metrics_for_table
+                        logger.error(f"Failed to write {len(failed_metrics_for_table)} metrics to {target_table}")
             else:
                 logger.warning("No metrics were successfully executed, skipping target table writes")
-            
-            # Add execution failures to the failed metrics tracking
-            for failed_metric in failed_execution_metrics:
-                target_table = failed_metric['target_table'].strip()
-                if target_table not in failed_writes:
-                    failed_writes[target_table] = []
-                failed_writes[target_table].append(failed_metric['metric_id'])
             
             logger.info("Step 5: Creating and writing reconciliation records based on execution and write results")
             recon_records = pipeline.create_recon_records_from_write_results(
@@ -1562,7 +1475,8 @@ def main():
                 args.partition_info_table,
                 args.env,
                 successful_writes,
-                failed_writes,
+                failed_execution_metrics,
+                failed_write_metrics,
                 partition_dt
             )
             
@@ -1586,23 +1500,28 @@ def main():
             logger.info(f"Execution results: {len(successful_execution_metrics)} successful, {len(failed_execution_metrics)} failed")
             
             if failed_execution_metrics:
-                logger.warning(f"Failed to execute metrics: {[m['metric_id'] for m in failed_execution_metrics]}")
+                logger.warning(f"Failed to execute metrics: {[fm['metric_record']['metric_id'] for fm in failed_execution_metrics]}")
             
             # Log write statistics
             total_successful = sum(len(metrics) for metrics in successful_writes.values())
-            total_failed = sum(len(metrics) for metrics in failed_writes.values())
+            total_failed_writes = sum(len(metrics) for metrics in failed_write_metrics.values())
             
-            logger.info(f"Write results: {total_successful} successful, {total_failed} failed")
+            logger.info(f"Write results: {total_successful} successful, {total_failed_writes} failed")
             
             if successful_writes:
                 logger.info("Successfully written metrics by table:")
                 for table, metrics in successful_writes.items():
                     logger.info(f"  {table}: {len(metrics)} metrics")
             
-            if failed_writes:
-                logger.warning("Failed metrics by table (execution + write failures):")
-                for table, metrics in failed_writes.items():
+            if failed_write_metrics:
+                logger.warning("Failed write metrics by table:")
+                for table, metrics in failed_write_metrics.items():
                     logger.warning(f"  {table}: {len(metrics)} metrics")
+            
+            if failed_execution_metrics:
+                logger.warning("Failed execution metrics:")
+                for failed_metric in failed_execution_metrics:
+                    logger.warning(f"  {failed_metric['metric_record']['metric_id']}: {failed_metric['error_message']}")
             
             # Log recon statistics
             if recon_records:
