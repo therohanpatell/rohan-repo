@@ -34,10 +34,11 @@ def parse_tables_from_sql(sql: str) -> List[Tuple[str, str]]:
     matches = re.findall(pattern, sql)
 
     if matches:
-        # Return dataset and table name for each match
+        # Return project_dataset and table name for each match
         tables = []
         for project, dataset, table in matches:
-            tables.append((dataset, table))
+            project_dataset = f"{project}.{dataset}"
+            tables.append((project_dataset, table))
         return tables
 
     return []
