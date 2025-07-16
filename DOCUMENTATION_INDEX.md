@@ -1,91 +1,71 @@
-# Documentation Index for Metrics Pipeline Edge Cases
+# Documentation Index
 
-## Created Files
+## 📖 Metrics Pipeline Framework Documentation
 
-### 1. **EDGE_CASES_AND_EXPECTED_OUTPUTS.md**
-**Purpose**: Comprehensive documentation of all edge cases and expected outputs  
-**Content**: Detailed analysis of 14 categories of edge cases including:
-- SQL syntax and structure issues
-- Data access and permissions problems
-- Data validation failures
-- Network and connectivity issues
-- Configuration problems
-- Write operation failures
-- And more...
+### Core Framework Documentation
+- **[Team Documentation README](TEAM_DOCUMENTATION_README.md)** - Start here! Overview and navigation guide
+- **[Comprehensive Framework Documentation](METRICS_PIPELINE_FRAMEWORK_DOCUMENTATION.md)** - Complete guide with architecture, setup, and examples
+- **[Quick Reference Guide](METRICS_PIPELINE_QUICK_REFERENCE.md)** - Cheat sheet for daily operations
+- **[Framework Code](pysaprk.py)** - Main implementation file
 
-### 2. **EDGE_CASES_QUICK_REFERENCE.md**
-**Purpose**: Quick reference guide for common edge cases  
-**Content**: 
-- Summarized table of edge cases with expected logs and recon records
-- Pipeline success scenarios
-- Monitoring commands
-- Troubleshooting steps
-- Performance considerations
+### Specialized Documentation
+- **[Recon Functionality](RECON_FUNCTIONALITY.md)** - Reconciliation system details
+- **[Recon Implementation Summary](RECON_IMPLEMENTATION_SUMMARY.md)** - Implementation overview
+- **[Quote Handling Guide](QUOTE_HANDLING_GUIDE.md)** - SQL quote normalization details
 
-### 3. **EDGE_CASES_SUMMARY.md**
-**Purpose**: Concise summary of key edge cases and expected behavior  
-**Content**:
-- Key edge case categories
-- Expected code outputs for different scenarios
-- Recon record states
-- Common error messages
-- Resilient processing behavior
-- Monitoring and troubleshooting guidance
+### Testing and Quality Assurance
+- **[Comprehensive Edge Case Tests](COMPREHENSIVE_EDGE_CASE_TESTS.md)** - Complete test documentation
+- **[Edge Case Testing Summary](EDGE_CASE_TESTING_SUMMARY.md)** - Testing approach overview
+- **[Edge Cases Quick Reference](EDGE_CASES_QUICK_REFERENCE.md)** - Quick lookup for edge cases
+- **[Edge Case Test Examples](EDGE_CASE_TEST_EXAMPLES.md)** - Specific test examples
+- **[Edge Case Tracking Table](EDGE_CASE_TEST_TRACKING_TABLE.md)** - Test status tracking
 
-## How to Use These Files
+### Additional Resources
+- **[Bug Fixes Summary](bug_fixes_summary.md)** - Recent fixes and improvements
+- **[General Documentation](doc.md)** - Additional project documentation
+- **[Test Documentation](Test.md)** - Testing procedures
+- **[README](README.md)** - Project overview
 
-### For Development and Testing
-- Use **EDGE_CASES_AND_EXPECTED_OUTPUTS.md** for comprehensive understanding
-- Reference **EDGE_CASES_QUICK_REFERENCE.md** for quick lookups during development
-- Use **EDGE_CASES_SUMMARY.md** for overview and training
+## 🚀 Getting Started
 
-### For Production Monitoring
-- Use monitoring commands from **EDGE_CASES_QUICK_REFERENCE.md**
-- Reference BigQuery queries from **EDGE_CASES_SUMMARY.md**
-- Follow troubleshooting steps from any of the documents
+### For New Team Members
+1. **Start with:** [Team Documentation README](TEAM_DOCUMENTATION_README.md)
+2. **Read next:** [Comprehensive Framework Documentation](METRICS_PIPELINE_FRAMEWORK_DOCUMENTATION.md)
+3. **Keep handy:** [Quick Reference Guide](METRICS_PIPELINE_QUICK_REFERENCE.md)
+4. **For testing:** [Edge Case Testing Summary](EDGE_CASE_TESTING_SUMMARY.md)
 
-### For Issue Resolution
-- Check **EDGE_CASES_QUICK_REFERENCE.md** table for quick diagnosis
-- Use **EDGE_CASES_SUMMARY.md** for common error patterns
-- Refer to **EDGE_CASES_AND_EXPECTED_OUTPUTS.md** for detailed analysis
+### For Daily Operations
+1. **Quick lookup:** [Quick Reference Guide](METRICS_PIPELINE_QUICK_REFERENCE.md)
+2. **Common issues:** [Comprehensive Framework Documentation](METRICS_PIPELINE_FRAMEWORK_DOCUMENTATION.md#troubleshooting)
+3. **SQL issues:** [Quote Handling Guide](QUOTE_HANDLING_GUIDE.md)
 
-## Key Insights from Edge Case Analysis
+### For Advanced Users
+1. **Architecture:** [Comprehensive Framework Documentation](METRICS_PIPELINE_FRAMEWORK_DOCUMENTATION.md#architecture)
+2. **Testing:** [Comprehensive Edge Case Tests](COMPREHENSIVE_EDGE_CASE_TESTS.md)
+3. **Code details:** [Framework Code](pysaprk.py)
 
-### Most Common Failures
-1. **SQL execution errors** (syntax, permissions, missing tables)
-2. **Configuration issues** (invalid JSON, missing dependencies)
-3. **Data validation failures** (invalid denominators, missing required fields)
-4. **Write operation failures** (target table issues, schema mismatches)
+## 📋 Document Categories
 
-### Resilient Processing Benefits
-- Pipeline continues even when individual metrics fail
-- Partial successes are captured and recorded
-- Comprehensive recon records for all metrics
-- Detailed logging for troubleshooting
-- Production-ready error handling
+### 📖 User Documentation
+- Team Documentation README
+- Comprehensive Framework Documentation
+- Quick Reference Guide
 
-### Expected Behavior Summary
-- **Individual failures**: Logged as errors, marked as failed in recon, pipeline continues
-- **Configuration failures**: Pipeline stops before processing
-- **Write failures**: Marked as failed in recon, other tables continue processing
-- **Partial success**: Pipeline completes successfully with mixed results
+### 🔧 Technical Documentation
+- Framework Code
+- Recon Functionality
+- Quote Handling Guide
 
-## Monitoring Strategy
+### 🧪 Testing Documentation
+- Comprehensive Edge Case Tests
+- Edge Case Testing Summary
+- Edge Case Test Examples
 
-### Key Metrics to Track
-- Overall failure rate
-- Per-metric failure patterns
-- Target table write success rates
-- Recon record success distribution
+### 📊 Reference Documentation
+- Edge Cases Quick Reference
+- Edge Case Tracking Table
+- Bug Fixes Summary
 
-### Alert Configuration
-- Critical: >50% failure rate
-- Warning: >20% failure rate
-- Info: Consistent individual metric failures
+---
 
-### Regular Checks
-- Daily failure rate review
-- Weekly recon record analysis
-- Monthly performance optimization review
-
-These documents provide comprehensive coverage of edge cases and expected outputs for your metrics pipeline with resilient processing capabilities. 
+*This index provides a comprehensive overview of all documentation available for the Metrics Pipeline Framework. Choose the appropriate document based on your current needs and experience level.* 
