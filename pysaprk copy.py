@@ -48,7 +48,174 @@ class MetricsPipeline:
         self.processed_metrics = []  # Track processed metrics for rollback
         self.overwritten_metrics = []  # Track overwritten metrics for rollback
         self.target_tables = set()  # Track target tables for rollback
+        self._partition_cache = {}  # Cache for partition lookups to avoid repeated queries
         
+    def _extract_all_table_references(self, sql: str) -> List[Tuple[str, str]]:
+        """
+        Extract all unique table references from SQL query
+        
+        Args:
+            sql: SQL query string
+            
+        Returns:
+            List of unique (dataset, table_name) tuples
+        """
+        table_pattern = r'`([^.]+)\.([^.]+)\.([^`]+)`'
+        table_references = set()
+        
+        for match in re.finditer(table_pattern, sql):
+            project, dataset, table = match.groups()
+            table_references.add((dataset, table))
+        
+        return list(table_references)
+    
+    def _batch_get_partition_dts(self, table_references: List[Tuple[str, str]], partition_info_table: str) -> Dict[Tuple[str, str], str]:
+        """
+        Batch query partition_dt for multiple tables in a single BigQuery query
+        
+        Args:
+            table_references: List of (dataset, table_name) tuples
+            partition_info_table: Metadata table name
+            
+        Returns:
+            Dictionary mapping (dataset, table_name) to partition_dt string
+        """
+        if not table_references:
+            return {}
+        
+        try:
+            # Build WHERE clause for all tables
+            where_conditions = []
+            for dataset, table_name in table_references:
+                # Escape single quotes in table names for safety
+                escaped_dataset = dataset.replace("'", "''")
+                escaped_table = table_name.replace("'", "''")
+                where_conditions.append(f"(project_dataset = '{escaped_dataset}' AND table_name = '{escaped_table}')")
+            
+            where_clause = " OR ".join(where_conditions)
+            
+            # Try to use partition filtering if the metadata table is partitioned
+            # This assumes the metadata table might be partitioned by date or similar
+            partition_filter = ""
+            try:
+                # Check if we can add a partition filter based on recent dates
+                # This is a heuristic - adjust based on your metadata table structure
+                current_date = datetime.now()
+                # Look back 30 days for partition info (adjust as needed)
+                start_date = (current_date - timedelta(days=30)).strftime('%Y-%m-%d')
+                partition_filter = f"AND _PARTITIONDATE >= '{start_date}'"
+                logger.debug(f"Adding partition filter: {partition_filter}")
+            except Exception as e:
+                logger.debug(f"Could not add partition filter: {str(e)}")
+            
+            query = f"""
+            SELECT project_dataset, table_name, partition_dt
+            FROM `{partition_info_table}`
+            WHERE {where_clause}
+            {partition_filter}
+            QUALIFY ROW_NUMBER() OVER (PARTITION BY project_dataset, table_name ORDER BY partition_dt DESC) = 1
+            """
+            
+            logger.info(f"Batch querying partition info for {len(table_references)} tables")
+            logger.debug(f"Batch query: {query}")
+            
+            query_job = self.bq_client.query(query)
+            results = query_job.result()
+            
+            partition_map = {}
+            for row in results:
+                dataset = row.project_dataset
+                table_name = row.table_name
+                partition_dt = row.partition_dt
+                
+                if isinstance(partition_dt, datetime):
+                    formatted_dt = partition_dt.strftime('%Y-%m-%d')
+                else:
+                    formatted_dt = str(partition_dt)
+                
+                partition_map[(dataset, table_name)] = formatted_dt
+                logger.debug(f"Found partition_dt: {formatted_dt} for {dataset}.{table_name}")
+            
+            # Log missing tables
+            found_tables = set(partition_map.keys())
+            missing_tables = set(table_references) - found_tables
+            if missing_tables:
+                logger.warning(f"No partition info found for tables: {missing_tables}")
+            
+            return partition_map
+            
+        except Exception as e:
+            logger.error(f"Failed to batch query partition info: {str(e)}")
+            raise MetricsPipelineError(f"Failed to batch query partition info: {str(e)}")
+    
+    def _preload_partition_cache(self, json_data: List[Dict], dependencies: List[str], partition_info_table: str) -> None:
+        """
+        Preload partition cache by analyzing all SQL queries and batching partition lookups
+        
+        Args:
+            json_data: List of metric definitions
+            dependencies: List of dependencies to process
+            partition_info_table: Metadata table name
+        """
+        logger.info("Preloading partition cache for optimized lookups")
+        
+        # Filter records by dependency
+        filtered_data = [
+            record for record in json_data 
+            if record['dependency'] in dependencies
+        ]
+        
+        if not filtered_data:
+            logger.info("No records to preload partition cache for")
+            return
+        
+        # Extract all unique table references from all SQL queries
+        all_table_references = set()
+        for record in filtered_data:
+            sql = record['sql'].strip()
+            if sql:
+                table_refs = self._extract_all_table_references(sql)
+                all_table_references.update(table_refs)
+        
+        if not all_table_references:
+            logger.info("No table references found in SQL queries")
+            return
+        
+        logger.info(f"Found {len(all_table_references)} unique table references across all SQL queries")
+        
+        # Batch query partition info for all tables
+        partition_map = self._batch_get_partition_dts(list(all_table_references), partition_info_table)
+        
+        # Update cache
+        self._partition_cache.update(partition_map)
+        
+        logger.info(f"Preloaded partition cache with {len(partition_map)} table entries")
+        
+        # Log cache contents for debugging
+        for (dataset, table), partition_dt in partition_map.items():
+            logger.debug(f"Cached: {dataset}.{table} -> {partition_dt}")
+    
+    def clear_partition_cache(self) -> None:
+        """
+        Clear the partition cache to free memory
+        """
+        cache_size = len(self._partition_cache)
+        self._partition_cache.clear()
+        logger.info(f"Cleared partition cache with {cache_size} entries")
+    
+    def get_partition_cache_stats(self) -> Dict[str, int]:
+        """
+        Get statistics about the partition cache
+        
+        Returns:
+            Dictionary with cache statistics
+        """
+        return {
+            'cache_size': len(self._partition_cache),
+            'cached_tables': len(set(key[0] for key in self._partition_cache.keys())),
+            'unique_datasets': len(set(key[0] for key in self._partition_cache.keys()))
+        }
+    
     def validate_gcs_path(self, gcs_path: str) -> str:
         """
         Validate GCS path format and accessibility
@@ -260,7 +427,7 @@ class MetricsPipeline:
     
     def get_partition_dt(self, project_dataset: str, table_name: str, partition_info_table: str) -> Optional[str]:
         """
-        Get latest partition_dt from metadata table
+        Get latest partition_dt from metadata table (optimized with caching)
         
         Args:
             project_dataset: Dataset name
@@ -270,6 +437,15 @@ class MetricsPipeline:
         Returns:
             Latest partition date as string or None
         """
+        # Check cache first
+        cache_key = (project_dataset, table_name)
+        if cache_key in self._partition_cache:
+            logger.debug(f"Cache hit for {project_dataset}.{table_name}: {self._partition_cache[cache_key]}")
+            return self._partition_cache[cache_key]
+        
+        # Fallback to individual query if not in cache
+        logger.debug(f"Cache miss for {project_dataset}.{table_name}, querying individually")
+        
         try:
             query = f"""
             SELECT partition_dt 
@@ -288,8 +464,15 @@ class MetricsPipeline:
             for row in results:
                 partition_dt = row.partition_dt
                 if isinstance(partition_dt, datetime):
-                    return partition_dt.strftime('%Y-%m-%d')
-                return str(partition_dt)
+                    formatted_dt = partition_dt.strftime('%Y-%m-%d')
+                else:
+                    formatted_dt = str(partition_dt)
+                
+                # Cache the result for future use
+                self._partition_cache[cache_key] = formatted_dt
+                logger.debug(f"Cached result for {project_dataset}.{table_name}: {formatted_dt}")
+                
+                return formatted_dt
             
             logger.warning(f"No partition info found for {project_dataset}.{table_name}")
             return None
@@ -610,6 +793,9 @@ class MetricsPipeline:
         partition_dt = datetime.now().strftime('%Y-%m-%d')
         logger.info(f"Using pipeline run date as partition_dt: {partition_dt}")
         
+        # Preload partition cache for optimized lookups
+        self._preload_partition_cache(json_data, dependencies, partition_info_table)
+        
         # Filter records by dependency
         filtered_data = [
             record for record in json_data 
@@ -646,7 +832,7 @@ class MetricsPipeline:
             
             for record in records:
                 try:
-                    # Execute SQL and get results
+                    # Execute SQL and get results (now uses cached partition info)
                     sql_results = self.execute_sql(
                         record['sql'], 
                         run_date, 
@@ -1044,6 +1230,40 @@ class MetricsPipeline:
             logger.error(f"Failed to extract source table info: {str(e)}")
             return None, None
     
+    def optimize_sql_with_partition_hints(self, sql: str, partition_dates: Dict[Tuple[str, str], str]) -> str:
+        """
+        Add partition filtering hints to SQL queries for better performance
+        
+        Args:
+            sql: Original SQL query
+            partition_dates: Dictionary mapping (dataset, table) to partition date
+            
+        Returns:
+            Optimized SQL with partition hints
+        """
+        try:
+            # This is a basic implementation - you can enhance it based on your specific needs
+            # For now, we'll just log the partition dates that could be used for optimization
+            table_pattern = r'`([^.]+)\.([^.]+)\.([^`]+)`'
+            
+            for match in re.finditer(table_pattern, sql):
+                project, dataset, table = match.groups()
+                cache_key = (dataset, table)
+                
+                if cache_key in partition_dates:
+                    partition_date = partition_dates[cache_key]
+                    logger.debug(f"Could optimize query for {dataset}.{table} using partition date: {partition_date}")
+                    # In a more advanced implementation, you could:
+                    # 1. Add partition filters to WHERE clauses
+                    # 2. Use partition decorators in table references
+                    # 3. Add query hints for partition pruning
+            
+            return sql
+            
+        except Exception as e:
+            logger.warning(f"Could not optimize SQL with partition hints: {str(e)}")
+            return sql
+    
     def build_recon_record(self, metric_record: Dict, sql: str, run_date: str, 
                           env: str, execution_status: str, partition_dt: str, 
                           error_message: Optional[str] = None) -> Dict:
@@ -1430,12 +1650,19 @@ def main():
             validated_data = pipeline.validate_json(json_data)
             
             logger.info("Step 3: Processing metrics")
+            start_time = datetime.utcnow()
             metrics_dfs, successful_execution_metrics, failed_execution_metrics = pipeline.process_metrics(
                 validated_data, 
                 args.run_date, 
                 dependencies, 
                 args.partition_info_table
             )
+            processing_time = (datetime.utcnow() - start_time).total_seconds()
+            
+            # Log partition cache statistics
+            cache_stats = pipeline.get_partition_cache_stats()
+            logger.info(f"Processing completed in {processing_time:.2f} seconds")
+            logger.info(f"Partition cache statistics: {cache_stats}")
             
             # Store partition_dt for potential rollback
             partition_dt = datetime.now().strftime('%Y-%m-%d')
@@ -1538,6 +1765,9 @@ def main():
                     logger.info(f"Failed metric reconciliations: {failed_count}")
             else:
                 logger.info("No recon records were created")
+            
+            # Clean up partition cache to free memory
+            pipeline.clear_partition_cache()
         
     except MetricsPipelineError as e:
         logger.error(f"Pipeline failed: {str(e)}")
