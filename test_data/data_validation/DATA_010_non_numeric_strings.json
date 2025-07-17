@@ -1,0 +1,13 @@
+[
+  {
+    "metric_id": "DATA_010",
+    "metric_name": "Non-Numeric Strings",
+    "metric_type": "Count",
+    "metric_description": "Test with non-numeric string values",
+    "sql": "SELECT 'abc' AS metric_output, 'def' AS numerator_value, 'ghi' AS denominator_value, CURRENT_DATE() AS business_data_date FROM `test-project.test_dataset.employees` WHERE date = '{currently}'",
+    "dependency": "Employee_Details_Latest",
+    "frequency": "Daily",
+    "modified_date": "2024-01-15",
+    "target_table": "test-project.test_dataset.metrics_table"
+  }
+] 

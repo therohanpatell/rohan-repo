@@ -1,0 +1,24 @@
+[
+  {
+    "metric_id": "BQ_013_1",
+    "metric_name": "Multiple Tables 1",
+    "metric_type": "Count",
+    "metric_description": "Test write to multiple target tables - table 1",
+    "sql": "SELECT COUNT(*) AS metric_output, COUNT(*) AS numerator_value, 1 AS denominator_value, CURRENT_DATE() AS business_data_date FROM `test-project.test_dataset.employees` WHERE date = '{currently}'",
+    "dependency": "Employee_Details_Latest",
+    "frequency": "Daily",
+    "modified_date": "2024-01-15",
+    "target_table": "test-project.test_dataset.metrics_table_1"
+  },
+  {
+    "metric_id": "BQ_013_2",
+    "metric_name": "Multiple Tables 2",
+    "metric_type": "Count",
+    "metric_description": "Test write to multiple target tables - table 2",
+    "sql": "SELECT COUNT(*) AS metric_output, COUNT(*) AS numerator_value, 1 AS denominator_value, CURRENT_DATE() AS business_data_date FROM `test-project.test_dataset.employees` WHERE date = '{currently}'",
+    "dependency": "Employee_Details_Latest",
+    "frequency": "Daily",
+    "modified_date": "2024-01-15",
+    "target_table": "test-project.test_dataset.metrics_table_2"
+  }
+] 

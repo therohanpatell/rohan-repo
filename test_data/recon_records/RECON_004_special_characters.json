@@ -1,0 +1,13 @@
+[
+  {
+    "metric_id": "RECON_004",
+    "metric_name": "Special Characters in Error",
+    "metric_type": "Count",
+    "metric_description": "Test error with special characters",
+    "sql": "SELECT COUNT(*) AS metric_output, COUNT(*) AS numerator_value, 0 AS denominator_value, CURRENT_DATE() AS business_data_date FROM `test-project.test_dataset.employees` WHERE date = '{currently}' AND metric_name LIKE '%@#$%^&*()_+-=[]{}|;:,.<>?%'",
+    "dependency": "Employee_Details_Latest",
+    "frequency": "Daily",
+    "modified_date": "2024-01-15",
+    "target_table": "test-project.test_dataset.metrics_table"
+  }
+] 

@@ -1,0 +1,13 @@
+[
+  {
+    "metric_id": "SQL_010",
+    "metric_name": "Query Timeout",
+    "metric_type": "Count",
+    "metric_description": "Test SQL that would timeout",
+    "sql": "WITH RECURSIVE cte AS (SELECT 1 as n UNION ALL SELECT n + 1 FROM cte WHERE n < 1000000) SELECT COUNT(*) AS metric_output, COUNT(*) AS numerator_value, 1 AS denominator_value, CURRENT_DATE() AS business_data_date FROM cte WHERE n = '{currently}'",
+    "dependency": "Employee_Details_Latest",
+    "frequency": "Daily",
+    "modified_date": "2024-01-15",
+    "target_table": "test-project.test_dataset.metrics_table"
+  }
+] 

@@ -1,0 +1,13 @@
+[
+  {
+    "metric_id": "BQ_012",
+    "metric_name": "Schema Alignment",
+    "metric_type": "Count",
+    "metric_description": "Test DataFrame with different column order",
+    "sql": "SELECT CURRENT_DATE() AS business_data_date, COUNT(*) AS metric_output, COUNT(*) AS numerator_value, 1 AS denominator_value FROM `test-project.test_dataset.employees` WHERE date = '{currently}'",
+    "dependency": "Employee_Details_Latest",
+    "frequency": "Daily",
+    "modified_date": "2024-01-15",
+    "target_table": "test-project.test_dataset.metrics_table"
+  }
+] 

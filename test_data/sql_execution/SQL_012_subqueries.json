@@ -1,0 +1,13 @@
+[
+  {
+    "metric_id": "SQL_012",
+    "metric_name": "Subqueries",
+    "metric_type": "Count",
+    "metric_description": "Test SQL with nested subqueries",
+    "sql": "SELECT COUNT(*) AS metric_output, COUNT(*) AS numerator_value, 1 AS denominator_value, CURRENT_DATE() AS business_data_date FROM `test-project.test_dataset.employees` WHERE dept_id IN (SELECT dept_id FROM `test-project.test_dataset.departments` WHERE active = true) AND date = '{currently}'",
+    "dependency": "Employee_Details_Latest",
+    "frequency": "Daily",
+    "modified_date": "2024-01-15",
+    "target_table": "test-project.test_dataset.metrics_table"
+  }
+] 

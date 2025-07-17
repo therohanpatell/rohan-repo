@@ -1,0 +1,13 @@
+[
+  {
+    "metric_id": "DATA_013",
+    "metric_name": "Zero Numerator",
+    "metric_type": "Percentage",
+    "metric_description": "Test with zero numerator value",
+    "sql": "SELECT 0 AS numerator_value, 100 AS denominator_value, 0.0 AS metric_output, CURRENT_DATE() AS business_data_date FROM `test-project.test_dataset.employees` WHERE date = '{currently}'",
+    "dependency": "Employee_Details_Latest",
+    "frequency": "Daily",
+    "modified_date": "2024-01-15",
+    "target_table": "test-project.test_dataset.metrics_table"
+  }
+] 

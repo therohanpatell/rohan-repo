@@ -1,0 +1,13 @@
+[
+  {
+    "metric_id": "TEST_001",
+    "metric_name": "Employee Headcount",
+    "metric_type": "Count",
+    "metric_description": "Count of all reportable permanent employees",
+    "dependency": "Employee_Details_Latest",
+    "frequency": "Daily",
+    "modified_date": "2024-01-15",
+    "partition_mode": "currently",
+    "target_table": "test-project.test_dataset.metrics_table"
+  }
+] 

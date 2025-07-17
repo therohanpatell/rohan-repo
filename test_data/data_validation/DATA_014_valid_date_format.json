@@ -1,0 +1,13 @@
+[
+  {
+    "metric_id": "DATA_014",
+    "metric_name": "Valid Date Format",
+    "metric_type": "Count",
+    "metric_description": "Test with valid date format",
+    "sql": "SELECT COUNT(*) AS metric_output, COUNT(*) AS numerator_value, 1 AS denominator_value, '2024-01-15' AS business_data_date FROM `test-project.test_dataset.employees` WHERE date = '{currently}'",
+    "dependency": "Employee_Details_Latest",
+    "frequency": "Daily",
+    "modified_date": "2024-01-15",
+    "target_table": "test-project.test_dataset.metrics_table"
+  }
+] 

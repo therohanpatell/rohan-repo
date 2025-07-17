@@ -1,0 +1,13 @@
+[
+  {
+    "metric_id": "SQL_002",
+    "metric_name": "SQL Syntax Error",
+    "metric_type": "Count",
+    "metric_description": "Test SQL with syntax error",
+    "sql": "SELECT COUNT( FROM `test-project.test_dataset.employees` WHERE date = '{currently}'",
+    "dependency": "Employee_Details_Latest",
+    "frequency": "Daily",
+    "modified_date": "2024-01-15",
+    "target_table": "test-project.test_dataset.metrics_table"
+  }
+] 
