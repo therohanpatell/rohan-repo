@@ -41,7 +41,22 @@ class MetricsPipelineError(Exception):
 class MetricsPipeline:
     """Main pipeline class for processing metrics"""
     
-    def __init__(self, spark: SparkSession, bq_client: bigquery.Client):
+    # Default column configuration - can be overridden
+    DEFAULT_COLUMN_CONFIG = {
+        'metric_output': 'metric_output',
+        'numerator_value': 'numerator_value', 
+        'denominator_value': 'denominator_value',
+        'business_data_date': 'business_data_date'
+    }
+    
+    # Column types for validation and processing
+    COLUMN_TYPES = {
+        'numeric_columns': ['metric_output', 'numerator_value', 'denominator_value'],
+        'date_columns': ['business_data_date'],
+        'required_columns': ['business_data_date']  # Columns that must be present
+    }
+    
+    def __init__(self, spark: SparkSession, bq_client: bigquery.Client, column_config: Optional[Dict[str, str]] = None):
         self.spark = spark
         self.bq_client = bq_client
         self.execution_id = str(uuid.uuid4())
@@ -49,6 +64,86 @@ class MetricsPipeline:
         self.overwritten_metrics = []  # Track overwritten metrics for rollback
         self.target_tables = set()  # Track target tables for rollback
         self._partition_cache = {}  # Cache for partition lookups to avoid repeated queries
+        
+        # Set column configuration (use provided config or default)
+        self.column_config = column_config or self.DEFAULT_COLUMN_CONFIG.copy()
+        
+        # Create reverse mapping for easy lookup
+        self.column_config_reverse = {v: k for k, v in self.column_config.items()}
+        
+        # Update column types with new column names
+        self._update_column_types()
+        
+        logger.info(f"Initialized MetricsPipeline with column config: {self.column_config}")
+    
+    def _update_column_types(self):
+        """Update column types with current column configuration"""
+        # Update numeric columns
+        self.numeric_columns = [
+            self.column_config.get(col, col) 
+            for col in self.COLUMN_TYPES['numeric_columns']
+        ]
+        
+        # Update date columns  
+        self.date_columns = [
+            self.column_config.get(col, col)
+            for col in self.COLUMN_TYPES['date_columns']
+        ]
+        
+        # Update required columns
+        self.required_columns = [
+            self.column_config.get(col, col)
+            for col in self.COLUMN_TYPES['required_columns']
+        ]
+    
+    def update_column_config(self, new_config: Dict[str, str]) -> None:
+        """
+        Update column configuration at runtime
+        
+        Args:
+            new_config: New column configuration mapping
+        """
+        self.column_config.update(new_config)
+        self.column_config_reverse = {v: k for k, v in self.column_config.items()}
+        self._update_column_types()
+        logger.info(f"Updated column config: {self.column_config}")
+    
+    def add_column_mapping(self, internal_name: str, sql_column_name: str) -> None:
+        """
+        Add a new column mapping
+        
+        Args:
+            internal_name: Internal name used in the pipeline
+            sql_column_name: Column name expected in SQL results
+        """
+        self.column_config[internal_name] = sql_column_name
+        self.column_config_reverse[sql_column_name] = internal_name
+        self._update_column_types()
+        logger.info(f"Added column mapping: {internal_name} -> {sql_column_name}")
+    
+    def get_sql_column_name(self, internal_name: str) -> str:
+        """
+        Get SQL column name from internal name
+        
+        Args:
+            internal_name: Internal column name
+            
+        Returns:
+            SQL column name
+        """
+        return self.column_config.get(internal_name, internal_name)
+    
+    def get_internal_name(self, sql_column_name: str) -> str:
+        """
+        Get internal name from SQL column name
+        
+        Args:
+            sql_column_name: SQL column name
+            
+        Returns:
+            Internal column name
+        """
+        return self.column_config_reverse.get(sql_column_name, sql_column_name)
         
     def _extract_all_table_references(self, sql: str) -> List[Tuple[str, str]]:
         """
@@ -645,43 +740,43 @@ class MetricsPipeline:
             query_job = self.bq_client.query(final_sql)
             results = query_job.result()
             
-            # Process results
-            result_dict = {
-                'metric_output': None,
-                'numerator_value': None,
-                'denominator_value': None,
-                'business_data_date': None
-            }
+            # Process results using generic column configuration
+            result_dict = {}
+            
+            # Initialize result dict with all configured columns
+            for internal_name in self.column_config.keys():
+                result_dict[internal_name] = None
             
             for row in results:
                 # Convert row to dictionary
                 row_dict = dict(row)
                 
                 # Map columns to result dictionary with precision preservation
-                for key in result_dict.keys():
-                    if key in row_dict:
-                        value = row_dict[key]
+                for internal_name, sql_column_name in self.column_config.items():
+                    if sql_column_name in row_dict:
+                        value = row_dict[sql_column_name]
                         # Normalize numeric values to preserve precision
-                        if key in ['metric_output', 'numerator_value', 'denominator_value']:
-                            result_dict[key] = self.normalize_numeric_value(value)
+                        if internal_name in self.numeric_columns:
+                            result_dict[internal_name] = self.normalize_numeric_value(value)
                         else:
-                            result_dict[key] = value
+                            result_dict[internal_name] = value
                 
                 break  # Take first row only
             
-            # Validate denominator_value is not zero
-            if result_dict['denominator_value'] is not None:
+            # Validate denominator_value is not zero (if present)
+            denominator_key = self.get_internal_name('denominator_value')
+            if denominator_key in result_dict and result_dict[denominator_key] is not None:
                 try:
-                    denominator_decimal = self.safe_decimal_conversion(result_dict['denominator_value'])
+                    denominator_decimal = self.safe_decimal_conversion(result_dict[denominator_key])
                     if denominator_decimal is not None:
                         if denominator_decimal == 0:
-                            error_msg = f"Invalid denominator value: denominator_value is 0. Cannot calculate metrics with zero denominator."
+                            error_msg = f"Invalid denominator value: {denominator_key} is 0. Cannot calculate metrics with zero denominator."
                             if metric_id:
                                 error_msg = f"Metric '{metric_id}': {error_msg}"
                             logger.error(error_msg)
                             raise MetricsPipelineError(error_msg)
                         elif denominator_decimal < 0:
-                            error_msg = f"Invalid denominator value: denominator_value is negative ({denominator_decimal}). Negative denominators are not allowed."
+                            error_msg = f"Invalid denominator value: {denominator_key} is negative ({denominator_decimal}). Negative denominators are not allowed."
                             if metric_id:
                                 error_msg = f"Metric '{metric_id}': {error_msg}"
                             logger.error(error_msg)
@@ -694,12 +789,19 @@ class MetricsPipeline:
                             logger.warning(warning_msg)
                 except (ValueError, TypeError):
                     # If we can't convert to decimal, log warning but continue
-                    logger.warning(f"Could not validate denominator_value: {result_dict['denominator_value']}")
+                    logger.warning(f"Could not validate {denominator_key}: {result_dict[denominator_key]}")
             
-            if result_dict['business_data_date'] is not None:
-                result_dict['business_data_date'] = result_dict['business_data_date'].strftime('%Y-%m-%d')
-            else:
-                raise MetricsPipelineError("business_data_date is required but was not returned by the SQL query")
+            # Validate required columns
+            for required_col in self.required_columns:
+                if result_dict.get(required_col) is not None:
+                    # Format date columns
+                    if required_col in self.date_columns:
+                        if hasattr(result_dict[required_col], 'strftime'):
+                            result_dict[required_col] = result_dict[required_col].strftime('%Y-%m-%d')
+                        else:
+                            result_dict[required_col] = str(result_dict[required_col])
+                else:
+                    raise MetricsPipelineError(f"{required_col} is required but was not returned by the SQL query")
             
             return result_dict
             
@@ -840,18 +942,24 @@ class MetricsPipeline:
                         record['metric_id'] # Pass metric_id for error reporting
                     )
                     
-                    # Build final record with precision preservation
+                    # Build final record with precision preservation using generic column config
                     final_record = {
                         'metric_id': record['metric_id'],
                         'metric_name': record['metric_name'],
                         'metric_type': record['metric_type'],
-                        'numerator_value': self.safe_decimal_conversion(sql_results['numerator_value']),
-                        'denominator_value': self.safe_decimal_conversion(sql_results['denominator_value']),
-                        'metric_output': self.safe_decimal_conversion(sql_results['metric_output']),
-                        'business_data_date': sql_results['business_data_date'],
                         'partition_dt': partition_dt,
                         'pipeline_execution_ts': datetime.utcnow()
                     }
+                    
+                    # Add all configured columns from SQL results
+                    for internal_name in self.column_config.keys():
+                        if internal_name in sql_results:
+                            value = sql_results[internal_name]
+                            # Apply precision preservation for numeric columns
+                            if internal_name in self.numeric_columns:
+                                final_record[internal_name] = self.safe_decimal_conversion(value)
+                            else:
+                                final_record[internal_name] = value
                     
                     processed_records.append(final_record)
                     successful_metrics.append(record)
@@ -870,18 +978,29 @@ class MetricsPipeline:
             
             # Create Spark DataFrame for this target table if we have successful records
             if processed_records:
-                # Define explicit schema with high precision for numeric fields
-                schema = StructType([
+                # Define dynamic schema based on column configuration
+                schema_fields = [
                     StructField("metric_id", StringType(), False),
                     StructField("metric_name", StringType(), False),
-                    StructField("metric_type", StringType(), False),
-                    StructField("numerator_value", DecimalType(38, 9), True),
-                    StructField("denominator_value", DecimalType(38, 9), True),
-                    StructField("metric_output", DecimalType(38, 9), True),
-                    StructField("business_data_date", StringType(), False),
+                    StructField("metric_type", StringType(), False)
+                ]
+                
+                # Add configured columns with appropriate types
+                for internal_name in self.column_config.keys():
+                    if internal_name in self.numeric_columns:
+                        schema_fields.append(StructField(internal_name, DecimalType(38, 9), True))
+                    elif internal_name in self.date_columns:
+                        schema_fields.append(StructField(internal_name, StringType(), False))
+                    else:
+                        schema_fields.append(StructField(internal_name, StringType(), True))
+                
+                # Add standard pipeline columns
+                schema_fields.extend([
                     StructField("partition_dt", StringType(), False),
                     StructField("pipeline_execution_ts", TimestampType(), False)
                 ])
+                
+                schema = StructType(schema_fields)
                 
                 # Create DataFrame with explicit schema
                 df = self.spark.createDataFrame(processed_records, schema)
@@ -1641,6 +1760,10 @@ def main():
             
             # Initialize pipeline
             pipeline = MetricsPipeline(spark, bq_client)
+            
+            # Log column configuration after pipeline initialization
+            logger.info(f"Using column configuration: {pipeline.column_config}")
+            logger.info("SQL queries must return columns: " + ", ".join(pipeline.column_config.values()))
             
             # Execute pipeline steps
             logger.info("Step 1: Reading JSON from GCS")
