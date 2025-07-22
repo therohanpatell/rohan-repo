@@ -368,6 +368,9 @@ class MetricsPipeline:
             
         Returns:
             String representation of the number or None
+            
+        Raises:
+            MetricsPipelineError: If value is too large to be represented as a Decimal.
         """
         if value is None:
             return None
@@ -394,7 +397,9 @@ class MetricsPipeline:
                 decimal_val = Decimal(str(value))
                 return str(decimal_val)
                 
-        except (ValueError, TypeError, OverflowError, Exception) as e:
+        except OverflowError:
+            raise MetricsPipelineError(f"Numeric value {value} is out of range for Decimal type.")
+        except (ValueError, TypeError, Exception) as e:
             logger.warning(f"Could not normalize numeric value: {value}, error: {e}")
             return None
     
@@ -407,13 +412,18 @@ class MetricsPipeline:
             
         Returns:
             Decimal value or None
+            
+        Raises:
+            MetricsPipelineError: If value is too large to be represented as a Decimal.
         """
         if value is None:
             return None
         
         try:
             return Decimal(value)
-        except (ValueError, TypeError, OverflowError):
+        except OverflowError:
+            raise MetricsPipelineError(f"Numeric value {value} is out of range for Decimal type.")
+        except (ValueError, TypeError):
             logger.warning(f"Could not convert to Decimal: {value}")
             return None
     
