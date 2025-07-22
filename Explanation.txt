@@ -61,6 +61,32 @@ partition_mode: "partition_info" → Valid
 Record 3:
 
 partition_mode: "currently" → Valid
+
+from google.api_core.exceptions import DeadlineExceeded
+
+def execute_sql(self, sql: str, run_date: str, partition_info_table: str, metric_id: Optional[str] = None) -> Dict:
+    """Execute SQL query with a 10-minute timeout."""
+    try:
+        final_sql = self.replace_sql_placeholders(sql, run_date, partition_info_table)
+        query_job = self.bq_client.query(final_sql)
+
+        # Wait for the results with an explicit timeout of 10 minutes (600 seconds)
+        results = query_job.result(timeout=600)
+
+        # ... (rest of your processing logic) ...
+
+        return result_dict
+
+    except (DeadlineExceeded, TimeoutError):
+        # Catch the specific timeout error from the client library
+        error_msg = f"Query for metric '{metric_id}' timed out after 10 minutes."
+        logger.error(error_msg)
+        raise MetricsPipelineError(error_msg)
+
+    except Exception as e:
+        error_msg = f"Failed to execute SQL for metric '{metric_id}': {str(e)}"
+        logger.error(error_msg)
+        raise MetricsPipelineError(error_msg)
 Record 4:
 
 partition_mode: "currently|partition_info" → Split into ["currently", "partition_info"] → Both valid
