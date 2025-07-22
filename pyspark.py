@@ -657,70 +657,83 @@ class MetricsPipeline:
         failed_metrics = []
 
         for target_table, records in records_by_table.items():
-            logger.info(f"Processing {len(records)} metrics for target table: {target_table}")
+            try:
+                logger.info(f"Processing {len(records)} metrics for target table: {target_table}")
+                processed_records = []
+                for record in records:
+                    try:
+                        # Execute SQL and get results
+                        sql_results = self.execute_sql(
+                            record['sql'],
+                            run_date,
+                            partition_info_table,
+                            record['metric_id'] # Pass metric_id for error reporting
+                        )
 
-            # Process each record for this target table
-            processed_records = []
+                        # Build final record with precision preservation
+                        final_record = {
+                            'metric_id': record['metric_id'],
+                            'metric_name': record['metric_name'],
+                            'metric_type': record['metric_type'],
+                            'numerator_value': self.safe_decimal_conversion(sql_results['numerator_value']),
+                            'denominator_value': self.safe_decimal_conversion(sql_results['denominator_value']),
+                            'metric_output': self.safe_decimal_conversion(sql_results['metric_output']),
+                            'business_data_date': sql_results['business_data_date'],
+                            'partition_dt': partition_dt,
+                            'pipeline_execution_ts': datetime.utcnow()
+                        }
 
-            for record in records:
-                try:
-                    # Execute SQL and get results
-                    sql_results = self.execute_sql(
-                        record['sql'],
-                        run_date,
-                        partition_info_table,
-                        record['metric_id'] # Pass metric_id for error reporting
-                    )
+                        processed_records.append(final_record)
+                        successful_metrics.append(record)
+                        logger.info(f"Successfully processed metric_id: {record['metric_id']} for table: {target_table}")
 
-                    # Build final record with precision preservation
-                    final_record = {
-                        'metric_id': record['metric_id'],
-                        'metric_name': record['metric_name'],
-                        'metric_type': record['metric_type'],
-                        'numerator_value': self.safe_decimal_conversion(sql_results['numerator_value']),
-                        'denominator_value': self.safe_decimal_conversion(sql_results['denominator_value']),
-                        'metric_output': self.safe_decimal_conversion(sql_results['metric_output']),
-                        'business_data_date': sql_results['business_data_date'],
-                        'partition_dt': partition_dt,
-                        'pipeline_execution_ts': datetime.utcnow()
-                    }
+                    except Exception as e:
+                        error_message = str(e)
+                        logger.error(f"Failed to process metric_id {record['metric_id']} for table {target_table}: {error_message}")
+                        # Store both the record and the error message
+                        failed_metrics.append({
+                            'metric_record': record,
+                            'error_message': error_message
+                        })
+                        # Continue processing other metrics instead of failing the entire pipeline
+                        continue
 
-                    processed_records.append(final_record)
-                    successful_metrics.append(record)
-                    logger.info(f"Successfully processed metric_id: {record['metric_id']} for table: {target_table}")
+                # Create Spark DataFrame for this target table if we have successful records
+                if processed_records:
+                    # Define explicit schema with high precision for numeric fields
+                    schema = StructType([
+                        StructField("metric_id", StringType(), False),
+                        StructField("metric_name", StringType(), False),
+                        StructField("metric_type", StringType(), False),
+                        StructField("numerator_value", DecimalType(38, 9), True),
+                        StructField("denominator_value", DecimalType(38, 9), True),
+                        StructField("metric_output", DecimalType(38, 9), True),
+                        StructField("business_data_date", StringType(), False),
+                        StructField("partition_dt", StringType(), False),
+                        StructField("pipeline_execution_ts", TimestampType(), False)
+                    ])
 
-                except Exception as e:
-                    error_message = str(e)
-                    logger.error(f"Failed to process metric_id {record['metric_id']} for table {target_table}: {error_message}")
-                    # Store both the record and the error message
-                    failed_metrics.append({
-                        'metric_record': record,
-                        'error_message': error_message
-                    })
-                    # Continue processing other metrics instead of failing the entire pipeline
-                    continue
+                    # Create DataFrame with explicit schema
+                    df = self.spark.createDataFrame(processed_records, schema)
+                    result_dfs[target_table] = df
+                    logger.info(f"Created DataFrame for {target_table} with {df.count()} records")
+                else:
+                    logger.warning(f"No records processed successfully for target table: {target_table}")
 
-            # Create Spark DataFrame for this target table if we have successful records
-            if processed_records:
-                # Define explicit schema with high precision for numeric fields
-                schema = StructType([
-                    StructField("metric_id", StringType(), False),
-                    StructField("metric_name", StringType(), False),
-                    StructField("metric_type", StringType(), False),
-                    StructField("numerator_value", DecimalType(38, 9), True),
-                    StructField("denominator_value", DecimalType(38, 9), True),
-                    StructField("metric_output", DecimalType(38, 9), True),
-                    StructField("business_data_date", StringType(), False),
-                    StructField("partition_dt", StringType(), False),
-                    StructField("pipeline_execution_ts", TimestampType(), False)
-                ])
-
-                # Create DataFrame with explicit schema
-                df = self.spark.createDataFrame(processed_records, schema)
-                result_dfs[target_table] = df
-                logger.info(f"Created DataFrame for {target_table} with {df.count()} records")
-            else:
-                logger.warning(f"No records processed successfully for target table: {target_table}")
+            except Exception as e:
+                # Catch errors from createDataFrame or other logic for this table batch
+                error_message = f"Failed to process batch for target table {target_table}: {str(e)}"
+                logger.error(error_message)
+                # Mark all metrics in this batch as failed
+                for record in records:
+                    # Avoid duplicating metrics that already failed in the inner loop
+                    if not any(fm['metric_record']['metric_id'] == record['metric_id'] for fm in failed_metrics):
+                        failed_metrics.append({
+                            'metric_record': record,
+                            'error_message': error_message
+                        })
+                # Continue to the next target table
+                continue
 
         # Log summary of processing results
         logger.info(f"Processing complete: {len(successful_metrics)} successful, {len(failed_metrics)} failed")
@@ -1477,27 +1490,38 @@ def main():
             if metrics_dfs:
                 logger.info(f"Found {len(metrics_dfs)} target tables with successful metrics to write")
                 for target_table, df in metrics_dfs.items():
-                    logger.info(f"Processing target table: {target_table}")
+                    try:
+                        logger.info(f"Processing target table: {target_table}")
 
-                    # Align schema with BigQuery
-                    aligned_df = pipeline.align_schema_with_bq(df, target_table)
+                        # Align schema with BigQuery
+                        aligned_df = pipeline.align_schema_with_bq(df, target_table)
 
-                    # Show schema and data for debugging
-                    logger.info(f"Schema for {target_table}:")
-                    aligned_df.printSchema()
-                    aligned_df.show(truncate=False)
+                        # Show schema and data for debugging
+                        logger.info(f"Schema for {target_table}:")
+                        aligned_df.printSchema()
+                        aligned_df.show(truncate=False)
 
-                    # Write to BigQuery with overwrite capability
-                    logger.info(f"Writing to BigQuery table: {target_table}")
-                    written_metric_ids, failed_metrics_for_table = pipeline.write_to_bq_with_overwrite(aligned_df, target_table)
+                        # Write to BigQuery with overwrite capability
+                        logger.info(f"Writing to BigQuery table: {target_table}")
+                        written_metric_ids, failed_metrics_for_table = pipeline.write_to_bq_with_overwrite(aligned_df, target_table)
 
-                    if written_metric_ids:
-                        successful_writes[target_table] = written_metric_ids
-                        logger.info(f"Successfully wrote {len(written_metric_ids)} metrics to {target_table}")
+                        if written_metric_ids:
+                            successful_writes[target_table] = written_metric_ids
+                            logger.info(f"Successfully wrote {len(written_metric_ids)} metrics to {target_table}")
 
-                    if failed_metrics_for_table:
-                        failed_write_metrics[target_table] = failed_metrics_for_table
-                        logger.error(f"Failed to write {len(failed_metrics_for_table)} metrics to {target_table}")
+                        if failed_metrics_for_table:
+                            failed_write_metrics[target_table] = failed_metrics_for_table
+                            logger.error(f"Failed to write {len(failed_metrics_for_table)} metrics to {target_table}")
+                    except Exception as e:
+                        # Handle failures during alignment or writing for this specific table
+                        error_message = f"Failed to align or write data for target table {target_table}: {str(e)}"
+                        logger.error(error_message)
+                        # Mark all metrics in this DataFrame as failed writes
+                        metric_ids_in_df = [row['metric_id'] for row in df.select('metric_id').collect()]
+                        failed_write_metrics[target_table] = [
+                            {'metric_id': mid, 'error_message': error_message} for mid in metric_ids_in_df
+                        ]
+                        continue
             else:
                 logger.warning("No metrics were successfully executed, skipping target table writes")
 
