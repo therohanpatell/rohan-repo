@@ -2,506 +2,314 @@
 
 ## 🚀 Quick Start
 
-### Basic Command
-```bash
-python pysaprk.py \
-  --gcs_path "gs://bucket/config.json" \
-  --run_date "2024-01-15" \
-  --dependencies "daily_metrics" \
-  --partition_info_table "project.dataset.partition_info" \
-  --env "PROD" \
-  --recon_table "project.dataset.recon"
+### Basic Usage
+```python
+from pysaprk_copy import MetricsPipeline, managed_spark_session
+from google.cloud import bigquery
+
+with managed_spark_session("MyPipeline") as spark:
+    bq_client = bigquery.Client()
+    pipeline = MetricsPipeline(spark, bq_client)
+    
+    # Process metrics
+    json_data = pipeline.read_json_from_gcs("gs://bucket/config.json")
+    metrics_dfs, successful, failed = pipeline.process_metrics(
+        json_data, "2024-01-15", ["dependency1"], "project.dataset.partition_info"
+    )
 ```
 
-### Command Arguments Cheat Sheet
-| Argument | Example | Description |
-|----------|---------|-------------|
-| `--gcs_path` | `gs://bucket/config.json` | JSON config file location |
-| `--run_date` | `2024-01-15` | Processing date (YYYY-MM-DD) |
-| `--dependencies` | `daily,weekly` | Comma-separated dependency list |
-| `--partition_info_table` | `project.dataset.partition_info` | Partition metadata table |
-| `--env` | `DEV/PROD` | Environment identifier |
-| `--recon_table` | `project.dataset.recon` | Reconciliation audit table |
+### Command Line Execution
+```bash
+python pysaprk_copy.py \
+    --gcs_path gs://bucket/config.json \
+    --run_date 2024-01-15 \
+    --dependencies "dep1,dep2" \
+    --partition_info_table project.dataset.partition_info \
+    --env PRD \
+    --recon_table project.dataset.reconciliation
+```
 
----
+## 📋 JSON Configuration Format
 
-## 📋 JSON Configuration Template
-
-### Minimal Configuration
+### Required Fields
 ```json
 {
-  "metric_id": "UNIQUE_METRIC_ID",
-  "metric_name": "Human Readable Name",
-  "metric_type": "SUM/COUNT/AVG/RATIO",
-  "sql": "SELECT metric_output, numerator_value, denominator_value, business_data_date FROM ...",
+  "metric_id": "unique_identifier",
+  "metric_name": "Human readable name", 
+  "metric_type": "calculation_type",
+  "sql": "SELECT {currently} as business_data_date, ...",
   "dependency": "dependency_group",
   "target_table": "project.dataset.table"
 }
 ```
 
-### Complete Example
-```json
-[
-  {
-    "metric_id": "DAILY_REVENUE_001",
-    "metric_name": "Daily Revenue",
-    "metric_type": "SUM",
-    "sql": "SELECT SUM(amount) as metric_output, COUNT(*) as numerator_value, 1 as denominator_value, '{currently}' as business_data_date FROM `project.dataset.sales` WHERE date = '{currently}'",
-    "dependency": "daily_metrics",
-    "target_table": "project.dataset.daily_output"
-  }
-]
-```
+### SQL Placeholders
+- `{currently}` → CLI run_date
+- `{partition_info}` → partition_dt from metadata table
 
----
+## 🔧 Column Configuration
 
-## 🔧 SQL Requirements
-
-### Required Output Columns
-```sql
-SELECT 
-  calculated_value as metric_output,      -- Main metric result
-  numerator_count as numerator_value,     -- For ratios/percentages
-  denominator_count as denominator_value, -- For ratios/percentages
-  '{currently}' as business_data_date     -- Business date
-FROM your_table
-```
-
-### Placeholder Reference
-| Placeholder | Replaced With | Use Case |
-|-------------|---------------|----------|
-| `{currently}` | `--run_date` value | Current processing date |
-| `{partition_info}` | Latest partition from metadata | Dynamic partition lookup |
-
-### SQL Examples
-```sql
--- Count metric with current date
-SELECT 
-  COUNT(*) as metric_output,
-  COUNT(*) as numerator_value,
-  1 as denominator_value,
-  '{currently}' as business_data_date
-FROM `project.dataset.orders`
-WHERE order_date = '{currently}'
-
--- Ratio metric with partition info
-SELECT 
-  SAFE_DIVIDE(SUM(converted), COUNT(*)) as metric_output,
-  SUM(converted) as numerator_value,
-  COUNT(*) as denominator_value,
-  '{partition_info}' as business_data_date
-FROM `project.dataset.conversions`
-WHERE partition_dt = '{partition_info}'
-```
-
----
-
-## ⚠️ Common Issues & Quick Fixes
-
-### 1. Import Errors
-```bash
-# Error: "Import pyspark.sql could not be resolved"
-pip install pyspark google-cloud-bigquery
-
-# Set environment
-export PYTHONPATH="${PYTHONPATH}:/path/to/spark/python"
-```
-
-### 2. GCS Path Issues
-```bash
-# ❌ Wrong
---gcs_path "bucket/file.json"
-
-# ✅ Correct
---gcs_path "gs://bucket/file.json"
-```
-
-### 3. JSON Validation Errors
-```json
-// ❌ Missing required fields
-{
-  "metric_id": "",
-  "sql": null
-}
-
-// ✅ Valid
-{
-  "metric_id": "VALID_001",
-  "metric_name": "Valid Metric",
-  "metric_type": "SUM",
-  "sql": "SELECT ...",
-  "dependency": "daily",
-  "target_table": "project.dataset.table"
+### Default Configuration
+```python
+DEFAULT_COLUMN_CONFIG = {
+    'metric_output': 'metric_output',
+    'numerator_value': 'numerator_value',
+    'denominator_value': 'denominator_value', 
+    'business_data_date': 'business_data_date'
 }
 ```
 
-### 4. Quote Issues in SQL
-```sql
--- ❌ Problematic quotes
-SELECT * FROM table WHERE name = "John's Data"
+### Custom Configuration
+```python
+# Update at runtime
+pipeline.update_column_config({
+    'metric_output': 'output',
+    'numerator_value': 'numerator'
+})
 
--- ✅ Auto-corrected by framework
-SELECT * FROM table WHERE name = 'John''s Data'
+# Add new mappings
+pipeline.add_column_mapping('custom_metric', 'custom_value')
+
+# Get column names
+sql_col = pipeline.get_sql_column_name('metric_output')
+internal_name = pipeline.get_internal_name('output')
 ```
 
-### 5. Partition Info Table Missing
-```sql
--- Required table structure
-CREATE TABLE project.dataset.partition_info (
-  project_dataset STRING,
-  table_name STRING,
-  partition_dt DATE
-);
+## 🏗️ Core Classes & Methods
+
+### MetricsPipeline Class
+```python
+class MetricsPipeline:
+    def __init__(self, spark, bq_client, column_config=None)
+    def process_metrics(self, json_data, run_date, dependencies, partition_info_table)
+    def execute_sql(self, sql, run_date, partition_info_table, metric_id=None)
+    def write_to_bq_with_overwrite(self, df, target_table)
+    def build_recon_record(self, metric_record, sql, run_date, env, status, partition_dt)
 ```
 
----
+### Key Methods Quick Reference
+| Method | Purpose | Returns |
+|--------|---------|---------|
+| `read_json_from_gcs()` | Read JSON config from GCS | `List[Dict]` |
+| `validate_json()` | Validate JSON structure | `List[Dict]` |
+| `process_metrics()` | Process all metrics | `(DataFrames, successful, failed)` |
+| `execute_sql()` | Execute single SQL query | `Dict` |
+| `write_to_bq_with_overwrite()` | Write to BigQuery | `(successful_ids, failed_metrics)` |
 
-## 📊 Monitoring & Logs
+## 🔄 Data Flow
 
-### Key Log Messages
-| Log Level | Message Pattern | Action |
-|-----------|-----------------|---------|
-| `INFO` | `Successfully processed metric_id: X` | ✅ Success |
-| `WARNING` | `SQL syntax validation failed` | ⚠️ Check SQL |
-| `ERROR` | `Pipeline failed:` | ❌ Check error details |
-| `INFO` | `Rolling back metric X` | 🔄 Rollback in progress |
-
-### Reconciliation Table Query
-```sql
--- Check processing status
-SELECT 
-  source_system_id as metric_id,
-  Job_Name as metric_name,
-  rcncln_exact_pass_in as status,
-  excldd_reason_tx as error_message,
-  load_ts
-FROM `project.dataset.recon`
-WHERE schdld_dt = '2024-01-15'
-ORDER BY load_ts DESC
+```
+JSON Config → Validation → SQL Processing → BigQuery Write → Reconciliation
+     ↓              ↓            ↓              ↓              ↓
+  GCS Read    Field Check   Placeholder    Schema Align   Status Track
+              Duplicate     Replacement    Overwrite      Error Log
+              Check         Partition      Protection     Success Log
+                           Lookup
 ```
 
-### Pipeline Status Check
-```sql
--- Count success/failure
-SELECT 
-  rcncln_exact_pass_in as status,
-  COUNT(*) as count
-FROM `project.dataset.recon`
-WHERE schdld_dt = '2024-01-15'
-GROUP BY rcncln_exact_pass_in
+## ⚡ Performance Optimizations
+
+### Partition Cache
+```python
+# Preload cache for better performance
+pipeline._preload_partition_cache(json_data, dependencies, partition_info_table)
+
+# Check cache stats
+stats = pipeline.get_partition_cache_stats()
+print(f"Cache size: {stats['cache_size']}")
+
+# Clear cache when done
+pipeline.clear_partition_cache()
 ```
 
----
+### Batch Operations
+- **Partition Lookups**: Single query for all tables instead of N queries
+- **BigQuery Writes**: Batch write with overwrite capability
+- **Schema Alignment**: Automatic column reordering and type conversion
 
-## 🛠️ Development Tips
+## 🛡️ Error Handling
 
-### Local Testing
-```bash
-# Test with small dataset
-python pysaprk.py \
-  --gcs_path "gs://dev-bucket/test-config.json" \
-  --run_date "2024-01-15" \
-  --dependencies "test_metrics" \
-  --partition_info_table "dev-project.test.partition_info" \
-  --env "DEV" \
-  --recon_table "dev-project.test.recon"
+### Exception Types
+```python
+class MetricsPipelineError(Exception):
+    """Custom exception for pipeline errors"""
+    pass
 ```
+
+### Error Recovery
+```python
+try:
+    pipeline.process_metrics(...)
+except MetricsPipelineError as e:
+    # Automatic rollback attempted
+    logger.error(f"Pipeline failed: {e}")
+    # Check failed_metrics for details
+```
+
+### Common Error Scenarios
+| Error Type | Cause | Solution |
+|------------|-------|----------|
+| `ZeroDivisionError` | Zero denominator | Check data quality |
+| `SchemaMismatch` | Column mismatch | Update column config |
+| `PermissionDenied` | BigQuery access | Check credentials |
+| `TableNotFound` | Missing table | Verify table exists |
+
+## 📊 Reconciliation Records
+
+### Recon Record Structure
+```python
+{
+    'module_id': '103',
+    'module_type_nm': 'Metrics',
+    'source_server_nm': env,
+    'target_server_nm': env,
+    'source_vl': '0',
+    'target_vl': '0' if success else '1',
+    'rcncln_exact_pass_in': 'Passed' if success else 'Failed',
+    'latest_source_parttn_dt': run_date,
+    'latest_target_parttn_dt': run_date,
+    'load_ts': current_timestamp,
+    'schdld_dt': partition_dt,
+    'source_system_id': metric_id,
+    'schdld_yr': current_year,
+    'Job_Name': metric_name
+}
+```
+
+## 🧪 Testing
+
+### Unit Test Example
+```python
+def test_pipeline():
+    pipeline = MetricsPipeline(spark, bq_client)
+    
+    # Test column config
+    pipeline.update_column_config({'metric_output': 'output'})
+    assert pipeline.get_sql_column_name('metric_output') == 'output'
+    
+    # Test partition cache
+    pipeline._partition_cache[('dataset', 'table')] = '2024-01-15'
+    assert pipeline.get_partition_dt('dataset', 'table', 'partition_table') == '2024-01-15'
+```
+
+### Integration Test Example
+```python
+def test_full_pipeline():
+    test_json = [{
+        "metric_id": "test_metric",
+        "metric_name": "Test Metric",
+        "metric_type": "ratio",
+        "sql": "SELECT 100 as metric_output, 10 as denominator_value, '2024-01-15' as business_data_date",
+        "dependency": "test_dep",
+        "target_table": "test_project.test_dataset.test_table"
+    }]
+    
+    pipeline = MetricsPipeline(spark, bq_client)
+    metrics_dfs, successful, failed = pipeline.process_metrics(
+        test_json, "2024-01-15", ["test_dep"], "partition_table"
+    )
+    
+    assert len(successful) == 1
+    assert len(failed) == 0
+```
+
+## 🔍 Troubleshooting
+
+### Common Issues & Solutions
+
+| Issue | Symptoms | Solution |
+|-------|----------|----------|
+| Import Errors | `ModuleNotFoundError` | `pip install pyspark google-cloud-bigquery` |
+| Permission Errors | `403 Forbidden` | Set `GOOGLE_APPLICATION_CREDENTIALS` |
+| Schema Mismatch | `Column not found` | Check `pipeline.column_config` |
+| Cache Issues | Slow performance | Clear cache: `pipeline.clear_partition_cache()` |
 
 ### Debug Mode
 ```python
-# Enable debug logging
+import logging
 logging.basicConfig(level=logging.DEBUG)
 ```
 
-### Schema Validation
+### Performance Monitoring
 ```python
-# Check if target table exists
-from google.cloud import bigquery
-client = bigquery.Client()
-table = client.get_table("project.dataset.table")
-print(table.schema)
+import time
+start_time = time.time()
+# ... pipeline execution ...
+processing_time = time.time() - start_time
+logger.info(f"Processing time: {processing_time:.2f}s")
+
+# Monitor cache
+stats = pipeline.get_partition_cache_stats()
+logger.info(f"Cache stats: {stats}")
 ```
 
----
+## 📈 Best Practices
 
-## 🎯 Best Practices Checklist
-
-### Before Running
-- [ ] JSON config validated
-- [ ] All target tables exist
-- [ ] Partition info table populated
-- [ ] SQL queries tested manually
-- [ ] Dependencies correctly grouped
-
-### JSON Configuration
-- [ ] Unique metric IDs
-- [ ] Required fields present
-- [ ] SQL returns required columns
-- [ ] Placeholders used correctly
-- [ ] Table names fully qualified
-
-### SQL Queries
-- [ ] Handle NULL values with COALESCE
-- [ ] Use SAFE_DIVIDE for ratios
-- [ ] Include proper date filters
-- [ ] Test with sample data
-- [ ] Validate output columns
-
-### Deployment
-- [ ] Test in DEV environment first
-- [ ] Check recon table after run
-- [ ] Monitor logs for errors
-- [ ] Verify target table data
-- [ ] Document any issues
-
----
-
-## 📞 Quick Support
-
-### Debug Steps
-1. Check logs for specific error messages
-2. Validate JSON configuration format
-3. Test SQL queries manually in BigQuery
-4. Verify GCS path accessibility
-5. Check partition info table data
-
-### Common Commands
-```bash
-# View recent logs
-tail -f /path/to/logs/pipeline.log
-
-# Check GCS file
-gsutil cat gs://bucket/config.json | head -10
-
-# Test BigQuery access
-bq query --use_legacy_sql=false "SELECT 1"
-
-# Check table schema
-bq show --schema project:dataset.table
-```
-
-### Error Message Lookup
-| Error Pattern | Common Cause | Solution |
-|---------------|--------------|----------|
-| `MetricsPipelineError` | Business logic issue | Check JSON config |
-| `NotFound` | Table doesn't exist | Create target table |
-| `Invalid date format` | Wrong date format | Use YYYY-MM-DD |
-| `Duplicate metric_id` | Non-unique IDs | Make IDs unique |
-| `Unbalanced quotes` | SQL syntax issue | Let framework handle |
-
----
-
-## 📈 Performance Tips
-
-### Optimize SQL Queries
-```sql
--- ✅ Use partitioned tables
-WHERE partition_dt = '{currently}'
-
--- ✅ Limit data scanned
-WHERE date BETWEEN '{currently}' AND '{currently}'
-
--- ✅ Use appropriate aggregations
-SELECT COUNT(*) -- instead of COUNT(column)
-```
-
-### Batch Processing
-```bash
-# Process related metrics together
---dependencies "daily_financial,daily_operational"
-
-# Avoid processing everything at once
---dependencies "all_metrics"  # ❌
-```
-
-### Monitor Resources
-- Watch Spark executor memory
-- Check BigQuery slot usage
-- Monitor GCS read throughput
-- Track processing time per metric
-
----
-
-## 🧠 Beginner's Code Concepts
-
-### Understanding Key Code Patterns
-
+### 1. Column Configuration
 ```python
-# Context Manager Pattern
-with managed_spark_session() as spark:
-    # spark is available here
-    pass
-# spark is automatically cleaned up
-
-# Decorator Pattern
-@contextmanager
-def managed_spark_session():
-    # Setup code
-    yield resource  # Provide resource
-    # Cleanup code
-
-# Error Handling Pattern
-try:
-    result = risky_operation()
-except SpecificError as e:
-    logger.error(f"Operation failed: {e}")
-    raise CustomError("Friendly error message")
-```
-
-### Common Python Constructs
-
-```python
-# List comprehension
-new_list = [item for item in old_list if condition]
-
-# Dictionary comprehension
-new_dict = {k: v for k, v in old_dict.items() if condition}
-
-# Generator expression
-data = (item for item in large_dataset if condition)
-
-# String formatting
-message = f"Processing {count} items at {timestamp}"
-```
-
-### PySpark Basics
-
-```python
-# Create DataFrame
-df = spark.createDataFrame(data, schema)
-
-# Transform DataFrame
-df_filtered = df.filter(col("date") == "2024-01-15")
-df_grouped = df.groupBy("category").sum("amount")
-
-# Collect results (brings to driver)
-results = df.collect()  # Use carefully with large data
-
-# Show results (for debugging)
-df.show(10)  # Shows first 10 rows
-```
-
-### BigQuery SQL Essentials
-
-```sql
--- Safe operations
-SAFE_DIVIDE(numerator, denominator)  -- Returns NULL if denominator is 0
-COALESCE(value1, value2, default)    -- Returns first non-NULL value
-
--- Date functions
-DATE(timestamp_column)               -- Extract date part
-FORMAT_DATE('%Y-%m-%d', date_col)    -- Format date as string
-PARSE_DATE('%Y-%m-%d', '2024-01-15') -- Parse string to date
-
--- Aggregations
-COUNT(*)                 -- Count all rows
-COUNT(column)            -- Count non-NULL values
-SUM(column)              -- Sum numeric values
-AVG(column)              -- Average of numeric values
-```
-
----
-
-## 🔤 Glossary for Freshers
-
-| Term | Definition | Example |
-|------|------------|---------|
-| **DataFrame** | Distributed table-like data structure | `df = spark.createDataFrame(data)` |
-| **Schema** | Definition of data structure and types | `StructType([StructField("name", StringType())])` |
-| **Partition** | Data division for performance | `WHERE partition_dt = '2024-01-15'` |
-| **Context Manager** | Resource management pattern | `with open(file) as f:` |
-| **Decorator** | Function that modifies other functions | `@contextmanager` |
-| **Yield** | Generator function keyword | `yield value` |
-| **UUID** | Universally unique identifier | `uuid.uuid4()` |
-| **Reconciliation** | Data validation and audit process | Recon table records |
-| **Placeholder** | Template variable in SQL | `{currently}` |
-| **Rollback** | Undo database changes | Delete inserted records |
-
----
-
-## 🚨 Common Beginner Mistakes
-
-### ❌ What NOT to Do
-
-```python
-# Don't use print() in production
-print("Processing metric...")  # ❌
-
-# Don't ignore exceptions
-try:
-    result = operation()
-except:
-    pass  # ❌ Silent failure
-
-# Don't use string concatenation for SQL
-sql = "SELECT * FROM table WHERE date = " + date  # ❌ SQL injection risk
-```
-
-### ✅ What TO Do
-
-```python
-# Use logging instead of print
-logger.info("Processing metric...")  # ✅
-
-# Handle exceptions properly
-try:
-    result = operation()
-except SpecificError as e:
-    logger.error(f"Operation failed: {e}")
-    raise  # ✅ Re-raise or handle appropriately
-
-# Use parameterized queries
-sql = "SELECT * FROM table WHERE date = %s"  # ✅ Safe
-```
-
-### JSON Configuration Mistakes
-
-```json
-// ❌ Don't do this
-{
-  "metric_id": "",                    // Empty string
-  "sql": "SELECT metric_output",     // Missing required columns
-  "target_table": "table_name"       // Missing project.dataset
+# ✅ Good: Descriptive names
+column_config = {
+    'metric_output': 'calculated_metric_value',
+    'business_data_date': 'data_processing_date'
 }
 
-// ✅ Do this instead
-{
-  "metric_id": "UNIQUE_ID_001",
-  "sql": "SELECT metric_output, numerator_value, denominator_value, business_data_date FROM...",
-  "target_table": "project.dataset.table"
+# ❌ Avoid: Short names
+column_config = {
+    'metric_output': 'val',
+    'business_data_date': 'dt'
 }
 ```
 
+### 2. Error Handling
+```python
+# ✅ Good: Log detailed errors
+for failed_metric in failed_metrics:
+    logger.error(f"Metric {failed_metric['metric_record']['metric_id']}: {failed_metric['error_message']}")
+
+# ✅ Good: Check success rate
+success_rate = len(successful_metrics) / (len(successful_metrics) + len(failed_metrics))
+if success_rate < 0.95:
+    logger.warning(f"Low success rate: {success_rate:.2%}")
+```
+
+### 3. Performance
+```python
+# ✅ Good: Preload partition cache
+pipeline._preload_partition_cache(json_data, dependencies, partition_info_table)
+
+# ✅ Good: Monitor memory usage
+import psutil
+memory_mb = psutil.Process().memory_info().rss / 1024 / 1024
+logger.info(f"Memory usage: {memory_mb:.2f} MB")
+```
+
+### 4. Data Quality
+```python
+# ✅ Good: Validate input
+validated_data = pipeline.validate_json(json_data)
+
+# ✅ Good: Handle edge cases
+if denominator_value == 0:
+    raise MetricsPipelineError("Cannot calculate with zero denominator")
+```
+
+## 🔗 Related Documentation
+
+- **Detailed Guide**: `METRICS_PIPELINE_DEVELOPER_GUIDE.md`
+- **Generic Columns**: `GENERIC_COLUMN_CONFIGURATION_GUIDE.md`
+- **Partition Optimization**: `PARTITION_OPTIMIZATION_SUMMARY.md`
+- **Edge Case Testing**: `EDGE_CASE_TESTING_SUMMARY.md`
+- **Reconciliation**: `RECON_IMPLEMENTATION_SUMMARY.md`
+
+## 📞 Support
+
+For additional help:
+1. Check the detailed developer guide
+2. Review test files for examples
+3. Check edge case testing documentation
+4. Monitor pipeline logs for error details
+5. Use debug mode for troubleshooting
+
 ---
 
-## 📚 Learning Resources
-
-### Understanding the Framework
-1. **Start here:** Read `METRICS_PIPELINE_FRAMEWORK_DOCUMENTATION.md`
-2. **Practice:** Try examples in the documentation
-3. **Experiment:** Use DEV environment for testing
-4. **Ask questions:** Check expanded FAQ section
-
-### Python Concepts to Learn
-- **Context managers** (`with` statements)
-- **Decorators** (`@` symbols)
-- **Exception handling** (`try/except`)
-- **List/dict comprehensions**
-- **String formatting** (`f"text {variable}"`)
-
-### SQL Concepts to Learn
-- **Window functions** (`ROW_NUMBER()`, `RANK()`)
-- **CTEs** (`WITH` clauses)
-- **Joins** (`INNER`, `LEFT`, `RIGHT`)
-- **Aggregations** (`GROUP BY`, `HAVING`)
-- **Date functions** (`DATE()`, `TIMESTAMP()`)
-
-### BigQuery Specifics
-- **Standard SQL** vs Legacy SQL
-- **Partitioning** and **clustering**
-- **Cost optimization** techniques
-- **IAM permissions** and security
-
----
-
-*This quick reference complements the comprehensive documentation. For detailed explanations, see `METRICS_PIPELINE_FRAMEWORK_DOCUMENTATION.md`.* 
+**Remember**: Always test changes thoroughly and monitor pipeline performance in production! 

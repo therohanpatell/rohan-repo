@@ -1,0 +1,577 @@
+"""
+BigQuery operations module for the Metrics Pipeline
+Contains all BigQuery client operations including read, write, schema, and query operations
+"""
+
+from datetime import datetime
+from typing import Dict, List, Optional, Tuple, Union
+from decimal import Decimal
+from google.api_core.exceptions import DeadlineExceeded
+from google.cloud import bigquery
+from google.cloud.exceptions import NotFound, GoogleCloudError
+from pyspark.sql import SparkSession, DataFrame
+from pyspark.sql.functions import col, to_date
+from pyspark.sql.types import TimestampType, DecimalType, DoubleType, DateType
+
+from config import PipelineConfig, setup_logging
+from exceptions import BigQueryError, SQLExecutionError, MetricsPipelineError
+from utils import StringUtils, NumericUtils
+
+logger = setup_logging()
+
+
+class BigQueryOperations:
+    """Handles all BigQuery operations for the Metrics Pipeline"""
+    
+    def __init__(self, spark: SparkSession, bq_client: Optional[bigquery.Client] = None):
+        """
+        Initialize BigQuery operations
+        
+        Args:
+            spark: SparkSession instance
+            bq_client: Optional BigQuery client, will create one if not provided
+        """
+        self.spark = spark
+        self.bq_client = bq_client or bigquery.Client()
+        logger.info("BigQuery operations initialized")
+    
+    # Schema Operations
+    def get_table_schema(self, table_name: str) -> List[bigquery.SchemaField]:
+        """
+        Get BigQuery table schema
+        
+        Args:
+            table_name: Full table name (project.dataset.table)
+            
+        Returns:
+            List of BigQuery schema fields
+            
+        Raises:
+            BigQueryError: If table not found or schema retrieval fails
+        """
+        try:
+            logger.info(f"Getting schema for table: {table_name}")
+            table = self.bq_client.get_table(table_name)
+            return table.schema
+            
+        except NotFound:
+            raise BigQueryError(f"Table not found: {table_name}")
+        except Exception as e:
+            logger.error(f"Failed to get table schema: {str(e)}")
+            raise BigQueryError(f"Failed to get table schema: {str(e)}")
+    
+    def align_dataframe_schema_with_bq(self, df: DataFrame, target_table: str) -> DataFrame:
+        """
+        Align Spark DataFrame with BigQuery table schema
+        
+        Args:
+            df: Spark DataFrame to align
+            target_table: Target BigQuery table name
+            
+        Returns:
+            DataFrame with aligned schema
+        """
+        logger.info(f"Aligning DataFrame schema with BigQuery table: {target_table}")
+        
+        bq_schema = self.get_table_schema(target_table)
+        current_columns = df.columns
+        bq_columns = [field.name for field in bq_schema]
+        
+        # Drop extra columns not in BigQuery schema
+        columns_to_keep = [col_name for col_name in current_columns if col_name in bq_columns]
+        columns_to_drop = [col_name for col_name in current_columns if col_name not in bq_columns]
+        
+        if columns_to_drop:
+            logger.info(f"Dropping extra columns: {columns_to_drop}")
+            df = df.drop(*columns_to_drop)
+        
+        # Reorder columns to match BigQuery schema
+        df = df.select(*[col(c) for c in bq_columns if c in columns_to_keep])
+        
+        # Handle type conversions for BigQuery compatibility
+        for field in bq_schema:
+            if field.name in df.columns:
+                if field.field_type == 'DATE':
+                    df = df.withColumn(field.name, to_date(col(field.name)))
+                elif field.field_type == 'TIMESTAMP':
+                    df = df.withColumn(field.name, col(field.name).cast(TimestampType()))
+                elif field.field_type == 'NUMERIC':
+                    df = df.withColumn(field.name, col(field.name).cast(DecimalType(38, 9)))
+                elif field.field_type == 'FLOAT':
+                    df = df.withColumn(field.name, col(field.name).cast(DoubleType()))
+        
+        logger.info(f"Schema alignment complete. Final columns: {df.columns}")
+        return df
+    
+    # Query Operations
+    def execute_query(self, query: str, timeout: int = PipelineConfig.QUERY_TIMEOUT) -> bigquery.table.RowIterator:
+        """
+        Execute a BigQuery SQL query
+        
+        Args:
+            query: SQL query to execute
+            timeout: Query timeout in seconds
+            
+        Returns:
+            BigQuery query results
+            
+        Raises:
+            BigQueryError: If query execution fails
+        """
+        try:
+            logger.info("Executing BigQuery SQL query")
+            logger.debug(f"Query: {query}")
+            
+            query_job = self.bq_client.query(query)
+            results = query_job.result(timeout=timeout)
+            
+            logger.info("Query executed successfully")
+            return results
+            
+        except (DeadlineExceeded, TimeoutError):
+            error_msg = f"Query timed out after {timeout} seconds"
+            logger.error(error_msg)
+            raise BigQueryError(error_msg)
+        except Exception as e:
+            error_msg = f"Failed to execute query: {str(e)}"
+            logger.error(error_msg)
+            raise BigQueryError(error_msg)
+    
+    def execute_sql_with_results(self, sql: str, metric_id: Optional[str] = None) -> Dict:
+        """
+        Execute SQL query and return structured results for metrics
+        
+        Args:
+            sql: SQL query to execute
+            metric_id: Optional metric ID for error tracking
+            
+        Returns:
+            Dictionary with metric results
+            
+        Raises:
+            SQLExecutionError: If SQL execution fails
+        """
+        try:
+            logger.info("Executing SQL query with structured results")
+            
+            query_job = self.bq_client.query(sql)
+            results = query_job.result(timeout=PipelineConfig.QUERY_TIMEOUT)
+            
+            result_dict = {
+                'metric_output': None,
+                'numerator_value': None,
+                'denominator_value': None,
+                'business_data_date': None
+            }
+            
+            for row in results:
+                row_dict = dict(row)
+                
+                for key in result_dict.keys():
+                    if key in row_dict:
+                        value = row_dict[key]
+                        if key in ['metric_output', 'numerator_value', 'denominator_value']:
+                            result_dict[key] = NumericUtils.normalize_numeric_value(value)
+                        else:
+                            result_dict[key] = value
+                
+                break
+            
+            # Validate denominator_value is not zero
+            if result_dict['denominator_value'] is not None:
+                try:
+                    denominator_decimal = NumericUtils.safe_decimal_conversion(result_dict['denominator_value'])
+                    if denominator_decimal is not None:
+                        if denominator_decimal == 0:
+                            error_msg = f"Invalid denominator value: denominator_value is 0. Cannot calculate metrics with zero denominator."
+                            if metric_id:
+                                error_msg = f"Metric '{metric_id}': {error_msg}"
+                            logger.error(error_msg)
+                            raise MetricsPipelineError(error_msg)
+                        elif denominator_decimal < 0:
+                            error_msg = f"Invalid denominator value: denominator_value is negative ({denominator_decimal}). Negative denominators are not allowed."
+                            if metric_id:
+                                error_msg = f"Metric '{metric_id}': {error_msg}"
+                            logger.error(error_msg)
+                            raise MetricsPipelineError(error_msg)
+                            
+                except (ValueError, TypeError):
+                    # If we can't convert to decimal, log warning but continue
+                    logger.warning(f"Could not validate denominator_value: {result_dict['denominator_value']}")
+            
+            if result_dict['business_data_date'] is not None:
+                result_dict['business_data_date'] = result_dict['business_data_date'].strftime('%Y-%m-%d')
+            else:
+                raise SQLExecutionError("business_data_date is required but was not returned by the SQL query")
+            
+            return result_dict
+            
+        except (DeadlineExceeded, TimeoutError):
+            error_msg = f"Query for metric '{metric_id}' timed out after {PipelineConfig.QUERY_TIMEOUT} seconds."
+            logger.error(error_msg)
+            raise SQLExecutionError(error_msg, metric_id)
+        
+        except Exception as e:
+            error_msg = f"Failed to execute SQL: {str(e)}"
+            logger.error(error_msg)
+            raise SQLExecutionError(error_msg, metric_id)
+    
+    def get_partition_date(self, project_dataset: str, table_name: str, partition_info_table: str) -> Optional[str]:
+        """
+        Get latest partition_dt from metadata table
+        
+        Args:
+            project_dataset: Project and dataset (project.dataset)
+            table_name: Table name
+            partition_info_table: Partition info table name
+            
+        Returns:
+            Latest partition date as string or None if not found
+        """
+        try:
+            query = f"""
+            SELECT partition_dt 
+            FROM `{partition_info_table}` 
+            WHERE project_dataset = '{project_dataset}' 
+            AND table_name = '{table_name}'
+            """
+            
+            logger.info(f"Querying partition info for {project_dataset}.{table_name}")
+            
+            results = self.execute_query(query)
+            
+            for row in results:
+                partition_dt = row.partition_dt
+                if isinstance(partition_dt, datetime):
+                    return partition_dt.strftime('%Y-%m-%d')
+                return str(partition_dt)
+            
+            logger.warning(f"No partition info found for {project_dataset}.{table_name}")
+            return None
+            
+        except Exception as e:
+            logger.error(f"Failed to get partition_dt for {project_dataset}.{table_name}: {str(e)}")
+            return None
+    
+    # Read Operations
+    def check_existing_metrics(self, metric_ids: List[str], partition_dt: str, target_table: str) -> List[str]:
+        """
+        Check which metric IDs already exist in BigQuery table for the given partition date
+        
+        Args:
+            metric_ids: List of metric IDs to check
+            partition_dt: Partition date
+            target_table: Target table name
+            
+        Returns:
+            List of existing metric IDs
+            
+        Raises:
+            BigQueryError: If check operation fails
+        """
+        try:
+            if not metric_ids:
+                return []
+            
+            escaped_metric_ids = [StringUtils.escape_sql_string(mid) for mid in metric_ids]
+            metric_ids_str = "', '".join(escaped_metric_ids)
+            
+            query = f"""
+            SELECT DISTINCT metric_id 
+            FROM `{target_table}` 
+            WHERE metric_id IN ('{metric_ids_str}') 
+            AND partition_dt = '{partition_dt}'
+            """
+            
+            logger.info(f"Checking existing metrics for partition_dt: {partition_dt}")
+            logger.debug(f"Query: {query}")
+            
+            results = self.execute_query(query)
+            existing_metrics = [row.metric_id for row in results]
+            
+            if existing_metrics:
+                logger.info(f"Found {len(existing_metrics)} existing metrics: {existing_metrics}")
+            else:
+                logger.info("No existing metrics found")
+            
+            return existing_metrics
+            
+        except Exception as e:
+            logger.error(f"Failed to check existing metrics: {str(e)}")
+            raise BigQueryError(f"Failed to check existing metrics: {str(e)}")
+    
+    # Write Operations
+    def write_dataframe_to_table(self, df: DataFrame, target_table: str, write_mode: str = "append") -> None:
+        """
+        Write Spark DataFrame to BigQuery table
+        
+        Args:
+            df: Spark DataFrame to write
+            target_table: Target BigQuery table
+            write_mode: Write mode ('append', 'overwrite', etc.)
+            
+        Raises:
+            BigQueryError: If write operation fails
+        """
+        try:
+            logger.info(f"Writing DataFrame to BigQuery table: {target_table}")
+            logger.info(f"Write mode: {write_mode}")
+            logger.info(f"Records to write: {df.count()}")
+            
+            df.write \
+                .format("bigquery") \
+                .option("table", target_table) \
+                .option("writeMethod", "direct") \
+                .mode(write_mode) \
+                .save()
+            
+            logger.info(f"Successfully wrote DataFrame to {target_table}")
+            
+        except Exception as e:
+            error_message = str(e)
+            logger.error(f"Failed to write DataFrame to BigQuery: {error_message}")
+            raise BigQueryError(f"Failed to write DataFrame to BigQuery: {error_message}")
+    
+    def write_metrics_with_overwrite(self, df: DataFrame, target_table: str) -> Tuple[List[str], List[Dict]]:
+        """
+        Write DataFrame to BigQuery table with robust overwrite capability for existing metrics
+        
+        Args:
+            df: Spark DataFrame containing metrics
+            target_table: Target BigQuery table
+            
+        Returns:
+            Tuple of (successful_metric_ids, failed_metrics)
+        """
+        try:
+            logger.info(f"Writing DataFrame to BigQuery table with overwrite: {target_table}")
+            
+            # Validate input DataFrame
+            if df.count() == 0:
+                logger.warning("No records to process - DataFrame is empty")
+                return [], []
+            
+            # Get metrics info for processing
+            metric_records = df.select('metric_id', 'partition_dt').distinct().collect()
+            
+            if not metric_records:
+                logger.warning("No valid metric records found")
+                return [], []
+            
+            partition_dt = metric_records[0]['partition_dt']
+            metric_ids = [row['metric_id'] for row in metric_records]
+            record_count = df.count()
+            
+            logger.info(f"Processing {len(metric_ids)} unique metrics ({record_count} total records) for partition_dt: {partition_dt}")
+            
+            # Check which metrics already exist for robust overwrite
+            existing_metrics = self.check_existing_metrics(metric_ids, partition_dt, target_table)
+            new_metrics = [mid for mid in metric_ids if mid not in existing_metrics]
+            
+            # Delete existing metrics if any (part of overwrite operation)
+            if existing_metrics:
+                logger.info(f"Found {len(existing_metrics)} existing metrics to overwrite")
+                self.delete_metrics(existing_metrics, partition_dt, target_table)
+            
+            if new_metrics:
+                logger.info(f"Adding {len(new_metrics)} new metrics")
+            
+            # Write the DataFrame to BigQuery (append mode after deletion = overwrite)
+            logger.info(f"Writing {record_count} records to {target_table}")
+            self.write_dataframe_to_table(df, target_table, "append")
+            
+            # Final success logging
+            logger.info(f"Successfully completed overwrite operation for {target_table}")
+            logger.info(f"Total metrics processed: {len(metric_ids)} ({len(existing_metrics)} overwritten, {len(new_metrics)} new)")
+            
+            return metric_ids, []
+            
+        except Exception as e:
+            error_message = str(e)
+            logger.error(f"Failed to write to BigQuery with overwrite: {error_message}")
+            
+            # Create failed metrics list for error reporting
+            failed_metrics = []
+            try:
+                metric_records = df.select('metric_id').distinct().collect()
+                for row in metric_records:
+                    failed_metrics.append({
+                        'metric_id': row['metric_id'],
+                        'error_message': error_message
+                    })
+                logger.error(f"Failed metrics: {[fm['metric_id'] for fm in failed_metrics]}")
+            except Exception as inner_e:
+                logger.error(f"Could not extract failed metric IDs: {str(inner_e)}")
+            
+            return [], failed_metrics
+    
+    def write_recon_records(self, recon_records: List[Dict], recon_table: str) -> None:
+        """
+        Write reconciliation records to BigQuery recon table
+        
+        Args:
+            recon_records: List of reconciliation records
+            recon_table: Target recon table name
+            
+        Raises:
+            BigQueryError: If write operation fails
+        """
+        try:
+            if not recon_records:
+                logger.info("No recon records to write")
+                return
+            
+            logger.info(f"Writing {len(recon_records)} recon records to {recon_table}")
+            
+            recon_df = self.spark.createDataFrame(recon_records, PipelineConfig.RECON_SCHEMA)
+            
+            logger.info(f"Recon Schema for {recon_table}:")
+            recon_df.printSchema()
+            logger.info(f"Recon Data for {recon_table}:")
+            recon_df.show(truncate=False)
+            
+            self.write_dataframe_to_table(recon_df, recon_table, "append")
+            
+            logger.info(f"Successfully wrote {len(recon_records)} recon records to {recon_table}")
+            
+        except Exception as e:
+            logger.error(f"Failed to write recon records to BigQuery: {str(e)}")
+            raise BigQueryError(f"Failed to write recon records: {str(e)}")
+    
+    # Delete Operations
+    def delete_metrics(self, metric_ids: List[str], partition_dt: str, target_table: str) -> None:
+        """
+        Delete existing metrics from BigQuery table for the given partition date
+        
+        Args:
+            metric_ids: List of metric IDs to delete
+            partition_dt: Partition date
+            target_table: Target table name
+            
+        Raises:
+            BigQueryError: If delete operation fails
+        """
+        try:
+            if not metric_ids:
+                logger.info("No metrics to delete")
+                return
+            
+            escaped_metric_ids = [StringUtils.escape_sql_string(mid) for mid in metric_ids]
+            metric_ids_str = "', '".join(escaped_metric_ids)
+            
+            delete_query = f"""
+            DELETE FROM `{target_table}` 
+            WHERE metric_id IN ('{metric_ids_str}') 
+            AND partition_dt = '{partition_dt}'
+            """
+            
+            logger.info(f"Overwriting {len(metric_ids)} existing metrics for partition_dt: {partition_dt}")
+            logger.debug(f"Delete query: {delete_query}")
+            
+            results = self.execute_query(delete_query)
+            
+            # Try to get the number of affected rows (not always available)
+            try:
+                deleted_count = results.num_dml_affected_rows if hasattr(results, 'num_dml_affected_rows') else 0
+                logger.info(f"Successfully deleted {deleted_count} existing records for overwrite")
+            except:
+                logger.info(f"Successfully executed delete query for overwrite operation")
+            
+        except Exception as e:
+            logger.error(f"Failed to delete existing metrics for overwrite: {str(e)}")
+            raise BigQueryError(f"Failed to delete existing metrics for overwrite: {str(e)}")
+    
+    def validate_partition_info_table(self, partition_info_table: str) -> bool:
+        """
+        Validate that the partition info table exists and has required structure
+        
+        Args:
+            partition_info_table: Full table name (project.dataset.table)
+            
+        Returns:
+            True if table exists and has valid structure, False otherwise
+            
+        Raises:
+            BigQueryError: If validation fails or table doesn't exist
+        """
+        try:
+            logger.info(f"Validating partition info table: {partition_info_table}")
+            
+            # Check if table exists by getting its schema
+            table_schema = self.get_table_schema(partition_info_table)
+            
+            # Check for required columns
+            required_columns = ['project_dataset', 'table_name', 'partition_dt']
+            schema_columns = [field.name for field in table_schema]
+            
+            missing_columns = [col for col in required_columns if col not in schema_columns]
+            if missing_columns:
+                raise BigQueryError(
+                    f"Partition info table {partition_info_table} is missing required columns: {missing_columns}. "
+                    f"Available columns: {schema_columns}"
+                )
+            
+            # Test query to ensure table is accessible
+            test_query = f"SELECT COUNT(*) as record_count FROM `{partition_info_table}` LIMIT 1"
+            results = self.execute_query(test_query)
+            
+            for row in results:
+                logger.info(f"Partition info table validation successful. Table has {row.record_count} records.")
+                return True
+            
+            logger.info("Partition info table validation successful")
+            return True
+            
+        except NotFound:
+            raise BigQueryError(f"Partition info table does not exist: {partition_info_table}")
+        except Exception as e:
+            logger.error(f"Partition info table validation failed: {str(e)}")
+            raise BigQueryError(f"Partition info table validation failed: {str(e)}")
+
+    # Utility Methods
+    def test_connection(self) -> bool:
+        """
+        Test BigQuery connection
+        
+        Returns:
+            True if connection is successful, False otherwise
+        """
+        try:
+            # Simple query to test connection
+            query = "SELECT 1 as test_value"
+            results = self.execute_query(query)
+            
+            for row in results:
+                if row.test_value == 1:
+                    logger.info("BigQuery connection test successful")
+                    return True
+            
+            return False
+            
+        except Exception as e:
+            logger.error(f"BigQuery connection test failed: {str(e)}")
+            return False
+    
+    def get_client(self) -> bigquery.Client:
+        """
+        Get the BigQuery client instance
+        
+        Returns:
+            BigQuery client instance
+        """
+        return self.bq_client
+
+
+# Factory function for easy instantiation
+def create_bigquery_operations(spark: SparkSession, bq_client: Optional[bigquery.Client] = None) -> BigQueryOperations:
+    """
+    Factory function to create BigQueryOperations instance
+    
+    Args:
+        spark: SparkSession instance
+        bq_client: Optional BigQuery client
+        
+    Returns:
+        BigQueryOperations instance
+    """
+    return BigQueryOperations(spark, bq_client) 
