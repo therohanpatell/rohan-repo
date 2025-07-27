@@ -22,19 +22,19 @@ class DateUtils:
     def validate_date_format(date_str: str) -> None:
         """Validate date format YYYY-MM-DD"""
         try:
-            datetime.strptime(date_str, '%Y-%m-%d')
+            datetime.strptime(date_str, '%Y-%m-%d')  # Parse to validate format and logical validity
         except ValueError:
-            raise ValidationError(f"Invalid date format: {date_str}. Expected YYYY-MM-DD")
+            raise ValidationError(f"Invalid date format: {date_str}. Expected YYYY-MM-DD")  # Reject invalid dates
     
     @staticmethod
     def get_current_partition_dt() -> str:
         """Get current date as partition_dt"""
-        return datetime.now().strftime('%Y-%m-%d')
+        return datetime.now().strftime('%Y-%m-%d')  # Return today's date in YYYY-MM-DD format
     
     @staticmethod
     def get_current_timestamp() -> datetime:
         """Get current UTC timestamp"""
-        return datetime.utcnow()
+        return datetime.utcnow()  # Return current UTC time for pipeline timestamps
 
 
 class NumericUtils:
@@ -55,30 +55,30 @@ class NumericUtils:
             MetricsPipelineError: If value is too large to be represented as a Decimal.
         """
         if value is None:
-            return None
+            return None  # Handle null values
         
         try:
             if isinstance(value, Decimal):
-                return str(value)
+                return str(value)  # Already a Decimal, just convert to string
             elif isinstance(value, (int, float)):
-                decimal_val = Decimal(str(value))
+                decimal_val = Decimal(str(value))  # Convert numeric types to Decimal
                 return str(decimal_val)
             elif isinstance(value, str):
                 try:
-                    decimal_val = Decimal(value)
+                    decimal_val = Decimal(value)  # Try to parse string as number
                     return str(decimal_val)
                 except:
                     logger.warning(f"Could not parse string as number: {value}")
-                    return None
+                    return None  # Return None for unparseable strings
             else:
-                decimal_val = Decimal(str(value))
+                decimal_val = Decimal(str(value))  # Try to convert other types
                 return str(decimal_val)
                 
         except OverflowError:
-            raise MetricsPipelineError(f"Numeric value {value} is out of range for Decimal type.")
+            raise MetricsPipelineError(f"Numeric value {value} is out of range for Decimal type.")  # Handle overflow errors
         except (ValueError, TypeError, Exception) as e:
-            logger.warning(f"Could not normalize numeric value: {value}, error: {e}")
-            return None
+            logger.warning(f"Could not normalize numeric value: {value}, error: {e}")  # Log conversion failures
+            return None  # Return None for failed conversions
     
     @staticmethod
     def safe_decimal_conversion(value: Optional[str]) -> Optional[Decimal]:
@@ -317,14 +317,14 @@ class StringUtils:
         Returns:
             Formatted error message with category
         """
-        clean_error = StringUtils.clean_error_message(error_message)
-        category_description = PipelineConfig.ERROR_CATEGORIES.get(error_category, error_category)
-        return f"[{error_category}] {category_description}: {clean_error}"
+        clean_error = StringUtils.clean_error_message(error_message)  # Clean the error message
+        category_description = PipelineConfig.ERROR_CATEGORIES.get(error_category, error_category)  # Get category description
+        return f"[{error_category}] {category_description}: {clean_error}"  # Format with category prefix
     
     @staticmethod
     def escape_sql_string(value: str) -> str:
         """Escape single quotes in SQL strings"""
-        return value.replace("'", "''")
+        return value.replace("'", "''")  # Double single quotes for SQL escaping
 
 
 class ExecutionUtils:
@@ -333,7 +333,7 @@ class ExecutionUtils:
     @staticmethod
     def generate_execution_id() -> str:
         """Generate unique execution ID"""
-        return str(uuid.uuid4())
+        return str(uuid.uuid4())  # Generate unique UUID for tracking pipeline runs
 
 
 @contextmanager
@@ -349,23 +349,23 @@ def managed_spark_session(app_name: str = "MetricsPipeline"):
     """
     spark = None
     try:
-        builder = SparkSession.builder.appName(app_name)
+        builder = SparkSession.builder.appName(app_name)  # Create Spark session builder
         
         # Apply configurations
-        for key, value in PipelineConfig.SPARK_CONFIGS.items():
+        for key, value in PipelineConfig.SPARK_CONFIGS.items():  # Apply optimization configs
             builder = builder.config(key, value)
         
-        spark = builder.getOrCreate()
+        spark = builder.getOrCreate()  # Create or get existing session
         logger.info(f"Spark session created successfully: {app_name}")
-        yield spark
+        yield spark  # Provide session to calling code
         
     except Exception as e:
         logger.error(f"Error in Spark session: {str(e)}")
         raise
     finally:
-        if spark:
+        if spark:  # Ensure cleanup even if errors occur
             try:
-                spark.stop()
+                spark.stop()  # Clean shutdown of Spark session
                 logger.info("Spark session stopped successfully")
             except Exception as e:
-                logger.error(f"Error stopping Spark session: {str(e)}")
+                logger.error(f"Error stopping Spark session: {str(e)}")  # Log cleanup errors

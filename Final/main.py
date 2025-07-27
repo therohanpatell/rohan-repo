@@ -20,11 +20,11 @@ class PipelineOrchestrator:
     """Orchestrates the entire pipeline execution"""
     
     def __init__(self):
-        self.pipeline = None
+        self.pipeline = None  # Will be initialized with Spark session
     
     def parse_arguments(self) -> argparse.Namespace:
         """Parse command line arguments"""
-        parser = argparse.ArgumentParser(
+        parser = argparse.ArgumentParser(  # Set up CLI argument parser
             description='PySpark BigQuery Metrics Pipeline'
         )
         
@@ -59,14 +59,14 @@ class PipelineOrchestrator:
             help='BigQuery table for reconciliation data (project.dataset.table)'
         )
         
-        return parser.parse_args()
+        return parser.parse_args()  # Parse and return all arguments
     
     def validate_and_parse_dependencies(self, dependencies_str: str) -> list:
         """Validate and parse dependencies string"""
-        dependencies = [dep.strip() for dep in dependencies_str.split(',') if dep.strip()]
+        dependencies = [dep.strip() for dep in dependencies_str.split(',') if dep.strip()]  # Split and clean dependencies
         
         if not dependencies:
-            raise MetricsPipelineError("No valid dependencies provided")
+            raise MetricsPipelineError("No valid dependencies provided")  # Ensure at least one dependency exists
         
         return dependencies
     
@@ -90,10 +90,10 @@ class PipelineOrchestrator:
         json_data = None
         validated_data = None
         
-        with managed_spark_session("MetricsPipeline") as spark:
+        with managed_spark_session("MetricsPipeline") as spark:  # Create managed Spark session
             # Initialize BigQuery operations and pipeline
-            bq_operations = create_bigquery_operations(spark)
-            self.pipeline = MetricsPipeline(spark, bq_operations)
+            bq_operations = create_bigquery_operations(spark)  # Set up BigQuery client
+            self.pipeline = MetricsPipeline(spark, bq_operations)  # Initialize main pipeline
             
             try:
                 # Step 0: Validate partition info table before processing
@@ -203,7 +203,7 @@ class PipelineOrchestrator:
         """Create and write reconciliation records"""
         # Get partition_dt from DateUtils (same as used in pipeline)
         from utils import DateUtils
-        partition_dt = DateUtils.get_current_partition_dt()
+        partition_dt = DateUtils.get_current_partition_dt()  # Get current date for partitioning
         
         recon_records = self.pipeline.create_recon_records_from_write_results(
             validated_data,
@@ -218,10 +218,10 @@ class PipelineOrchestrator:
         )
         
         # Write recon records to recon table
-        self.pipeline.write_recon_to_bq(recon_records, args.recon_table)
+        self.pipeline.write_recon_to_bq(recon_records, args.recon_table)  # Store tracking records
         
         # Log recon statistics
-        if recon_records:
+        if recon_records:  # Calculate and log success/failure counts
             logger.info(f"Total recon records created: {len(recon_records)}")
             success_count = sum(1 for r in recon_records if r.get('rcncln_exact_pass_in') == 'Passed')
             failed_count = len(recon_records) - success_count
@@ -258,28 +258,28 @@ class PipelineOrchestrator:
 
 def main():
     """Main application entry point"""
-    orchestrator = PipelineOrchestrator()
+    orchestrator = PipelineOrchestrator()  # Create pipeline orchestrator
     
     try:
         # Parse and validate arguments
-        args = orchestrator.parse_arguments()
-        dependencies = orchestrator.validate_and_parse_dependencies(args.dependencies)
+        args = orchestrator.parse_arguments()  # Get CLI arguments
+        dependencies = orchestrator.validate_and_parse_dependencies(args.dependencies)  # Parse dependency list
         
         # Log pipeline information
-        orchestrator.log_pipeline_info(args, dependencies)
+        orchestrator.log_pipeline_info(args, dependencies)  # Log configuration details
         
         # Execute pipeline
-        orchestrator.execute_pipeline_steps(args, dependencies)
+        orchestrator.execute_pipeline_steps(args, dependencies)  # Run main pipeline logic
         
     except MetricsPipelineError as e:
-        logger.error(f"Pipeline error: {str(e)}")
+        logger.error(f"Pipeline error: {str(e)}")  # Log known pipeline errors
         logger.error("Pipeline failed - any partial writes will be handled by overwrite functionality on next run")
-        sys.exit(1)
+        sys.exit(1)  # Exit with error code
         
     except Exception as e:
-        logger.error(f"Unexpected error: {str(e)}")
+        logger.error(f"Unexpected error: {str(e)}")  # Log unexpected errors
         logger.error("Pipeline failed with unexpected error - check logs for details")
-        sys.exit(1)
+        sys.exit(1)  # Exit with error code
 
 
 if __name__ == "__main__":

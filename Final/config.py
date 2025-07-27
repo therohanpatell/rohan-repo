@@ -14,19 +14,19 @@ from pyspark.sql.types import (
 # Configure logging
 def setup_logging():
     """Setup logging configuration"""
-    logging.basicConfig(
+    logging.basicConfig(  # Set up standard logging format for entire pipeline
         level=logging.INFO,
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     )
-    return logging.getLogger(__name__)
+    return logging.getLogger(__name__)  # Return logger for this module
 
 
 # Pipeline Constants
 class PipelineConfig:
     """Pipeline configuration constants"""
     
-    # Schema configurations
-    METRICS_SCHEMA = StructType([
+    # Schema configurations for output tables
+    METRICS_SCHEMA = StructType([  # Schema for metrics output table
         StructField("metric_id", StringType(), False),
         StructField("metric_name", StringType(), False),
         StructField("metric_type", StringType(), False),
@@ -38,7 +38,7 @@ class PipelineConfig:
         StructField("pipeline_execution_ts", TimestampType(), False)
     ])
     
-    RECON_SCHEMA = StructType([
+    RECON_SCHEMA = StructType([  # Schema for reconciliation tracking table
         StructField("module_id", StringType(), False),
         StructField("module_type_nm", StringType(), False),
         StructField("source_databs_nm", StringType(), True),
@@ -70,30 +70,28 @@ class PipelineConfig:
         StructField("Job_Name", StringType(), False)
     ])
     
-    # Required JSON fields
-    REQUIRED_JSON_FIELDS = [
+    # Required JSON fields for metric configuration validation
+    REQUIRED_JSON_FIELDS = [  # Fields that must be present in each metric JSON
         'metric_id', 'metric_name', 'metric_type', 
         'sql', 'dependency', 'target_table'
     ]
     
-    # Spark configurations
-    SPARK_CONFIGS = {
+    # Spark configurations for optimization
+    SPARK_CONFIGS = {  # Adaptive query execution settings
         "spark.sql.adaptive.enabled": "true",
         "spark.sql.adaptive.coalescePartitions.enabled": "true"
     }
     
-    # Query timeout in seconds
-    QUERY_TIMEOUT = 180
+    QUERY_TIMEOUT = 180  # Maximum seconds for BigQuery operations
     
-    # Recon constants
-    RECON_MODULE_ID = '103'
-    RECON_MODULE_TYPE = 'Metrics'
+    # Recon tracking constants
+    RECON_MODULE_ID = '103'  # Module identifier for recon records
+    RECON_MODULE_TYPE = 'Metrics'  # Module type for recon records
     
-    # Error message length limit
-    MAX_ERROR_MESSAGE_LENGTH = 500
+    MAX_ERROR_MESSAGE_LENGTH = 500  # Truncate long error messages for storage
     
-    # Error categories for enhanced debugging
-    ERROR_CATEGORIES = {
+    # Error categories for debugging and monitoring
+    ERROR_CATEGORIES = {  # Standardized error types for classification
         'PARTITION_VALIDATION_ERROR': 'Partition info table validation failed',
         'GCS_READ_ERROR': 'Failed to read JSON from GCS',
         'JSON_VALIDATION_ERROR': 'JSON data validation failed',
@@ -113,7 +111,7 @@ class ValidationConfig:
     @staticmethod
     def get_default_recon_values() -> Dict[str, str]:
         """Get default values for recon records"""
-        return {
+        return {  # Default 'NA' values for optional recon fields
             'source_column_nm': 'NA',
             'source_file_nm': 'NA',
             'source_contrl_file_nm': 'NA',

@@ -200,28 +200,25 @@ class BigQueryOperations:
                     logger.warning(f"Could not validate denominator_value: {result_dict['denominator_value']}")
             
             if result_dict['business_data_date'] is not None:
-                # Handle both datetime objects and string dates
                 business_date = result_dict['business_data_date']
                 
                 if isinstance(business_date, str):
-                    # If it's already a string, validate it's a proper date format
+                    # Validate string is a valid YYYY-MM-DD date (handles {currently} placeholder)
                     try:
-                        # Try to parse the string to validate it's a valid date
-                        parsed_date = datetime.strptime(business_date, '%Y-%m-%d')
-                        # Use the original string as-is if it's valid
-                        result_dict['business_data_date'] = business_date
+                        datetime.strptime(business_date, '%Y-%m-%d')  # Validates date format and logical validity
+                        result_dict['business_data_date'] = business_date  # Keep original string if valid
                     except ValueError:
-                        # If string is not a valid date format, raise an error
+                        # Reject invalid date strings like 'random_string' or '2024-13-12'
                         error_msg = f"Invalid business_data_date format: '{business_date}'. Expected YYYY-MM-DD format."
                         if metric_id:
                             error_msg = f"Metric '{metric_id}': {error_msg}"
                         logger.error(error_msg)
                         raise SQLExecutionError(error_msg, metric_id)
                 elif hasattr(business_date, 'strftime'):
-                    # If it's a datetime object, format it
+                    # Convert datetime objects to YYYY-MM-DD string format
                     result_dict['business_data_date'] = business_date.strftime('%Y-%m-%d')
                 else:
-                    # If it's neither string nor datetime, raise an error
+                    # Reject non-string, non-datetime types
                     error_msg = f"Invalid business_data_date type: {type(business_date)}. Expected datetime object or date string."
                     if metric_id:
                         error_msg = f"Metric '{metric_id}': {error_msg}"

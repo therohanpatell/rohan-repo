@@ -23,11 +23,11 @@ class MetricsPipeline:
     """Main pipeline class for processing metrics"""
     
     def __init__(self, spark: SparkSession, bq_operations: BigQueryOperations):
-        self.spark = spark
-        self.bq_operations = bq_operations
-        self.execution_id = ExecutionUtils.generate_execution_id()
-        self.processed_metrics = []
-        self.target_tables = set()
+        self.spark = spark  # Spark session for data processing
+        self.bq_operations = bq_operations  # BigQuery client operations
+        self.execution_id = ExecutionUtils.generate_execution_id()  # Unique ID for this pipeline run
+        self.processed_metrics = []  # Track successfully processed metrics
+        self.target_tables = set()  # Track unique target tables used
     
     # Validation Operations
     def validate_partition_info_table(self, partition_info_table: str) -> None:
@@ -42,21 +42,21 @@ class MetricsPipeline:
         """
         try:
             logger.info("Step 0: Validating partition info table before processing metrics")
-            self.bq_operations.validate_partition_info_table(partition_info_table)
+            self.bq_operations.validate_partition_info_table(partition_info_table)  # Check table exists and has required structure
             logger.info("Partition info table validation completed successfully")
         except Exception as e:
             error_msg = f"Partition info table validation failed: {str(e)}"
             logger.error(error_msg)
-            raise MetricsPipelineError(error_msg)
+            raise MetricsPipelineError(error_msg)  # Convert to pipeline error
 
     # GCS Operations
     def validate_gcs_path(self, gcs_path: str) -> str:
         """Validate GCS path format and accessibility"""
-        if not gcs_path.startswith('gs://'):
+        if not gcs_path.startswith('gs://'):  # Check GCS path format
             raise GCSError(f"Invalid GCS path format: {gcs_path}. Must start with 'gs://'")
         
-        path_parts = gcs_path.replace('gs://', '').split('/')
-        if len(path_parts) < 2:
+        path_parts = gcs_path.replace('gs://', '').split('/')  # Parse path components
+        if len(path_parts) < 2:  # Need at least bucket and file
             raise GCSError(f"Invalid GCS path structure: {gcs_path}")
         
         try:
