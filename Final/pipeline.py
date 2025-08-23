@@ -224,6 +224,7 @@ class MetricsPipeline:
                         'metric_id': record['metric_id'],
                         'metric_name': record['metric_name'],
                         'metric_type': record['metric_type'],
+                        'frequency': record['frequency'],
                         'numerator_value': NumericUtils.safe_decimal_conversion(sql_results['numerator_value']),
                         'denominator_value': NumericUtils.safe_decimal_conversion(sql_results['denominator_value']),
                         'metric_output': NumericUtils.safe_decimal_conversion(sql_results['metric_output']),
