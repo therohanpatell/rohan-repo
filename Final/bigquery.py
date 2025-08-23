@@ -161,7 +161,13 @@ class BigQueryOperations:
                 'metric_output': None,
                 'numerator_value': None,
                 'denominator_value': None,
-                'business_data_date': None
+                'business_data_date': None,
+                # Additional fields that can be overridden by SQL results
+                'metric_id': None,
+                'metric_name': None,
+                'metric_type': None,
+                'metric_description': None,
+                'frequency': None
             }
             
             for row in results:

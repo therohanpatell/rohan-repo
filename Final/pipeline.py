@@ -221,10 +221,12 @@ class MetricsPipeline:
                     )
                     
                     final_record = {
-                        'metric_id': record['metric_id'],
-                        'metric_name': record['metric_name'],
-                        'metric_type': record['metric_type'],
-                        'frequency': record['frequency'],
+                        # Use SQL results if available, otherwise fall back to JSON values
+                        'metric_id': sql_results.get('metric_id', record['metric_id']),
+                        'metric_name': sql_results.get('metric_name', record['metric_name']),
+                        'metric_type': sql_results.get('metric_type', record['metric_type']),
+                        'metric_description': sql_results.get('metric_description', record.get('metric_description')),
+                        'frequency': sql_results.get('frequency', record.get('frequency')),
                         'numerator_value': NumericUtils.safe_decimal_conversion(sql_results['numerator_value']),
                         'denominator_value': NumericUtils.safe_decimal_conversion(sql_results['denominator_value']),
                         'metric_output': NumericUtils.safe_decimal_conversion(sql_results['metric_output']),

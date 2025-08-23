@@ -30,6 +30,7 @@ class PipelineConfig:
         StructField("metric_id", StringType(), False),
         StructField("metric_name", StringType(), False),
         StructField("metric_type", StringType(), False),
+        StructField("metric_description", StringType(), True),
         StructField("frequency", StringType(), True),
         StructField("numerator_value", DecimalType(38, 9), True),
         StructField("denominator_value", DecimalType(38, 9), True),
