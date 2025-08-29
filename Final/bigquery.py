@@ -32,7 +32,7 @@ class BigQueryOperations:
             bq_client: Optional BigQuery client, will create one if not provided
         """
         self.spark = spark
-        self.bq_client = bq_client or bigquery.Client()
+        self.bq_client = bq_client or bigquery.Client(location="europe-west2")
         logger.info("BigQuery operations initialized")
     
     # Schema Operations
@@ -487,8 +487,39 @@ class BigQueryOperations:
             logger.info("All recon records validated successfully")
             
             logger.info("Creating Spark DataFrame from recon records...")
-            recon_df = self.spark.createDataFrame(recon_records, PipelineConfig.RECON_SCHEMA)
-            logger.info("Spark DataFrame created successfully")
+            
+            # Validate recon records before DataFrame creation
+            logger.info("Pre-validating recon records for DataFrame creation...")
+            for i, record in enumerate(recon_records):
+                if record is None:
+                    raise BigQueryError(f"Recon record at index {i} is None")
+                
+                # Check critical non-nullable fields
+                required_fields = [
+                    'module_id', 'module_type_nm', 'source_server_nm', 'target_server_nm',
+                    'source_vl', 'target_vl', 'rcncln_exact_pass_in', 'latest_source_parttn_dt',
+                    'latest_target_parttn_dt', 'load_ts', 'schdld_dt', 'source_system_id',
+                    'schdld_yr', 'Job_Name'
+                ]
+                
+                for field in required_fields:
+                    if field not in record or record[field] is None:
+                        metric_id = record.get('source_system_id', 'UNKNOWN')
+                        logger.error(f"Critical validation error: Field '{field}' is None in recon record {i} for metric {metric_id}")
+                        logger.error(f"Record content: {record}")
+                        raise BigQueryError(f"Required field '{field}' is None in recon record for metric {metric_id}")
+            
+            logger.info("Recon records pre-validation completed successfully")
+            
+            try:
+                recon_df = self.spark.createDataFrame(recon_records, PipelineConfig.RECON_SCHEMA)
+                logger.info("Spark DataFrame created successfully")
+            except Exception as df_error:
+                logger.error(f"Failed to create Spark DataFrame: {str(df_error)}")
+                logger.error("Recon records that caused the error:")
+                for i, record in enumerate(recon_records[:3]):  # Show first 3 records
+                    logger.error(f"  Record {i}: {record}")
+                raise BigQueryError(f"Failed to create Spark DataFrame from recon records: {str(df_error)}")
             
             logger.info("Recon DataFrame Schema:")
             recon_df.printSchema()

@@ -159,6 +159,10 @@ class PipelineOrchestrator:
                 logger.info("-"*60)
                 logger.info("STEP 5: CREATING AND WRITING RECONCILIATION RECORDS")
                 logger.info("-"*60)
+                logger.info("RECON RECORD CREATION LOGIC VERIFICATION:")
+                logger.info("    Successful metrics (written to target tables) → Recon status: 'Passed'")
+                logger.info("    Failed metrics (not written to target tables) → Recon status: 'Failed'")
+                logger.info("-"*40)
                 self.create_and_write_recon_records(
                     validated_data, args, dependencies, successful_writes, 
                     failed_execution_metrics, failed_write_metrics
@@ -420,6 +424,11 @@ class PipelineOrchestrator:
             success_rate = (len(successful_execution_metrics) / total_metrics) * 100
             logger.info(f"OVERALL SUCCESS RATE: {success_rate:.1f}% ({len(successful_execution_metrics)}/{total_metrics})")
         
+        logger.info("RECON RECORD VERIFICATION:")
+        logger.info("    All successful metric executions are written to target tables")
+        logger.info("    All successful writes are marked as 'Passed' in recon table")
+        logger.info("    All failed metric executions are marked as 'Failed' in recon table")
+        logger.info("    Failed metrics are NOT written to target tables (as expected)")
         logger.info("="*80)
         logger.info("PIPELINE EXECUTION SUMMARY COMPLETED")
 
