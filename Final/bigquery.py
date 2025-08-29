@@ -489,10 +489,18 @@ class BigQueryOperations:
             logger.info("Creating Spark DataFrame from recon records...")
             
             # Validate recon records before DataFrame creation
-            logger.info("Pre-validating recon records for DataFrame creation...")
+            logger.info("PRE-VALIDATING RECON RECORDS FOR DATAFRAME CREATION...")
+            logger.info(f"   Total records to validate: {len(recon_records)}")
+            
             for i, record in enumerate(recon_records):
+                logger.info(f"VALIDATING RECORD {i+1}/{len(recon_records)}:")
+                
                 if record is None:
+                    logger.error(f"CRITICAL: Recon record at index {i} is None!")
                     raise BigQueryError(f"Recon record at index {i} is None")
+                
+                logger.info(f"   Record type: {type(record)}")
+                logger.info(f"   Record keys: {list(record.keys()) if isinstance(record, dict) else 'NOT A DICT'}")
                 
                 # Check critical non-nullable fields
                 required_fields = [
@@ -502,23 +510,92 @@ class BigQueryOperations:
                     'schdld_yr', 'Job_Name'
                 ]
                 
+                metric_id = record.get('source_system_id', 'UNKNOWN') if isinstance(record, dict) else 'UNKNOWN'
+                logger.info(f"   Metric ID: {metric_id}")
+                
+                none_fields = []
+                missing_fields = []
+                
                 for field in required_fields:
-                    if field not in record or record[field] is None:
-                        metric_id = record.get('source_system_id', 'UNKNOWN')
-                        logger.error(f"Critical validation error: Field '{field}' is None in recon record {i} for metric {metric_id}")
-                        logger.error(f"Record content: {record}")
-                        raise BigQueryError(f"Required field '{field}' is None in recon record for metric {metric_id}")
+                    if field not in record:
+                        missing_fields.append(field)
+                        logger.error(f"   MISSING FIELD: '{field}' not in record")
+                    elif record[field] is None:
+                        none_fields.append(field)
+                        logger.error(f"   NONE VALUE: '{field}' is None")
+                    else:
+                        field_value = record[field]
+                        field_type = type(field_value).__name__
+                        logger.info(f"   {field}: {repr(field_value)} (type: {field_type})")
+                
+                if missing_fields or none_fields:
+                    logger.error(f"VALIDATION FAILED FOR RECORD {i} (metric: {metric_id}):")
+                    if missing_fields:
+                        logger.error(f"   Missing fields: {missing_fields}")
+                    if none_fields:
+                        logger.error(f"   None value fields: {none_fields}")
+                    
+                    logger.error(f"   FULL RECORD CONTENT:")
+                    for key, value in record.items():
+                        logger.error(f"     {key}: {repr(value)} (type: {type(value)})")
+                    
+                    error_msg = f"Validation failed for record {i} (metric: {metric_id})"
+                    if missing_fields:
+                        error_msg += f" - Missing fields: {missing_fields}"
+                    if none_fields:
+                        error_msg += f" - None value fields: {none_fields}"
+                    
+                    raise BigQueryError(error_msg)
+                
+                logger.info(f"   Record {i+1} validation PASSED")
             
-            logger.info("Recon records pre-validation completed successfully")
+            logger.info("ALL RECON RECORDS PRE-VALIDATION COMPLETED SUCCESSFULLY")
+            
+            logger.info("ATTEMPTING TO CREATE SPARK DATAFRAME...")
+            logger.info(f"   Number of records: {len(recon_records)}")
+            logger.info(f"   Schema: {PipelineConfig.RECON_SCHEMA}")
             
             try:
+                logger.info("   Calling spark.createDataFrame()...")
                 recon_df = self.spark.createDataFrame(recon_records, PipelineConfig.RECON_SCHEMA)
-                logger.info("Spark DataFrame created successfully")
+                logger.info("SPARK DATAFRAME CREATED SUCCESSFULLY")
             except Exception as df_error:
-                logger.error(f"Failed to create Spark DataFrame: {str(df_error)}")
-                logger.error("Recon records that caused the error:")
-                for i, record in enumerate(recon_records[:3]):  # Show first 3 records
-                    logger.error(f"  Record {i}: {record}")
+                logger.error("FAILED TO CREATE SPARK DATAFRAME!")
+                logger.error(f"   Error type: {type(df_error).__name__}")
+                logger.error(f"   Error message: {str(df_error)}")
+                
+                # Log detailed information about the error
+                logger.error("DEBUGGING DATAFRAME CREATION FAILURE:")
+                logger.error(f"   Total records: {len(recon_records)}")
+                
+                # Show first few records that caused the error
+                logger.error("   FIRST 3 RECON RECORDS THAT CAUSED THE ERROR:")
+                for i, record in enumerate(recon_records[:3]):
+                    logger.error(f"     Record {i}:")
+                    if record is None:
+                        logger.error(f"       RECORD IS NONE!")
+                    else:
+                        for key, value in record.items():
+                            if value is None:
+                                logger.error(f"       {key}: None (THIS IS THE PROBLEM!)")
+                            else:
+                                logger.error(f"       {key}: {repr(value)} (type: {type(value)})")
+                
+                # Check if it's the specific "Argument obj can not be None" error
+                if "can not be None" in str(df_error) or "cannot be None" in str(df_error):
+                    logger.error("THIS IS THE 'ARGUMENT OBJ CAN NOT BE NONE' ERROR!")
+                    logger.error("   This means one of the record values is None when it shouldn't be")
+                    
+                    # Find the exact None values
+                    logger.error("SCANNING ALL RECORDS FOR NONE VALUES:")
+                    for i, record in enumerate(recon_records):
+                        if record is None:
+                            logger.error(f"   Record {i}: ENTIRE RECORD IS NONE!")
+                        else:
+                            none_values = [(k, v) for k, v in record.items() if v is None]
+                            if none_values:
+                                logger.error(f"   Record {i} has None values: {none_values}")
+                
                 raise BigQueryError(f"Failed to create Spark DataFrame from recon records: {str(df_error)}")
             
             logger.info("Recon DataFrame Schema:")
