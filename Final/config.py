@@ -102,6 +102,7 @@ class PipelineConfig:
         'RECON_CREATION_ERROR': 'Recon record creation failed',
         'PIPELINE_EXECUTION_ERROR': 'General pipeline execution error',
         'PIPELINE_VALIDATION_ERROR': 'Pipeline validation error',
+        'CANNOT_BE_NONE': 'Required argument cannot be None',
         'UNKNOWN_ERROR': 'Unknown error occurred'
     }
 

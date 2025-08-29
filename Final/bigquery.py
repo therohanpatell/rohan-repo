@@ -452,6 +452,23 @@ class BigQueryOperations:
             
             logger.info(f"Writing {len(recon_records)} recon records to {recon_table}")
             
+            # Validate recon records before creating DataFrame
+            for i, record in enumerate(recon_records):
+                if record is None:
+                    raise BigQueryError(f"Recon record at index {i} is None")
+                
+                # Check required non-nullable fields
+                required_fields = [
+                    'module_id', 'module_type_nm', 'source_server_nm', 'target_server_nm',
+                    'source_vl', 'target_vl', 'rcncln_exact_pass_in', 'latest_source_parttn_dt',
+                    'latest_target_parttn_dt', 'load_ts', 'schdld_dt', 'source_system_id',
+                    'schdld_yr', 'Job_Name'
+                ]
+                
+                for field in required_fields:
+                    if field not in record or record[field] is None:
+                        raise BigQueryError(f"Required field '{field}' is None or missing in recon record at index {i} for metric {record.get('source_system_id', 'UNKNOWN')}")
+            
             recon_df = self.spark.createDataFrame(recon_records, PipelineConfig.RECON_SCHEMA)
             
             logger.info(f"Recon Schema for {recon_table}:")

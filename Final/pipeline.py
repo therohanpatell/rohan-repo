@@ -321,11 +321,33 @@ class MetricsPipeline:
                           error_category: Optional[str] = None) -> Dict:
         """Build a reconciliation record for a metric"""
         try:
+            # Validate required parameters to prevent None values
+            if metric_record is None:
+                raise MetricsPipelineError("metric_record cannot be None")
+            if run_date is None:
+                raise MetricsPipelineError("run_date cannot be None")
+            if env is None:
+                raise MetricsPipelineError("env cannot be None")
+            if partition_dt is None:
+                raise MetricsPipelineError("partition_dt cannot be None")
+            
+            # Validate required fields in metric_record
+            metric_id = metric_record.get('metric_id')
+            metric_name = metric_record.get('metric_name')
+            target_table_name = metric_record.get('target_table')
+            
+            if metric_id is None:
+                raise MetricsPipelineError("metric_record['metric_id'] cannot be None")
+            if metric_name is None:
+                raise MetricsPipelineError("metric_record['metric_name'] cannot be None")
+            if target_table_name is None:
+                raise MetricsPipelineError("metric_record['target_table'] cannot be None")
+            
             source_dataset, source_table = SQLUtils.get_source_table_info(sql)
             
-            target_table_parts = metric_record['target_table'].split('.')
+            target_table_parts = target_table_name.split('.')
             target_dataset = target_table_parts[1] if len(target_table_parts) >= 2 else None
-            target_table = target_table_parts[2] if len(target_table_parts) >= 3 else None
+            target_table_name_only = target_table_parts[2] if len(target_table_parts) >= 3 else None
             
             current_timestamp = DateUtils.get_current_timestamp()
             current_year = current_timestamp.year
@@ -359,9 +381,9 @@ class MetricsPipeline:
                 'latest_target_parttn_dt': run_date,
                 'load_ts': current_timestamp.strftime('%Y-%m-%d %H:%M:%S'),
                 'schdld_dt': datetime.strptime(partition_dt, '%Y-%m-%d').date(),
-                'source_system_id': metric_record['metric_id'],
+                'source_system_id': metric_id,
                 'schdld_yr': current_year,
-                'Job_Name': metric_record['metric_name']
+                'Job_Name': metric_name
             }
             
             # Add optional columns
@@ -369,24 +391,34 @@ class MetricsPipeline:
                 'source_databs_nm': source_dataset or 'UNKNOWN',
                 'source_table_nm': source_table or 'UNKNOWN',
                 'target_databs_nm': target_dataset or 'UNKNOWN',
-                'target_table_nm': target_table or 'UNKNOWN',
+                'target_table_nm': target_table_name_only or 'UNKNOWN',
                 'clcltn_ds': 'Success' if is_success else 'Failed',
                 'excldd_vl': '0' if is_success else '1',
                 'excldd_reason_tx': exclusion_reason,
                 **default_values
             })
             
-            logger.debug(f"Built recon record for metric {metric_record['metric_id']}: {execution_status}")
+            logger.debug(f"Built recon record for metric {metric_id}: {execution_status}")
             return recon_record
             
         except Exception as e:
-            logger.error(f"Failed to build recon record for metric {metric_record['metric_id']}: {str(e)}")
+            logger.error(f"Failed to build recon record for metric {metric_record.get('metric_id', 'UNKNOWN') if metric_record else 'UNKNOWN'}: {str(e)}")
             raise MetricsPipelineError(f"Failed to build recon record: {str(e)}")
     
     def build_fallback_recon_record(self, metric_record: Dict, run_date: str, 
                                    env: str, partition_dt: str, error_message: str) -> Dict:
         """Build a fallback reconciliation record when normal recon record creation fails"""
         try:
+            # Validate required parameters to prevent None values
+            if run_date is None:
+                run_date = DateUtils.get_current_partition_dt()
+            if env is None:
+                env = 'UNKNOWN'
+            if partition_dt is None:
+                partition_dt = DateUtils.get_current_partition_dt()
+            if error_message is None:
+                error_message = 'Unknown error occurred'
+            
             current_timestamp = DateUtils.get_current_timestamp()
             current_year = current_timestamp.year
             
@@ -395,6 +427,13 @@ class MetricsPipeline:
             
             # Build minimal recon record with default values
             default_values = ValidationConfig.get_default_recon_values()
+            
+            # Safely extract metric information
+            metric_id = 'UNKNOWN'
+            metric_name = 'UNKNOWN'
+            if metric_record and isinstance(metric_record, dict):
+                metric_id = metric_record.get('metric_id', 'UNKNOWN') or 'UNKNOWN'
+                metric_name = metric_record.get('metric_name', 'UNKNOWN') or 'UNKNOWN'
             
             fallback_record = {
                 'module_id': PipelineConfig.RECON_MODULE_ID,
@@ -408,9 +447,9 @@ class MetricsPipeline:
                 'latest_target_parttn_dt': run_date,
                 'load_ts': current_timestamp.strftime('%Y-%m-%d %H:%M:%S'),
                 'schdld_dt': datetime.strptime(partition_dt, '%Y-%m-%d').date(),
-                'source_system_id': metric_record.get('metric_id', 'UNKNOWN'),
+                'source_system_id': metric_id,
                 'schdld_yr': current_year,
-                'Job_Name': metric_record.get('metric_name', 'UNKNOWN'),
+                'Job_Name': metric_name,
                 'source_databs_nm': 'UNKNOWN',
                 'source_table_nm': 'UNKNOWN',
                 'target_databs_nm': 'UNKNOWN',
@@ -421,26 +460,31 @@ class MetricsPipeline:
                 **default_values
             }
             
-            logger.debug(f"Built fallback recon record for metric {metric_record.get('metric_id', 'UNKNOWN')}")
+            logger.debug(f"Built fallback recon record for metric {metric_id}")
             return fallback_record
             
         except Exception as e:
             logger.error(f"Failed to build fallback recon record: {str(e)}")
-            # Return absolute minimal record
+            # Return absolute minimal record with safe defaults
+            safe_run_date = run_date or DateUtils.get_current_partition_dt()
+            safe_env = env or 'UNKNOWN'
+            safe_partition_dt = partition_dt or DateUtils.get_current_partition_dt()
+            safe_timestamp = DateUtils.get_current_timestamp()
+            
             return {
                 'module_id': PipelineConfig.RECON_MODULE_ID,
                 'module_type_nm': PipelineConfig.RECON_MODULE_TYPE,
-                'source_server_nm': env,
-                'target_server_nm': env,
+                'source_server_nm': safe_env,
+                'target_server_nm': safe_env,
                 'source_vl': '1',
                 'target_vl': '1',
                 'rcncln_exact_pass_in': 'Failed',
-                'latest_source_parttn_dt': run_date,
-                'latest_target_parttn_dt': run_date,
-                'load_ts': DateUtils.get_current_timestamp().strftime('%Y-%m-%d %H:%M:%S'),
-                'schdld_dt': datetime.strptime(partition_dt, '%Y-%m-%d').date(),
+                'latest_source_parttn_dt': safe_run_date,
+                'latest_target_parttn_dt': safe_run_date,
+                'load_ts': safe_timestamp.strftime('%Y-%m-%d %H:%M:%S'),
+                'schdld_dt': datetime.strptime(safe_partition_dt, '%Y-%m-%d').date(),
                 'source_system_id': 'UNKNOWN',
-                'schdld_yr': DateUtils.get_current_timestamp().year,
+                'schdld_yr': safe_timestamp.year,
                 'Job_Name': 'UNKNOWN',
                 'source_databs_nm': 'UNKNOWN',
                 'source_table_nm': 'UNKNOWN',
@@ -500,6 +544,23 @@ class MetricsPipeline:
                                               partition_dt: str) -> List[Dict]:
         """Create recon records based on execution results and write success/failure to target tables"""
         logger.info("Creating recon records based on execution and write results")
+        
+        # Validate required parameters to prevent None values
+        if json_data is None:
+            logger.error("json_data cannot be None")
+            return []
+        if run_date is None:
+            logger.error("run_date cannot be None")
+            return []
+        if dependencies is None:
+            logger.error("dependencies cannot be None")
+            return []
+        if env is None:
+            logger.error("env cannot be None")
+            return []
+        if partition_dt is None:
+            logger.error("partition_dt cannot be None")
+            return []
         
         filtered_data = [
             record for record in json_data 

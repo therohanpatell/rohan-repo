@@ -205,6 +205,20 @@ class PipelineOrchestrator:
         from utils import DateUtils
         partition_dt = DateUtils.get_current_partition_dt()  # Get current date for partitioning
         
+        # Validate required parameters before creating recon records
+        if validated_data is None:
+            logger.error("validated_data is None, cannot create recon records")
+            return
+        if args.run_date is None:
+            logger.error("args.run_date is None, cannot create recon records")
+            return
+        if args.env is None:
+            logger.error("args.env is None, cannot create recon records")
+            return
+        if partition_dt is None:
+            logger.error("partition_dt is None, cannot create recon records")
+            return
+        
         recon_records = self.pipeline.create_recon_records_from_write_results(
             validated_data,
             args.run_date,
