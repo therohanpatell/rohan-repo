@@ -242,9 +242,21 @@ class MetricsPipeline:
                 except Exception as e:
                     error_message = str(e)
                     logger.error(f"Failed to process metric_id {record['metric_id']} for table {target_table}: {error_message}")
+                    
+                    # Categorize the error type for better tracking
+                    error_category = "SQL_EXECUTION_ERROR"
+                    if "Braced constructors are not supported" in error_message:
+                        error_category = "SQL_SYNTAX_ERROR"
+                        logger.error(f"SQL syntax error detected for metric {record['metric_id']}: Braced constructors not supported")
+                    elif "timeout" in error_message.lower():
+                        error_category = "SQL_TIMEOUT_ERROR"
+                    elif "not found" in error_message.lower():
+                        error_category = "SQL_TABLE_NOT_FOUND_ERROR"
+                    
                     failed_metrics.append({
                         'metric_record': record,
-                        'error_message': error_message
+                        'error_message': error_message,
+                        'error_category': error_category
                     })
                     continue
             
@@ -569,9 +581,11 @@ class MetricsPipeline:
         
         # Create lookup dictionaries for failed metrics and their error messages
         failed_execution_lookup = {}
+        failed_execution_categories = {}
         for failed_metric in failed_execution_metrics:
             metric_id = failed_metric['metric_record']['metric_id']
             failed_execution_lookup[metric_id] = failed_metric['error_message']
+            failed_execution_categories[metric_id] = failed_metric.get('error_category', 'SQL_EXECUTION_ERROR')
         
         failed_write_lookup = {}
         for target_table, failed_metrics in failed_write_metrics.items():
@@ -595,7 +609,7 @@ class MetricsPipeline:
             else:
                 if metric_id in failed_execution_lookup:
                     error_message = failed_execution_lookup[metric_id]
-                    error_category = "SQL_EXECUTION_ERROR"
+                    error_category = failed_execution_categories.get(metric_id, "SQL_EXECUTION_ERROR")
                 elif metric_id in failed_write_lookup:
                     error_message = failed_write_lookup[metric_id]
                     error_category = "BIGQUERY_WRITE_ERROR"
@@ -604,6 +618,10 @@ class MetricsPipeline:
                     error_category = "UNKNOWN_ERROR"
             
             execution_status = 'success' if is_success else 'failed'
+            
+            # Log the error details for debugging
+            if not is_success:
+                logger.info(f"Creating recon record for failed metric {metric_id}: {error_category} - {error_message}")
             
             try:
                 final_sql = self.replace_sql_placeholders(record['sql'], run_date, partition_info_table)
@@ -621,19 +639,157 @@ class MetricsPipeline:
                 all_recon_records.append(recon_record)
                 
                 logger.debug(f"Created recon record for metric {metric_id}: {execution_status}")
+                if not is_success:
+                    logger.info(f"Successfully created recon record for failed metric {metric_id} with error: {error_category}")
                 
             except Exception as recon_error:
                 # Even if recon record creation fails, create a fallback record
                 logger.error(f"Failed to create recon record for metric {metric_id}: {str(recon_error)}")
                 try:
-                    fallback_record = self.build_fallback_recon_record(
+                    # Preserve the original error message (SQL error) instead of the recon creation error
+                    original_error_message = error_message or "Unknown failure occurred during processing"
+                    original_error_category = error_category or "UNKNOWN_ERROR"
+                    
+                    # Create fallback record with original error, not recon creation error
+                    fallback_record = self.build_fallback_recon_record_with_original_error(
                         record, run_date, env, partition_dt, 
-                        f"Recon record creation failed: {str(recon_error)}"
+                        original_error_message, original_error_category
                     )
                     all_recon_records.append(fallback_record)
-                    logger.info(f"Created fallback recon record for metric {metric_id}")
+                    logger.info(f"Created fallback recon record for metric {metric_id} with original error: {original_error_category}")
                 except Exception as fallback_error:
                     logger.error(f"Failed to create fallback recon record for metric {metric_id}: {str(fallback_error)}")
+                    # Last resort: create minimal record with original error
+                    try:
+                        minimal_record = self.create_minimal_recon_record(
+                            metric_id, run_date, env, partition_dt, 
+                            error_message or "Unknown failure occurred during processing"
+                        )
+                        all_recon_records.append(minimal_record)
+                        logger.info(f"Created minimal recon record for metric {metric_id}")
+                    except Exception as minimal_error:
+                        logger.error(f"Failed to create minimal recon record for metric {metric_id}: {str(minimal_error)}")
         
         logger.info(f"Created {len(all_recon_records)} recon records based on execution and write results")
         return all_recon_records
+    
+    def build_fallback_recon_record_with_original_error(self, metric_record: Dict, run_date: str, 
+                                                       env: str, partition_dt: str, 
+                                                       original_error_message: str, 
+                                                       original_error_category: str) -> Dict:
+        """Build a fallback reconciliation record preserving the original error (e.g., SQL error)"""
+        try:
+            # Validate required parameters to prevent None values
+            if run_date is None:
+                run_date = DateUtils.get_current_partition_dt()
+            if env is None:
+                env = 'UNKNOWN'
+            if partition_dt is None:
+                partition_dt = DateUtils.get_current_partition_dt()
+            if original_error_message is None:
+                original_error_message = 'Unknown error occurred'
+            
+            current_timestamp = DateUtils.get_current_timestamp()
+            current_year = current_timestamp.year
+            
+            # Format the original error with its category (e.g., SQL_EXECUTION_ERROR)
+            formatted_error = StringUtils.format_error_with_category(original_error_message, original_error_category)
+            exclusion_reason = f'Metric processing failed: {formatted_error}'
+            
+            # Build minimal recon record with default values
+            default_values = ValidationConfig.get_default_recon_values()
+            
+            # Safely extract metric information
+            metric_id = 'UNKNOWN'
+            metric_name = 'UNKNOWN'
+            if metric_record and isinstance(metric_record, dict):
+                metric_id = metric_record.get('metric_id', 'UNKNOWN') or 'UNKNOWN'
+                metric_name = metric_record.get('metric_name', 'UNKNOWN') or 'UNKNOWN'
+            
+            fallback_record = {
+                'module_id': PipelineConfig.RECON_MODULE_ID,
+                'module_type_nm': PipelineConfig.RECON_MODULE_TYPE,
+                'source_server_nm': env,
+                'target_server_nm': env,
+                'source_vl': '1',  # Error count
+                'target_vl': '1',  # Error count
+                'rcncln_exact_pass_in': 'Failed',
+                'latest_source_parttn_dt': run_date,
+                'latest_target_parttn_dt': run_date,
+                'load_ts': current_timestamp.strftime('%Y-%m-%d %H:%M:%S'),
+                'schdld_dt': datetime.strptime(partition_dt, '%Y-%m-%d').date(),
+                'source_system_id': metric_id,
+                'schdld_yr': current_year,
+                'Job_Name': metric_name,
+                'source_databs_nm': 'UNKNOWN',
+                'source_table_nm': 'UNKNOWN',
+                'target_databs_nm': 'UNKNOWN',
+                'target_table_nm': 'UNKNOWN',
+                'clcltn_ds': 'Failed',
+                'excldd_vl': '1',
+                'excldd_reason_tx': exclusion_reason,
+                **default_values
+            }
+            
+            logger.debug(f"Built fallback recon record for metric {metric_id} with original error: {original_error_category}")
+            return fallback_record
+            
+        except Exception as e:
+            logger.error(f"Failed to build fallback recon record with original error: {str(e)}")
+            # Fall back to minimal record creation
+            raise e
+    
+    def create_minimal_recon_record(self, metric_id: str, run_date: str, env: str, 
+                                   partition_dt: str, error_message: str) -> Dict:
+        """Create a minimal recon record as last resort"""
+        try:
+            # Use safe defaults for all parameters
+            safe_metric_id = metric_id or 'UNKNOWN'
+            safe_run_date = run_date or DateUtils.get_current_partition_dt()
+            safe_env = env or 'UNKNOWN'
+            safe_partition_dt = partition_dt or DateUtils.get_current_partition_dt()
+            safe_error_message = error_message or 'Unknown error occurred'
+            safe_timestamp = DateUtils.get_current_timestamp()
+            
+            # Create minimal exclusion reason
+            clean_error = StringUtils.clean_error_message(safe_error_message)
+            exclusion_reason = f'Metric processing failed: {clean_error}'
+            
+            minimal_record = {
+                'module_id': PipelineConfig.RECON_MODULE_ID,
+                'module_type_nm': PipelineConfig.RECON_MODULE_TYPE,
+                'source_server_nm': safe_env,
+                'target_server_nm': safe_env,
+                'source_vl': '1',
+                'target_vl': '1',
+                'rcncln_exact_pass_in': 'Failed',
+                'latest_source_parttn_dt': safe_run_date,
+                'latest_target_parttn_dt': safe_run_date,
+                'load_ts': safe_timestamp.strftime('%Y-%m-%d %H:%M:%S'),
+                'schdld_dt': datetime.strptime(safe_partition_dt, '%Y-%m-%d').date(),
+                'source_system_id': safe_metric_id,
+                'schdld_yr': safe_timestamp.year,
+                'Job_Name': 'UNKNOWN',
+                'source_databs_nm': 'UNKNOWN',
+                'source_table_nm': 'UNKNOWN',
+                'target_databs_nm': 'UNKNOWN',
+                'target_table_nm': 'UNKNOWN',
+                'clcltn_ds': 'Failed',
+                'excldd_vl': '1',
+                'excldd_reason_tx': exclusion_reason,
+                'source_column_nm': 'NA',
+                'source_file_nm': 'NA',
+                'source_contrl_file_nm': 'NA',
+                'target_column_nm': 'NA',
+                'target_file_nm': 'NA',
+                'target_contrl_file_nm': 'NA',
+                'tolrnc_pc': 'NA',
+                'rcncln_tolrnc_pass_in': 'NA'
+            }
+            
+            logger.debug(f"Created minimal recon record for metric {safe_metric_id}")
+            return minimal_record
+            
+        except Exception as e:
+            logger.error(f"Failed to create minimal recon record: {str(e)}")
+            raise MetricsPipelineError(f"Failed to create minimal recon record: {str(e)}")
