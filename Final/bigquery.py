@@ -450,12 +450,18 @@ class BigQueryOperations:
                 logger.info("No recon records to write")
                 return
             
-            logger.info(f"Writing {len(recon_records)} recon records to {recon_table}")
+            logger.info("Starting recon records write to BigQuery...")
+            logger.info(f"   Number of records: {len(recon_records)}")
+            logger.info(f"   Target table: {recon_table}")
             
             # Validate recon records before creating DataFrame
+            logger.info("Validating recon records before DataFrame creation...")
+            validation_errors = []
+            
             for i, record in enumerate(recon_records):
                 if record is None:
-                    raise BigQueryError(f"Recon record at index {i} is None")
+                    validation_errors.append(f"Record at index {i} is None")
+                    continue
                 
                 # Check required non-nullable fields
                 required_fields = [
@@ -467,21 +473,56 @@ class BigQueryOperations:
                 
                 for field in required_fields:
                     if field not in record or record[field] is None:
-                        raise BigQueryError(f"Required field '{field}' is None or missing in recon record at index {i} for metric {record.get('source_system_id', 'UNKNOWN')}")
+                        metric_id = record.get('source_system_id', 'UNKNOWN')
+                        validation_errors.append(f"Field '{field}' is None/missing in record {i} for metric {metric_id}")
             
+            if validation_errors:
+                logger.error("Recon record validation failed:")
+                for error in validation_errors[:10]:  # Show first 10 errors
+                    logger.error(f"   {error}")
+                if len(validation_errors) > 10:
+                    logger.error(f"   ... and {len(validation_errors) - 10} more validation errors")
+                raise BigQueryError(f"Recon record validation failed with {len(validation_errors)} errors")
+            
+            logger.info("All recon records validated successfully")
+            
+            logger.info("Creating Spark DataFrame from recon records...")
             recon_df = self.spark.createDataFrame(recon_records, PipelineConfig.RECON_SCHEMA)
+            logger.info("Spark DataFrame created successfully")
             
-            logger.info(f"Recon Schema for {recon_table}:")
+            logger.info("Recon DataFrame Schema:")
             recon_df.printSchema()
-            logger.info(f"Recon Data for {recon_table}:")
-            recon_df.show(truncate=False)
             
+            logger.info("Sample Recon Data (first 5 records):")
+            recon_df.show(5, truncate=False)
+            
+            # Count success/failure records for logging
+            success_records = [r for r in recon_records if r.get('rcncln_exact_pass_in') == 'Passed']
+            failed_records = [r for r in recon_records if r.get('rcncln_exact_pass_in') == 'Failed']
+            
+            logger.info("Recon Records Summary:")
+            logger.info(f"   Success records: {len(success_records)}")
+            logger.info(f"   Failed records: {len(failed_records)}")
+            
+            if failed_records:
+                logger.info("Failed Records Details (first 5):")
+                for i, record in enumerate(failed_records[:5], 1):
+                    metric_id = record.get('source_system_id', 'UNKNOWN')
+                    reason = record.get('excldd_reason_tx', 'No reason provided')
+                    reason_short = reason[:100] + "..." if len(reason) > 100 else reason
+                    logger.info(f"   {i}. Metric {metric_id}: {reason_short}")
+            
+            logger.info("Writing DataFrame to BigQuery table...")
             self.write_dataframe_to_table(recon_df, recon_table, "append")
             
-            logger.info(f"Successfully wrote {len(recon_records)} recon records to {recon_table}")
+            logger.info("RECON RECORDS WRITE COMPLETED SUCCESSFULLY")
+            logger.info(f"   Total records written: {len(recon_records)}")
+            logger.info(f"   Target table: {recon_table}")
             
         except Exception as e:
-            logger.error(f"Failed to write recon records to BigQuery: {str(e)}")
+            logger.error("RECON RECORDS WRITE FAILED")
+            logger.error(f"   Error: {str(e)}")
+            logger.error(f"   Error type: {type(e).__name__}")
             raise BigQueryError(f"Failed to write recon records: {str(e)}")
     
     # Delete Operations
