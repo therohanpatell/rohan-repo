@@ -769,4 +769,43 @@ def create_bigquery_operations(spark: SparkSession, bq_client: Optional[bigquery
     Returns:
         BigQueryOperations instance
     """
-    return BigQueryOperations(spark, bq_client) 
+    return BigQueryOperations(spark, bq_client)
+
+# bigquery.py - Add this method to BigQueryOperations class
+
+def read_json_from_gcs(self, gcs_path: str) -> List[Dict]:
+    """
+    Read JSON file from GCS and return as list of dictionaries
+    
+    Args:
+        gcs_path: GCS path to JSON file
+        
+    Returns:
+        List of dictionaries from JSON
+        
+    Raises:
+        GCSError: If reading fails
+    """
+    try:
+        logger.info(f"Reading JSON from GCS: {gcs_path}")
+        
+        # Validate GCS path format
+        if not gcs_path.startswith('gs://'):
+            raise GCSError(f"Invalid GCS path format: {gcs_path}. Must start with 'gs://'")
+        
+        # Read JSON with comprehensive error handling
+        df = self.spark.read.option("multiline", "true").json(gcs_path)
+
+        if df.count() == 0:
+            raise GCSError(f"No data found in JSON file: {gcs_path}")
+
+        if len(df.columns) == 0:
+            raise GCSError(f"Invalid JSON structure in {gcs_path}. Expected JSON array of objects.")
+
+        json_data = [row.asDict() for row in df.collect()]
+        logger.info(f"Successfully read {len(json_data)} records from JSON")
+        return json_data
+
+    except Exception as e:
+        logger.error(f"Failed to read JSON from GCS: {str(e)}")
+        raise GCSError(f"Failed to read JSON from GCS: {str(e)}")
