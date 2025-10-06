@@ -1,0 +1,56 @@
+# sample_dq_config.json
+[
+  {
+    "check_id": "DQ001",
+    "category": "Completeness",
+    "sql_query": "SELECT COUNT(*) as null_count FROM `project.dataset.table` WHERE required_column IS NULL",
+    "description": "Check for null values in required column",
+    "severity": "High",
+    "expected_output": "0",
+    "comparison_type": "numeric_condition",
+    "impacted_downstream": ["Reporting Dashboard", "Data Science Team"],
+    "tags": ["completeness", "null_check"],
+    "active": true
+  },
+  {
+    "check_id": "DQ002", 
+    "category": "Validity",
+    "sql_query": "SELECT DISTINCT status FROM `project.dataset.table`",
+    "description": "Check that status values are in allowed set",
+    "severity": "Medium",
+    "expected_output": ["ACTIVE", "INACTIVE", "PENDING"],
+    "comparison_type": "set_match",
+    "impacted_downstream": ["Workflow System"],
+    "tags": ["validity", "enum_check"],
+    "active": true
+  },
+  {
+    "check_id": "DQ003",
+    "category": "Validity", 
+    "sql_query": "SELECT DISTINCT invalid_status FROM `project.dataset.table` WHERE invalid_status IS NOT NULL",
+    "description": "Check that no invalid status values are present",
+    "severity": "High",
+    "expected_output": ["DELETED", "SUSPENDED"],
+    "comparison_type": "not_in_result",
+    "impacted_downstream": ["Customer Facing App"],
+    "tags": ["validity", "business_rule"],
+    "active": true
+  },
+  {
+    "check_id": "DQ004",
+    "category": "Consistency",
+    "sql_query": "SELECT region, COUNT(*) as count FROM `project.dataset.sales` GROUP BY region",
+    "description": "Verify regional sales counts match expected distribution",
+    "severity": "Medium", 
+    "expected_output": [
+      {"region": "NORTH", "count": 1500},
+      {"region": "SOUTH", "count": 1200},
+      {"region": "EAST", "count": 1800},
+      {"region": "WEST", "count": 1600}
+    ],
+    "comparison_type": "row_match",
+    "impacted_downstream": ["Sales Dashboard", "Executive Reporting"],
+    "tags": ["consistency", "reconciliation"],
+    "active": true
+  }
+]
