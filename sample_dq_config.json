@@ -1,0 +1,89 @@
+[
+  {
+    "check_id": "CHK_001_NULL_EMPLOYEE_ID",
+    "category": "Null Check",
+    "sql_query": "SELECT COUNT(*) as cnt FROM `project.dataset.employees` WHERE employee_id IS NULL",
+    "description": "Verify that employee_id column has no NULL values",
+    "severity": "High",
+    "expected_output": "0",
+    "comparison_type": "numeric_condition",
+    "impacted_downstream": ["HR_Dashboard", "Payroll_System"],
+    "tags": ["employee", "critical", "daily"],
+    "active": true
+  },
+  {
+    "check_id": "CHK_002_ALLOWED_NAMES",
+    "category": "Value Check",
+    "sql_query": "SELECT DISTINCT name FROM `project.dataset.employees`",
+    "description": "Verify only allowed names are present in the employee table",
+    "severity": "Medium",
+    "expected_output": ["Rohan", "Rahul", "Priya"],
+    "comparison_type": "set_match",
+    "impacted_downstream": ["Employee_Report"],
+    "tags": ["employee", "validation"],
+    "active": true
+  },
+  {
+    "check_id": "CHK_003_NO_INVALID_STATUS",
+    "category": "Value Check",
+    "sql_query": "SELECT DISTINCT status FROM `project.dataset.orders`",
+    "description": "Verify no invalid status values are present in orders",
+    "severity": "High",
+    "expected_output": ["INVALID", "ERROR"],
+    "comparison_type": "not_in_result",
+    "impacted_downstream": ["Order_Dashboard", "Sales_Report"],
+    "tags": ["orders", "critical"],
+    "active": true
+  },
+  {
+    "check_id": "CHK_004_MIN_DEPARTMENTS",
+    "category": "Threshold Check",
+    "sql_query": "SELECT COUNT(DISTINCT department) as dept_count FROM `project.dataset.employees`",
+    "description": "Verify at least 10 departments exist in the organization",
+    "severity": "Medium",
+    "expected_output": ">=10",
+    "comparison_type": "numeric_condition",
+    "impacted_downstream": ["Department_Report", "HR_Dashboard"],
+    "tags": ["employee", "threshold"],
+    "active": true
+  },
+  {
+    "check_id": "CHK_005_REGION_COUNTS",
+    "category": "Row Match",
+    "sql_query": "SELECT region, COUNT(*) as cnt FROM `project.dataset.sales` GROUP BY region",
+    "description": "Verify region-wise sales counts match expected distribution",
+    "severity": "Low",
+    "expected_output": [
+      {"region": "APAC", "cnt": 100},
+      {"region": "EMEA", "cnt": 50}
+    ],
+    "comparison_type": "row_match",
+    "impacted_downstream": ["Sales_Dashboard"],
+    "tags": ["sales", "regional"],
+    "active": true
+  },
+  {
+    "check_id": "CHK_006_INACTIVE_NULL_CHECK",
+    "category": "Null Check",
+    "sql_query": "SELECT COUNT(*) as cnt FROM `project.dataset.customers` WHERE customer_id IS NULL",
+    "description": "Inactive check - verify customer_id has no NULL values",
+    "severity": "Low",
+    "expected_output": "0",
+    "comparison_type": "numeric_condition",
+    "impacted_downstream": ["Customer_Report"],
+    "tags": ["customer", "inactive"],
+    "active": false
+  },
+  {
+    "check_id": "CHK_007_INACTIVE_VALUE_CHECK",
+    "category": "Value Check",
+    "sql_query": "SELECT DISTINCT country FROM `project.dataset.customers`",
+    "description": "Inactive check - verify only specific countries are present",
+    "severity": "Medium",
+    "expected_output": ["USA", "UK", "India"],
+    "comparison_type": "set_match",
+    "impacted_downstream": ["Customer_Dashboard"],
+    "tags": ["customer", "inactive"],
+    "active": false
+  }
+]
