@@ -71,6 +71,11 @@ class PipelineOrchestrator:
             required=False,
             help='BigQuery table for DQ results (project.dataset.table) (required for dq mode)'
         )
+        parser.add_argument(
+            '--dq_partition_info_table',
+            required=False,
+            help='BigQuery partition info table for {partition_info} placeholder in DQ SQL queries (optional for dq mode)'
+        )
         
         args = parser.parse_args()  # Parse and return all arguments
         
@@ -125,6 +130,7 @@ class PipelineOrchestrator:
             logger.info("PIPELINE BEHAVIOR:")
             logger.info("   DQ pipeline validates data quality checks against expected outputs")
             logger.info("   JSON must contain: check_id, category, sql_query, description, severity, expected_output, comparison_type, active")
+            logger.info("   SQL placeholders: {currently} = run_date, {partition_info} = partition_dt from metadata table (requires --dq-partition-info-table)")
             logger.info("   Only active checks (active=true) will be executed")
             logger.info("   Results include validation status (PASS/FAIL) and detailed comparison information")
             logger.info("   All results will be written to the DQ target table")
@@ -164,7 +170,9 @@ class PipelineOrchestrator:
                 logger.info("STEP 2: EXECUTING DQ CHECKS")
                 logger.info("-"*60)
                 logger.info(f"Executing {len(active_checks)} active DQ checks...")
-                dq_results = dq_pipeline.execute_dq_checks(dq_config, args.run_date)
+                if args.dq_partition_info_table:
+                    logger.info(f"Using partition info table: {args.dq_partition_info_table}")
+                dq_results = dq_pipeline.execute_dq_checks(dq_config, args.run_date, args.dq_partition_info_table)
                 logger.info(f"DQ checks execution completed: {len(dq_results)} results generated")
                 
                 # Count pass/fail results

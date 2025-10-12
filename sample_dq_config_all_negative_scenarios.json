@@ -1,0 +1,202 @@
+[
+  {
+    "category": "Null Check",
+    "sql_query": "SELECT COUNT(*) as cnt FROM `project.dataset.employees` WHERE employee_id IS NULL",
+    "description": "ERROR - Missing check_id field (will be removed in actual test)",
+    "severity": "High",
+    "expected_output": "0",
+    "comparison_type": "numeric_condition",
+    "active": true,
+  },
+  {
+    "check_id": "CHK_ERR_002_INVALID_SEVERITY_CRITICAL",
+    "category": "Value Check",
+    "sql_query": "SELECT DISTINCT status FROM `project.dataset.orders`",
+    "description": "ERROR - Invalid severity 'Critical' (valid: High, Medium, Low)",
+    "severity": "Critical",
+    "expected_output": ["Pending", "Completed"],
+    "comparison_type": "set_match",
+    "active": true
+  },
+  {
+    "check_id": "CHK_ERR_003_INVALID_SEVERITY_URGENT",
+    "category": "Threshold Check",
+    "sql_query": "SELECT COUNT(*) as cnt FROM `project.dataset.customers`",
+    "description": "ERROR - Invalid severity 'Urgent' (valid: High, Medium, Low)",
+    "severity": "Urgent",
+    "expected_output": ">100",
+    "comparison_type": "numeric_condition",
+    "active": true
+  },
+  {
+    "check_id": "CHK_ERR_004_INVALID_COMPARISON_TYPE",
+    "category": "Value Check",
+    "sql_query": "SELECT DISTINCT region FROM `project.dataset.sales`",
+    "description": "ERROR - Invalid comparison_type 'exact_match' (valid: numeric_condition, set_match, not_in_result, row_match)",
+    "severity": "Medium",
+    "expected_output": ["APAC", "EMEA"],
+    "comparison_type": "exact_match",
+    "active": true
+  },
+  {
+    "check_id": "CHK_ERR_005_NUMERIC_WITH_LIST",
+    "category": "Threshold Check",
+    "sql_query": "SELECT COUNT(*) as cnt FROM `project.dataset.employees`",
+    "description": "ERROR - comparison_type 'numeric_condition' but expected_output is a list (should be string)",
+    "severity": "High",
+    "expected_output": ["10", "20", "30"],
+    "comparison_type": "numeric_condition",
+    "active": true
+  },
+  {
+    "check_id": "CHK_ERR_006_NUMERIC_WITH_OBJECT",
+    "category": "Threshold Check",
+    "sql_query": "SELECT MAX(salary) as max_sal FROM `project.dataset.employees`",
+    "description": "ERROR - comparison_type 'numeric_condition' but expected_output is an object (should be string)",
+    "severity": "Medium",
+    "expected_output": {"value": 100000},
+    "comparison_type": "numeric_condition",
+    "active": true
+  },
+  {
+    "check_id": "CHK_ERR_007_SET_MATCH_WITH_STRING",
+    "category": "Value Check",
+    "sql_query": "SELECT DISTINCT name FROM `project.dataset.employees`",
+    "description": "ERROR - comparison_type 'set_match' but expected_output is a string (should be list)",
+    "severity": "Medium",
+    "expected_output": "Rohan,Rahul,Priya",
+    "comparison_type": "set_match",
+    "active": true
+  },
+  {
+    "check_id": "CHK_ERR_008_SET_MATCH_EMPTY_LIST",
+    "category": "Value Check",
+    "sql_query": "SELECT DISTINCT status FROM `project.dataset.orders`",
+    "description": "ERROR - comparison_type 'set_match' but expected_output is empty list",
+    "severity": "High",
+    "expected_output": [],
+    "comparison_type": "set_match",
+    "active": true
+  },
+  {
+    "check_id": "CHK_ERR_009_NOT_IN_RESULT_WITH_STRING",
+    "category": "Value Check",
+    "sql_query": "SELECT DISTINCT status FROM `project.dataset.orders`",
+    "description": "ERROR - comparison_type 'not_in_result' but expected_output is a string (should be list)",
+    "severity": "High",
+    "expected_output": "INVALID",
+    "comparison_type": "not_in_result",
+    "active": true
+  },
+  {
+    "check_id": "CHK_ERR_010_NOT_IN_RESULT_EMPTY_LIST",
+    "category": "Value Check",
+    "sql_query": "SELECT DISTINCT region FROM `project.dataset.sales`",
+    "description": "ERROR - comparison_type 'not_in_result' but expected_output is empty list",
+    "severity": "Medium",
+    "expected_output": [],
+    "comparison_type": "not_in_result",
+    "active": true
+  },
+  {
+    "check_id": "CHK_ERR_011_ROW_MATCH_WITH_STRING",
+    "category": "Row Match",
+    "sql_query": "SELECT region, COUNT(*) as cnt FROM `project.dataset.sales` GROUP BY region",
+    "description": "ERROR - comparison_type 'row_match' but expected_output is a string (should be list of objects)",
+    "severity": "Low",
+    "expected_output": "region:APAC,cnt:100",
+    "comparison_type": "row_match",
+    "active": true
+  },
+  {
+    "check_id": "CHK_ERR_012_ROW_MATCH_EMPTY_LIST",
+    "category": "Row Match",
+    "sql_query": "SELECT country, COUNT(*) as cnt FROM `project.dataset.customers` GROUP BY country",
+    "description": "ERROR - comparison_type 'row_match' but expected_output is empty list",
+    "severity": "Low",
+    "expected_output": [],
+    "comparison_type": "row_match",
+    "active": true
+  },
+  {
+    "check_id": "CHK_ERR_013_ROW_MATCH_WITH_STRING_ITEMS",
+    "category": "Row Match",
+    "sql_query": "SELECT region, SUM(revenue) as total FROM `project.dataset.sales` GROUP BY region",
+    "description": "ERROR - comparison_type 'row_match' but expected_output contains strings instead of objects",
+    "severity": "Medium",
+    "expected_output": ["APAC", "EMEA", "Americas"],
+    "comparison_type": "row_match",
+    "active": true
+  },
+  {
+    "check_id": "CHK_ERR_014_INVALID_NUMERIC_CONDITION_TEXT",
+    "category": "Threshold Check",
+    "sql_query": "SELECT COUNT(*) as cnt FROM `project.dataset.products`",
+    "description": "ERROR - comparison_type 'numeric_condition' but expected_output is non-numeric text",
+    "severity": "High",
+    "expected_output": "at least ten",
+    "comparison_type": "numeric_condition",
+    "active": true
+  },
+  {
+    "check_id": "CHK_ERR_015_INVALID_NUMERIC_OPERATOR",
+    "category": "Threshold Check",
+    "sql_query": "SELECT AVG(amount) as avg_amt FROM `project.dataset.orders`",
+    "description": "ERROR - comparison_type 'numeric_condition' with invalid operator format",
+    "severity": "Medium",
+    "expected_output": "=>1000",
+    "comparison_type": "numeric_condition",
+    "active": true
+  },
+  {
+    "check_id": "CHK_ERR_016_EMPTY_SQL_QUERY",
+    "category": "Null Check",
+    "sql_query": "",
+    "description": "ERROR - sql_query is empty string",
+    "severity": "High",
+    "expected_output": "0",
+    "comparison_type": "numeric_condition",
+    "active": true
+  },
+  {
+    "check_id": "CHK_ERR_017_EMPTY_CHECK_ID",
+    "check_id": "",
+    "category": "Value Check",
+    "sql_query": "SELECT DISTINCT category FROM `project.dataset.products`",
+    "description": "ERROR - check_id is empty string",
+    "severity": "Medium",
+    "expected_output": ["Electronics", "Furniture"],
+    "comparison_type": "set_match",
+    "active": true
+  },
+  {
+    "check_id": "CHK_ERR_018_ACTIVE_NOT_BOOLEAN_STRING",
+    "category": "Threshold Check",
+    "sql_query": "SELECT COUNT(*) as cnt FROM `project.dataset.employees`",
+    "description": "ERROR - active field is string 'true' instead of boolean true",
+    "severity": "Low",
+    "expected_output": ">=10",
+    "comparison_type": "numeric_condition",
+    "active": "true"
+  },
+  {
+    "check_id": "CHK_ERR_019_ACTIVE_NOT_BOOLEAN_NUMBER",
+    "category": "Value Check",
+    "sql_query": "SELECT DISTINCT status FROM `project.dataset.orders`",
+    "description": "ERROR - active field is number 1 instead of boolean true",
+    "severity": "Medium",
+    "expected_output": ["Pending", "Completed", "Shipped"],
+    "comparison_type": "set_match",
+    "active": 1
+  },
+  {
+    "check_id": "CHK_ERR_020_SEVERITY_NOT_STRING",
+    "category": "Null Check",
+    "sql_query": "SELECT COUNT(*) as cnt FROM `project.dataset.customers` WHERE email IS NULL",
+    "description": "ERROR - severity is number 1 instead of string",
+    "severity": 1,
+    "expected_output": "0",
+    "comparison_type": "numeric_condition",
+    "active": true
+  }
+]

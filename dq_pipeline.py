@@ -33,6 +33,82 @@ class DQPipeline:
         self.bq_operations = bq_operations
         logger.info("DQ Pipeline initialized")
     
+    def replace_sql_placeholders(self, sql: str, run_date: str, partition_info_table: str = None) -> str:
+        """
+        Replace {currently} and {partition_info} placeholders in SQL with appropriate dates
+        
+        Args:
+            sql: SQL query with placeholders
+            run_date: Business date for {currently} replacement
+            partition_info_table: Table to query for {partition_info} replacement (optional)
+            
+        Returns:
+            SQL with placeholders replaced
+        """
+        try:
+            from utils import SQLUtils
+            
+            placeholders = SQLUtils.find_placeholder_positions(sql)
+            
+            if not placeholders:
+                return sql  # No placeholders to replace
+            
+            logger.info(f"  Found {len(placeholders)} placeholders in SQL: {[p[0] for p in placeholders]}")
+            
+            # Sort placeholders by position (descending) to replace from end to start
+            placeholders.sort(key=lambda x: x[1], reverse=True)
+            
+            final_sql = sql
+            
+            for placeholder_type, start_pos, end_pos in placeholders:
+                if placeholder_type == 'currently':
+                    replacement_date = run_date
+                    logger.info(f"  Replacing {{currently}} placeholder with run_date: {replacement_date}")
+                    final_sql = final_sql[:start_pos] + f"'{replacement_date}'" + final_sql[end_pos:]
+                
+                elif placeholder_type == 'partition_info':
+                    if not partition_info_table:
+                        raise ValidationError(
+                            f"SQL contains {{partition_info}} placeholder but no partition_info_table provided. "
+                            f"Use --dq-partition-info-table argument to specify the partition metadata table."
+                        )
+                    
+                    # Use utility method to extract table reference
+                    table_info = SQLUtils.get_table_for_placeholder(final_sql, start_pos)
+                    
+                    if table_info:
+                        dataset, table_name = table_info
+                        
+                        # Get partition date from metadata table
+                        replacement_date = self.bq_operations.get_partition_date(
+                            dataset, 
+                            table_name, 
+                            partition_info_table
+                        )
+                        
+                        if replacement_date:
+                            logger.info(
+                                f"  Replacing {{partition_info}} placeholder with partition_dt: {replacement_date} "
+                                f"for table {dataset}.{table_name}"
+                            )
+                            final_sql = final_sql[:start_pos] + f"'{replacement_date}'" + final_sql[end_pos:]
+                        else:
+                            raise ValidationError(
+                                f"Could not find partition_dt for {dataset}.{table_name} "
+                                f"in {partition_info_table}"
+                            )
+                    else:
+                        raise ValidationError(
+                            f"Could not find table reference for {{partition_info}} placeholder at position {start_pos}"
+                        )
+            
+            logger.info(f"  Successfully replaced {len(placeholders)} placeholders in SQL")
+            return final_sql
+            
+        except Exception as e:
+            logger.error(f"  Failed to replace SQL placeholders: {str(e)}")
+            raise ValidationError(f"Failed to replace SQL placeholders: {str(e)}")
+    
     def read_and_validate_dq_config(self, gcs_path: str) -> List[Dict]:
         """
         Read and validate DQ configuration from GCS
@@ -68,13 +144,14 @@ class DQPipeline:
             logger.error(f"Failed to read and validate DQ config: {str(e)}")
             raise ValidationError(f"Failed to read and validate DQ config: {str(e)}")
     
-    def execute_dq_checks(self, dq_config: List[Dict], run_date: str) -> List[Dict]:
+    def execute_dq_checks(self, dq_config: List[Dict], run_date: str, partition_info_table: str = None) -> List[Dict]:
         """
         Execute DQ checks and perform validation
         
         Args:
             dq_config: DQ check configurations
             run_date: Business date for the run
+            partition_info_table: Partition info table for {partition_info} replacement (optional)
             
         Returns:
             List of DQ result records
@@ -118,7 +195,7 @@ class DQPipeline:
             
             try:
                 # Execute single check
-                result = self.execute_single_check(check_config, run_date)
+                result = self.execute_single_check(check_config, run_date, partition_info_table)
                 dq_results.append(result)
                 
                 # Track execution time
@@ -195,13 +272,14 @@ class DQPipeline:
         
         return dq_results
     
-    def execute_single_check(self, check_config: Dict, run_date: str) -> Dict:
+    def execute_single_check(self, check_config: Dict, run_date: str, partition_info_table: str = None) -> Dict:
         """
         Execute a single DQ check
         
         Args:
             check_config: DQ check configuration
             run_date: Business date
+            partition_info_table: Partition info table for {partition_info} replacement (optional)
             
         Returns:
             DQ result record
@@ -222,11 +300,26 @@ class DQPipeline:
         error_message = None
         
         try:
-            # Execute SQL query
-            logger.info(f"  Executing SQL query...")
-            logger.debug(f"  SQL: {sql_query}")
+            # Replace placeholders in SQL query
+            logger.info(f"  Checking for SQL placeholders...")
+            sql_query_with_replacements = self.replace_sql_placeholders(
+                sql_query, 
+                run_date, 
+                partition_info_table
+            )
             
-            actual_result = self._execute_dq_sql(sql_query, check_id)
+            if sql_query_with_replacements != sql_query:
+                logger.info(f"  SQL placeholders replaced")
+                logger.debug(f"  Original SQL: {sql_query}")
+                logger.debug(f"  Final SQL: {sql_query_with_replacements}")
+            else:
+                logger.debug(f"  No placeholders found in SQL")
+            
+            # Execute SQL query (with replacements)
+            logger.info(f"  Executing SQL query...")
+            logger.debug(f"  SQL: {sql_query_with_replacements}")
+            
+            actual_result = self._execute_dq_sql(sql_query_with_replacements, check_id)
             
             logger.info(f"  SQL execution successful")
             logger.debug(f"  Actual result: {actual_result}")

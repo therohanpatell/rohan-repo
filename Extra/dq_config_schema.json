@@ -1,0 +1,246 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "DQ Validation Configuration Schema",
+  "description": "Schema for Data Quality validation configuration checks",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "required": [
+      "check_id",
+      "category",
+      "sql_query",
+      "description",
+      "severity",
+      "expected_output",
+      "comparison_type",
+      "active"
+    ],
+    "properties": {
+      "check_id": {
+        "type": "string",
+        "description": "Unique identifier for the DQ check",
+        "pattern": "^CHK_[A-Z0-9_]+$",
+        "examples": ["CHK_001_NULL_EMPLOYEE_ID", "CHK_002_ALLOWED_NAMES"]
+      },
+      "category": {
+        "type": "string",
+        "description": "Category or type of the data quality check",
+        "examples": ["Null Check", "Value Check", "Threshold Check", "Row Match"]
+      },
+      "sql_query": {
+        "type": "string",
+        "description": "BigQuery SQL query to execute for validation",
+        "minLength": 1,
+        "examples": [
+          "SELECT COUNT(*) as cnt FROM `project.dataset.table` WHERE column IS NULL",
+          "SELECT DISTINCT status FROM `project.dataset.orders`"
+        ]
+      },
+      "description": {
+        "type": "string",
+        "description": "Human-readable description of what the check validates",
+        "minLength": 1,
+        "examples": ["Verify that employee_id column has no NULL values"]
+      },
+      "severity": {
+        "type": "string",
+        "description": "Severity level of the check failure",
+        "enum": ["Critical", "High", "Medium", "Low"],
+        "examples": ["High", "Medium"]
+      },
+      "expected_output": {
+        "description": "Expected output from the SQL query for validation",
+        "oneOf": [
+          {
+            "type": "string",
+            "description": "Numeric condition (e.g., '0', '>=10', '<100', '!=0')",
+            "examples": ["0", ">=10", "<=100", ">50", "<1000", "!=0", "15"]
+          },
+          {
+            "type": "array",
+            "description": "Array of allowed values (set_match) or disallowed values (not_in_result)",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "examples": [
+              ["Rohan", "Rahul", "Priya"],
+              ["INVALID", "ERROR"]
+            ]
+          },
+          {
+            "type": "array",
+            "description": "Array of objects for row-level matching (row_match)",
+            "items": {
+              "type": "object",
+              "minProperties": 1
+            },
+            "minItems": 1,
+            "examples": [
+              [
+                {"region": "APAC", "cnt": 100},
+                {"region": "EMEA", "cnt": 50}
+              ]
+            ]
+          }
+        ]
+      },
+      "comparison_type": {
+        "type": "string",
+        "description": "Type of comparison to perform between actual and expected output",
+        "enum": ["numeric_condition", "set_match", "not_in_result", "row_match"],
+        "examples": ["numeric_condition", "set_match"]
+      },
+      "impacted_downstream": {
+        "type": "array",
+        "description": "List of downstream systems or reports impacted by this check",
+        "items": {
+          "type": "string"
+        },
+        "examples": [
+          ["HR_Dashboard", "Payroll_System"],
+          ["Order_Dashboard"]
+        ]
+      },
+      "tags": {
+        "type": "array",
+        "description": "Tags for categorizing and filtering checks",
+        "items": {
+          "type": "string"
+        },
+        "examples": [
+          ["employee", "critical", "daily"],
+          ["orders", "validation"]
+        ]
+      },
+      "active": {
+        "type": "boolean",
+        "description": "Whether this check is active and should be executed",
+        "examples": [true, false]
+      }
+    },
+    "additionalProperties": false,
+    "allOf": [
+      {
+        "if": {
+          "properties": {
+            "comparison_type": {"const": "numeric_condition"}
+          }
+        },
+        "then": {
+          "properties": {
+            "expected_output": {
+              "type": "string",
+              "pattern": "^(>=|<=|>|<|!=|=)?-?\\d+(\\.\\d+)?$",
+              "description": "Must be a numeric value with optional operator (>=, <=, >, <, !=, =)"
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "comparison_type": {"const": "set_match"}
+          }
+        },
+        "then": {
+          "properties": {
+            "expected_output": {
+              "type": "array",
+              "items": {"type": "string"},
+              "description": "Must be an array of strings for set matching"
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "comparison_type": {"const": "not_in_result"}
+          }
+        },
+        "then": {
+          "properties": {
+            "expected_output": {
+              "type": "array",
+              "items": {"type": "string"},
+              "description": "Must be an array of strings for disallowed values"
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "comparison_type": {"const": "row_match"}
+          }
+        },
+        "then": {
+          "properties": {
+            "expected_output": {
+              "type": "array",
+              "items": {"type": "object"},
+              "description": "Must be an array of objects for row matching"
+            }
+          }
+        }
+      }
+    ]
+  },
+  "minItems": 1,
+  "examples": [
+    [
+      {
+        "check_id": "CHK_001_NULL_EMPLOYEE_ID",
+        "category": "Null Check",
+        "sql_query": "SELECT COUNT(*) as cnt FROM `project.dataset.employees` WHERE employee_id IS NULL",
+        "description": "Verify that employee_id column has no NULL values",
+        "severity": "High",
+        "expected_output": "0",
+        "comparison_type": "numeric_condition",
+        "impacted_downstream": ["HR_Dashboard", "Payroll_System"],
+        "tags": ["employee", "critical", "daily"],
+        "active": true
+      },
+      {
+        "check_id": "CHK_002_ALLOWED_NAMES",
+        "category": "Value Check",
+        "sql_query": "SELECT DISTINCT name FROM `project.dataset.employees`",
+        "description": "Verify only allowed names are present",
+        "severity": "Medium",
+        "expected_output": ["Rohan", "Rahul", "Priya"],
+        "comparison_type": "set_match",
+        "impacted_downstream": ["Employee_Report"],
+        "tags": ["employee", "validation"],
+        "active": true
+      },
+      {
+        "check_id": "CHK_003_NO_INVALID_STATUS",
+        "category": "Value Check",
+        "sql_query": "SELECT DISTINCT status FROM `project.dataset.orders`",
+        "description": "Verify no invalid status values",
+        "severity": "High",
+        "expected_output": ["INVALID", "ERROR"],
+        "comparison_type": "not_in_result",
+        "impacted_downstream": ["Order_Dashboard"],
+        "tags": ["orders", "critical"],
+        "active": true
+      },
+      {
+        "check_id": "CHK_004_REGION_COUNTS",
+        "category": "Row Match",
+        "sql_query": "SELECT region, COUNT(*) as cnt FROM `project.dataset.sales` GROUP BY region",
+        "description": "Verify region-wise counts",
+        "severity": "Low",
+        "expected_output": [
+          {"region": "APAC", "cnt": 100},
+          {"region": "EMEA", "cnt": 50}
+        ],
+        "comparison_type": "row_match",
+        "impacted_downstream": ["Sales_Dashboard"],
+        "tags": ["sales", "regional"],
+        "active": true
+      }
+    ]
+  ]
+}
