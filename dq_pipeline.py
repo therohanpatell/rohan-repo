@@ -2,6 +2,7 @@
 DQ Pipeline module for data quality check execution and validation
 """
 
+import json
 import time
 from datetime import datetime
 from typing import Dict, List, Optional, Tuple
@@ -445,22 +446,32 @@ class DQPipeline:
                 )
             
             logger.info(f"Reading JSON from GCS: {gcs_path}")
-            df = self.spark.read.option("multiline", "true").json(gcs_path)
             
-            if df.count() == 0:
+            # Read as text first to avoid Spark schema inference issues
+            text_df = self.spark.read.text(gcs_path)
+            json_text = '\n'.join([row.value for row in text_df.collect()])
+            
+            # Parse JSON using Python's json module for accurate type preservation
+            import json
+            json_data = json.loads(json_text)
+            
+            # Ensure it's a list
+            if not isinstance(json_data, list):
+                raise ValidationError(
+                    f"JSON file must contain an array at the root level: {gcs_path}"
+                )
+            
+            if len(json_data) == 0:
                 raise ValidationError(
                     f"No data found in JSON file: {gcs_path}"
                 )
             
-            if len(df.columns) == 0:
-                raise ValidationError(
-                    f"Invalid JSON structure in {gcs_path}"
-                )
-            
-            json_data = [row.asDict() for row in df.collect()]
             logger.info(f"Successfully read {len(json_data)} records from JSON")
             return json_data
             
+        except json.JSONDecodeError as e:
+            logger.error(f"Invalid JSON format in {gcs_path}: {str(e)}")
+            raise ValidationError(f"Invalid JSON format in {gcs_path}: {str(e)}")
         except Exception as e:
             logger.error(f"Failed to read JSON from GCS: {str(e)}")
             raise ValidationError(f"Failed to read JSON from GCS: {str(e)}")
