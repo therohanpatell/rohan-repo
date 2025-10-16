@@ -522,7 +522,12 @@ class DQPipeline:
     
     def write_dq_results(self, dq_results: List[Dict], dq_target_table: str) -> None:
         """
-        Write DQ results to BigQuery table
+        Write DQ results to BigQuery table with overwrite capability
+        
+        This method uses the same overwrite logic as the metrics pipeline:
+        - Checks for existing DQ checks with the same check_id and partition_dt
+        - Deletes existing records before writing new ones
+        - Ensures only the latest run's results are kept (no duplicates)
         
         Args:
             dq_results: List of DQ result records
@@ -537,7 +542,7 @@ class DQPipeline:
                 return
             
             logger.info("=" * 80)
-            logger.info("WRITING DQ RESULTS TO BIGQUERY")
+            logger.info("WRITING DQ RESULTS TO BIGQUERY WITH OVERWRITE")
             logger.info("=" * 80)
             logger.info(f"Target table: {dq_target_table}")
             logger.info(f"Number of results: {len(dq_results)}")
@@ -552,17 +557,26 @@ class DQPipeline:
             logger.info("Sample DQ Results (first 5 records):")
             dq_df.show(5, truncate=False)
             
-            # Write to BigQuery using existing write method
-            logger.info(f"Writing DataFrame to BigQuery table: {dq_target_table}")
-            self.bq_operations.write_dataframe_to_table(
+            # Write to BigQuery using overwrite method (same as metrics pipeline)
+            logger.info(f"Writing DataFrame to BigQuery table with overwrite: {dq_target_table}")
+            logger.info("Note: Existing DQ checks with same check_id and partition_dt will be overwritten")
+            
+            successful_check_ids, failed_checks = self.bq_operations.write_dq_checks_with_overwrite(
                 df=dq_df,
-                target_table=dq_target_table,
-                write_mode="append"
+                target_table=dq_target_table
             )
+            
+            if failed_checks:
+                logger.error(f"Failed to write {len(failed_checks)} DQ checks")
+                for failed_check in failed_checks:
+                    logger.error(f"  - {failed_check['check_id']}: {failed_check['error_message']}")
+                raise BigQueryError(f"Failed to write {len(failed_checks)} DQ checks to BigQuery")
             
             logger.info("=" * 80)
             logger.info("DQ RESULTS WRITE COMPLETED SUCCESSFULLY")
             logger.info("=" * 80)
+            logger.info(f"Total DQ checks written: {len(successful_check_ids)}")
+            logger.info("Overwrite behavior: Previous results for the same partition_dt have been replaced")
             
         except Exception as e:
             logger.error(f"Failed to write DQ results: {str(e)}")

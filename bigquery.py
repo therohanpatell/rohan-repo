@@ -723,6 +723,168 @@ class BigQueryOperations:
             logger.error(f"Partition info table validation failed: {str(e)}")
             raise BigQueryError(f"Partition info table validation failed: {str(e)}")
 
+    # DQ Check Operations
+    def check_existing_dq_checks(self, check_ids: List[str], partition_dt: str, target_table: str) -> List[str]:
+        """
+        Check which DQ check IDs already exist in BigQuery table for the given partition date
+        
+        Args:
+            check_ids: List of check IDs to check
+            partition_dt: Partition date
+            target_table: Target table name
+            
+        Returns:
+            List of existing check IDs
+            
+        Raises:
+            BigQueryError: If check operation fails
+        """
+        try:
+            if not check_ids:
+                return []
+            
+            escaped_check_ids = [StringUtils.escape_sql_string(cid) for cid in check_ids]
+            check_ids_str = "', '".join(escaped_check_ids)
+            
+            query = f"""
+            SELECT DISTINCT check_id 
+            FROM `{target_table}` 
+            WHERE check_id IN ('{check_ids_str}') 
+            AND partition_dt = '{partition_dt}'
+            """
+            
+            logger.info(f"Checking existing DQ checks for partition_dt: {partition_dt}")
+            logger.debug(f"Query: {query}")
+            
+            results = self.execute_query(query)
+            existing_checks = [row.check_id for row in results]
+            
+            if existing_checks:
+                logger.info(f"Found {len(existing_checks)} existing DQ checks: {existing_checks}")
+            else:
+                logger.info("No existing DQ checks found")
+            
+            return existing_checks
+            
+        except Exception as e:
+            logger.error(f"Failed to check existing DQ checks: {str(e)}")
+            raise BigQueryError(f"Failed to check existing DQ checks: {str(e)}")
+    
+    def delete_dq_checks(self, check_ids: List[str], partition_dt: str, target_table: str) -> None:
+        """
+        Delete existing DQ checks from BigQuery table for the given partition date
+        
+        Args:
+            check_ids: List of check IDs to delete
+            partition_dt: Partition date
+            target_table: Target table name
+            
+        Raises:
+            BigQueryError: If delete operation fails
+        """
+        try:
+            if not check_ids:
+                logger.info("No DQ checks to delete")
+                return
+            
+            escaped_check_ids = [StringUtils.escape_sql_string(cid) for cid in check_ids]
+            check_ids_str = "', '".join(escaped_check_ids)
+            
+            delete_query = f"""
+            DELETE FROM `{target_table}` 
+            WHERE check_id IN ('{check_ids_str}') 
+            AND partition_dt = '{partition_dt}'
+            """
+            
+            logger.info(f"Overwriting {len(check_ids)} existing DQ checks for partition_dt: {partition_dt}")
+            logger.debug(f"Delete query: {delete_query}")
+            
+            results = self.execute_query(delete_query)
+            
+            # Try to get the number of affected rows (not always available)
+            try:
+                deleted_count = results.num_dml_affected_rows if hasattr(results, 'num_dml_affected_rows') else 0
+                logger.info(f"Successfully deleted {deleted_count} existing DQ check records for overwrite")
+            except:
+                logger.info(f"Successfully executed delete query for DQ check overwrite operation")
+            
+        except Exception as e:
+            logger.error(f"Failed to delete existing DQ checks for overwrite: {str(e)}")
+            raise BigQueryError(f"Failed to delete existing DQ checks for overwrite: {str(e)}")
+    
+    def write_dq_checks_with_overwrite(self, df: DataFrame, target_table: str) -> Tuple[List[str], List[Dict]]:
+        """
+        Write DQ checks DataFrame to BigQuery table with robust overwrite capability
+        
+        Args:
+            df: Spark DataFrame containing DQ check results
+            target_table: Target BigQuery table
+            
+        Returns:
+            Tuple of (successful_check_ids, failed_checks)
+        """
+        try:
+            logger.info(f"Writing DQ checks DataFrame to BigQuery table with overwrite: {target_table}")
+            
+            # Validate input DataFrame
+            if df.count() == 0:
+                logger.warning("No DQ check records to process - DataFrame is empty")
+                return [], []
+            
+            # Get check info for processing
+            check_records = df.select('check_id', 'partition_dt').distinct().collect()
+            
+            if not check_records:
+                logger.warning("No valid DQ check records found")
+                return [], []
+            
+            partition_dt = check_records[0]['partition_dt']
+            check_ids = [row['check_id'] for row in check_records]
+            record_count = df.count()
+            
+            logger.info(f"Processing {len(check_ids)} unique DQ checks ({record_count} total records) for partition_dt: {partition_dt}")
+            
+            # Check which checks already exist for robust overwrite
+            existing_checks = self.check_existing_dq_checks(check_ids, partition_dt, target_table)
+            new_checks = [cid for cid in check_ids if cid not in existing_checks]
+            
+            # Delete existing checks if any (part of overwrite operation)
+            if existing_checks:
+                logger.info(f"Found {len(existing_checks)} existing DQ checks to overwrite")
+                self.delete_dq_checks(existing_checks, partition_dt, target_table)
+            
+            if new_checks:
+                logger.info(f"Adding {len(new_checks)} new DQ checks")
+            
+            # Write the DataFrame to BigQuery (append mode after deletion = overwrite)
+            logger.info(f"Writing {record_count} DQ check records to {target_table}")
+            self.write_dataframe_to_table(df, target_table, "append")
+            
+            # Final success logging
+            logger.info(f"Successfully completed overwrite operation for {target_table}")
+            logger.info(f"Total DQ checks processed: {len(check_ids)} ({len(existing_checks)} overwritten, {len(new_checks)} new)")
+            
+            return check_ids, []
+            
+        except Exception as e:
+            error_message = str(e)
+            logger.error(f"Failed to write DQ checks to BigQuery with overwrite: {error_message}")
+            
+            # Create failed checks list for error reporting
+            failed_checks = []
+            try:
+                check_records = df.select('check_id').distinct().collect()
+                for row in check_records:
+                    failed_checks.append({
+                        'check_id': row['check_id'],
+                        'error_message': error_message
+                    })
+                logger.error(f"Failed DQ checks: {[fc['check_id'] for fc in failed_checks]}")
+            except Exception as inner_e:
+                logger.error(f"Could not extract failed check IDs: {str(inner_e)}")
+            
+            return [], failed_checks
+    
     # Utility Methods
     def test_connection(self) -> bool:
         """
