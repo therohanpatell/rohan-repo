@@ -111,16 +111,19 @@ class DQPipeline:
     
     def read_and_validate_dq_config(self, gcs_path: str) -> List[Dict]:
         """
-        Read and validate DQ configuration from GCS
+        Read DQ configuration from GCS
+        
+        Note: Individual check validation is performed during execution to ensure
+        that configuration errors in one check don't stop the entire pipeline.
         
         Args:
             gcs_path: GCS path to JSON config
             
         Returns:
-            Validated DQ check configurations
+            DQ check configurations (basic structure validated only)
             
         Raises:
-            ValidationError: If validation fails
+            ValidationError: If JSON structure is invalid
         """
         try:
             logger.info(f"Reading DQ configuration from GCS: {gcs_path}")
@@ -130,19 +133,25 @@ class DQPipeline:
             
             logger.info(f"Successfully read {len(json_data)} DQ check configurations")
             
-            # Validate DQ configuration using ValidationEngine
-            logger.info("Validating DQ configuration...")
-            validated_data = ValidationEngine.validate_dq_json(json_data)
+            # Only validate basic structure (list of dicts)
+            # Individual check validation happens during execution for error resilience
+            if not isinstance(json_data, list):
+                raise ValidationError("DQ configuration must be a list of check configurations")
             
-            logger.info("DQ configuration validation completed successfully")
-            return validated_data
+            for index, record in enumerate(json_data):
+                if not isinstance(record, dict):
+                    raise ValidationError(f"Record at index {index} must be a dictionary")
+            
+            logger.info("DQ configuration structure validation completed successfully")
+            logger.info("Note: Individual check validation will occur during execution")
+            return json_data
             
         except ValidationError as e:
-            logger.error(f"DQ configuration validation failed: {str(e)}")
+            logger.error(f"DQ configuration structure validation failed: {str(e)}")
             raise
         except Exception as e:
-            logger.error(f"Failed to read and validate DQ config: {str(e)}")
-            raise ValidationError(f"Failed to read and validate DQ config: {str(e)}")
+            logger.error(f"Failed to read DQ config: {str(e)}")
+            raise ValidationError(f"Failed to read DQ config: {str(e)}")
     
     def execute_dq_checks(self, dq_config: List[Dict], run_date: str, partition_info_table: str = None) -> List[Dict]:
         """
@@ -274,7 +283,11 @@ class DQPipeline:
     
     def execute_single_check(self, check_config: Dict, run_date: str, partition_info_table: str = None) -> Dict:
         """
-        Execute a single DQ check
+        Execute a single DQ check with comprehensive error handling
+        
+        This method wraps all check operations in try-except blocks to ensure
+        that individual check failures never stop the pipeline. All errors are
+        captured and recorded in the result record.
         
         Args:
             check_config: DQ check configuration
@@ -282,13 +295,19 @@ class DQPipeline:
             partition_info_table: Partition info table for {partition_info} replacement (optional)
             
         Returns:
-            DQ result record
+            DQ result record (always returns a record, even for failures)
+            
+        Error Handling:
+            - Configuration validation errors: Mark as FAIL, record error
+            - SQL execution errors: Mark as FAIL, record error
+            - Comparison errors: Mark as FAIL, record error
+            - All errors are logged but do not stop execution
         """
-        check_id = check_config['check_id']
+        check_id = check_config.get('check_id', 'UNKNOWN')
         description = check_config.get('description', 'No description')
-        sql_query = check_config['sql_query']
-        expected_output = check_config['expected_output']
-        comparison_type = check_config['comparison_type']
+        sql_query = check_config.get('sql_query', '')
+        expected_output = check_config.get('expected_output')
+        comparison_type = check_config.get('comparison_type', '')
         severity = check_config.get('severity', 'N/A')
         
         # Start timing
@@ -300,6 +319,36 @@ class DQPipeline:
         error_message = None
         
         try:
+            # Step 1: Validate configuration before executing query
+            try:
+                logger.info(f"  Validating check configuration...")
+                ValidationEngine.validate_severity(severity)
+                ValidationEngine.validate_comparison_type(comparison_type, expected_output)
+                logger.info(f"  Configuration validation passed")
+            except ValidationError as e:
+                # Configuration validation failed - mark as FAIL and return immediately
+                execution_duration = time.time() - start_time
+                error_message = f"Configuration validation error: {str(e)}"
+                logger.error(f"  ✗ CONFIGURATION VALIDATION ERROR")
+                logger.error(f"  Check ID: {check_id}")
+                logger.error(f"  Description: {description}")
+                logger.error(f"  Severity: {severity}")
+                logger.error(f"  Comparison Type: {comparison_type}")
+                logger.error(f"  Expected Output: {expected_output}")
+                logger.error(f"  Error: {error_message}")
+                logger.error(f"  Execution duration: {execution_duration:.2f} seconds")
+                
+                # Return FAIL record immediately without executing query
+                return self.build_dq_result_record(
+                    check_config=check_config,
+                    actual_result=None,
+                    validation_status="FAIL",
+                    failure_reason=error_message,
+                    execution_duration=execution_duration,
+                    run_date=run_date
+                )
+            
+            # Step 2: Replace placeholders and execute SQL query
             # Replace placeholders in SQL query
             logger.info(f"  Checking for SQL placeholders...")
             sql_query_with_replacements = self.replace_sql_placeholders(
