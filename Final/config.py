@@ -30,7 +30,6 @@ class PipelineConfig:
         StructField("metric_id", StringType(), False),
         StructField("metric_name", StringType(), False),
         StructField("metric_type", StringType(), False),
-        StructField("metric_description", StringType(), True),
         StructField("frequency", StringType(), True),
         StructField("numerator_value", DecimalType(38, 9), True),
         StructField("denominator_value", DecimalType(38, 9), True),
@@ -98,14 +97,10 @@ class PipelineConfig:
         'GCS_READ_ERROR': 'Failed to read JSON from GCS',
         'JSON_VALIDATION_ERROR': 'JSON data validation failed',
         'SQL_EXECUTION_ERROR': 'SQL query execution failed',
-        'SQL_TIMEOUT_ERROR': 'SQL query timed out',
-        'SQL_TABLE_NOT_FOUND_ERROR': 'SQL table not found',
-        'SQL_SYNTAX_ERROR': 'SQL syntax error',
         'BIGQUERY_WRITE_ERROR': 'BigQuery write operation failed',
         'RECON_CREATION_ERROR': 'Recon record creation failed',
         'PIPELINE_EXECUTION_ERROR': 'General pipeline execution error',
         'PIPELINE_VALIDATION_ERROR': 'Pipeline validation error',
-        'CANNOT_BE_NONE': 'Required argument cannot be None',
         'UNKNOWN_ERROR': 'Unknown error occurred'
     }
 
@@ -127,3 +122,4 @@ class ValidationConfig:
             'tolrnc_pc': 'NA',
             'rcncln_tolrnc_pass_in': 'NA'
         }
+        
