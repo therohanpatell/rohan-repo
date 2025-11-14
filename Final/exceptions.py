@@ -36,3 +36,8 @@ class GCSError(MetricsPipelineError):
 class SchemaValidationError(MetricsPipelineError):
     """Exception raised for schema validation errors"""
     pass  # Used for schema alignment and validation failures
+
+
+class SchemaValidationError(MetricsPipelineError):
+    """Exception raised for schema validation errors"""
+    pass  # Used for schema alignment and validation failures

@@ -643,14 +643,14 @@ class MetricsPipeline:
                                  error_message: str, error_category: str = 'UNKNOWN_ERROR') -> Dict:
         """Create a safe recon record with guaranteed no None values"""
         try:
-            logger.info(f"CREATING SAFE RECON RECORD - Input parameters:")
-            logger.info(f"   metric_id: {repr(metric_id)} (type: {type(metric_id)})")
-            logger.info(f"   metric_name: {repr(metric_name)} (type: {type(metric_name)})")
-            logger.info(f"   run_date: {repr(run_date)} (type: {type(run_date)})")
-            logger.info(f"   env: {repr(env)} (type: {type(env)})")
-            logger.info(f"   partition_dt: {repr(partition_dt)} (type: {type(partition_dt)})")
-            logger.info(f"   error_message: {repr(error_message)} (type: {type(error_message)})")
-            logger.info(f"   error_category: {repr(error_category)} (type: {type(error_category)})")
+            logger.debug(f"Creating safe recon record for metric {metric_id}")
+            logger.debug(f"   metric_id: {repr(metric_id)} (type: {type(metric_id)})")
+            logger.debug(f"   metric_name: {repr(metric_name)} (type: {type(metric_name)})")
+            logger.debug(f"   run_date: {repr(run_date)} (type: {type(run_date)})")
+            logger.debug(f"   env: {repr(env)} (type: {type(env)})")
+            logger.debug(f"   partition_dt: {repr(partition_dt)} (type: {type(partition_dt)})")
+            logger.debug(f"   error_message: {repr(error_message)} (type: {type(error_message)})")
+            logger.debug(f"   error_category: {repr(error_category)} (type: {type(error_category)})")
             
             # Use safe defaults for all parameters
             safe_metric_id = str(metric_id or 'UNKNOWN')
@@ -661,49 +661,35 @@ class MetricsPipeline:
             safe_error_message = str(error_message or 'Unknown error occurred')
             safe_error_category = str(error_category or 'UNKNOWN_ERROR')
 
-            logger.info(f"SAFE VALUES AFTER SANITIZATION:")
-            logger.info(f"   safe_metric_id: {repr(safe_metric_id)} (type: {type(safe_metric_id)})")
-            logger.info(f"   safe_metric_name: {repr(safe_metric_name)} (type: {type(safe_metric_name)})")
-            logger.info(f"   safe_run_date: {repr(safe_run_date)} (type: {type(safe_run_date)})")
-            logger.info(f"   safe_env: {repr(safe_env)} (type: {type(safe_env)})")
-            logger.info(f"   safe_partition_dt: {repr(safe_partition_dt)} (type: {type(safe_partition_dt)})")
-            logger.info(f"   safe_error_message: {repr(safe_error_message)} (type: {type(safe_error_message)})")
-            logger.info(f"   safe_error_category: {repr(safe_error_category)} (type: {type(safe_error_category)})")
+            logger.debug(f"Safe values after sanitization: metric_id={safe_metric_id}, env={safe_env}")
 
             # Get safe timestamp
             try:
                 safe_timestamp = DateUtils.get_current_timestamp()
-                logger.info(f"   safe_timestamp: {repr(safe_timestamp)} (type: {type(safe_timestamp)})")
             except Exception as ts_error:
-                logger.error(f"   Error getting timestamp: {str(ts_error)}")
+                logger.error(f"Error getting timestamp: {str(ts_error)}")
                 safe_timestamp = datetime.now()
-                logger.info(f"   fallback safe_timestamp: {repr(safe_timestamp)} (type: {type(safe_timestamp)})")
 
             # Safely parse partition date
             try:
                 scheduled_date = datetime.strptime(safe_partition_dt, '%Y-%m-%d').date()
-                logger.info(f"   scheduled_date: {repr(scheduled_date)} (type: {type(scheduled_date)})")
             except Exception as date_error:
-                logger.error(f"   Error parsing partition date: {str(date_error)}")
+                logger.error(f"Error parsing partition date: {str(date_error)}")
                 scheduled_date = datetime.now().date()
-                logger.info(f"   fallback scheduled_date: {repr(scheduled_date)} (type: {type(scheduled_date)})")
 
             # Create minimal exclusion reason
             try:
                 formatted_error = StringUtils.format_error_with_category(safe_error_message, safe_error_category)
                 exclusion_reason = f'Metric processing failed: {formatted_error}'
-                logger.info(f"   exclusion_reason: {repr(exclusion_reason)} (type: {type(exclusion_reason)})")
             except Exception as format_error:
-                logger.error(f"   Error formatting error message: {str(format_error)}")
+                logger.error(f"Error formatting error message: {str(format_error)}")
                 exclusion_reason = f'Metric processing failed: {safe_error_message}'
-                logger.info(f"   fallback exclusion_reason: {repr(exclusion_reason)} (type: {type(exclusion_reason)})")
 
             # Get default values
             try:
                 default_values = ValidationConfig.get_default_recon_values()
-                logger.info(f"   default_values: {repr(default_values)} (type: {type(default_values)})")
             except Exception as default_error:
-                logger.error(f"   Error getting default values: {str(default_error)}")
+                logger.error(f"Error getting default values: {str(default_error)}")
                 default_values = {
                     'source_column_nm': 'NA',
                     'source_file_nm': 'NA',
@@ -714,10 +700,9 @@ class MetricsPipeline:
                     'tolrnc_pc': 'NA',
                     'rcncln_tolrnc_pass_in': 'NA'
                 }
-                logger.info(f"   fallback default_values: {repr(default_values)} (type: {type(default_values)})")
 
-            # Build the record step by step with detailed logging
-            logger.info(f"BUILDING RECON RECORD FIELDS:")
+            # Build the record step by step
+            logger.debug(f"Building recon record fields for metric {safe_metric_id}")
             
             # Core required fields
             module_id_val = str(PipelineConfig.RECON_MODULE_ID)
@@ -734,21 +719,6 @@ class MetricsPipeline:
             source_system_id_val = safe_metric_id
             schdld_yr_val = int(safe_timestamp.year)
             job_name_val = safe_metric_name
-            
-            logger.info(f"   module_id: {repr(module_id_val)} (type: {type(module_id_val)})")
-            logger.info(f"   module_type_nm: {repr(module_type_nm_val)} (type: {type(module_type_nm_val)})")
-            logger.info(f"   source_server_nm: {repr(source_server_nm_val)} (type: {type(source_server_nm_val)})")
-            logger.info(f"   target_server_nm: {repr(target_server_nm_val)} (type: {type(target_server_nm_val)})")
-            logger.info(f"   source_vl: {repr(source_vl_val)} (type: {type(source_vl_val)})")
-            logger.info(f"   target_vl: {repr(target_vl_val)} (type: {type(target_vl_val)})")
-            logger.info(f"   rcncln_exact_pass_in: {repr(rcncln_exact_pass_in_val)} (type: {type(rcncln_exact_pass_in_val)})")
-            logger.info(f"   latest_source_parttn_dt: {repr(latest_source_parttn_dt_val)} (type: {type(latest_source_parttn_dt_val)})")
-            logger.info(f"   latest_target_parttn_dt: {repr(latest_target_parttn_dt_val)} (type: {type(latest_target_parttn_dt_val)})")
-            logger.info(f"   load_ts: {repr(load_ts_val)} (type: {type(load_ts_val)})")
-            logger.info(f"   schdld_dt: {repr(schdld_dt_val)} (type: {type(schdld_dt_val)})")
-            logger.info(f"   source_system_id: {repr(source_system_id_val)} (type: {type(source_system_id_val)})")
-            logger.info(f"   schdld_yr: {repr(schdld_yr_val)} (type: {type(schdld_yr_val)})")
-            logger.info(f"   Job_Name: {repr(job_name_val)} (type: {type(job_name_val)})")
             
             # Check for None values in required fields
             required_field_values = {
@@ -768,17 +738,10 @@ class MetricsPipeline:
                 'Job_Name': job_name_val
             }
             
-            logger.info(f"CHECKING FOR NONE VALUES IN REQUIRED FIELDS:")
-            none_fields = []
-            for field_name, field_value in required_field_values.items():
-                if field_value is None:
-                    logger.error(f"   CRITICAL: {field_name} is None!")
-                    none_fields.append(field_name)
-                else:
-                    logger.info(f"   {field_name}: OK")
+            none_fields = [field_name for field_name, field_value in required_field_values.items() if field_value is None]
             
             if none_fields:
-                logger.error(f"FOUND {len(none_fields)} NONE VALUES IN REQUIRED FIELDS: {none_fields}")
+                logger.error(f"Found {len(none_fields)} None values in required fields: {none_fields}")
                 raise ValueError(f"Required fields are None: {none_fields}")
             
             safe_record = {
@@ -806,10 +769,8 @@ class MetricsPipeline:
                 **default_values
             }
 
-            logger.info(f"SUCCESSFULLY CREATED SAFE RECON RECORD for metric {safe_metric_id}")
-            logger.info(f"FINAL RECORD SUMMARY:")
-            for key, value in safe_record.items():
-                logger.info(f"   {key}: {repr(value)} (type: {type(value)})")
+            logger.info(f"Successfully created safe recon record for metric {safe_metric_id}")
+            logger.debug(f"Recon record details: status={rcncln_exact_pass_in_val}, error_category={safe_error_category}")
             
             return safe_record
 

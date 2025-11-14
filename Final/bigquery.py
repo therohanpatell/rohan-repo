@@ -110,9 +110,17 @@ class BigQueryOperations:
                     spark_type = DateType()
                 elif field_type in ['TIMESTAMP', 'DATETIME']:
                     spark_type = TimestampType()
+                elif field_type in ['GEOGRAPHY', 'JSON']:
+                    # Convert complex types to STRING for compatibility
+                    logger.warning(f"Converting unsupported BigQuery type '{field_type}' to STRING for field '{field_name}' in table {table_name}")
+                    spark_type = StringType()
+                elif field_type in ['ARRAY', 'STRUCT', 'RECORD']:
+                    # Complex nested types - convert to STRING representation
+                    logger.warning(f"Converting complex BigQuery type '{field_type}' to STRING for field '{field_name}' in table {table_name}")
+                    spark_type = StringType()
                 else:
-                    # Unsupported type - log error and raise exception
-                    error_msg = f"Unsupported BigQuery data type '{field_type}' for field '{field_name}' in table {table_name}"
+                    # Truly unsupported type - log error and raise exception
+                    error_msg = f"Unsupported BigQuery data type '{field_type}' for field '{field_name}' in table {table_name}. Supported types: STRING, INTEGER, FLOAT, NUMERIC, BOOLEAN, DATE, TIMESTAMP, GEOGRAPHY, JSON, ARRAY, STRUCT"
                     logger.error(error_msg)
                     raise BigQueryError(error_msg)
                 
