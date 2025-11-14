@@ -31,3 +31,8 @@ class BigQueryError(MetricsPipelineError):
 class GCSError(MetricsPipelineError):
     """Exception raised for GCS operations errors"""
     pass  # Used for GCS read/access failures
+
+
+class SchemaValidationError(MetricsPipelineError):
+    """Exception raised for schema validation errors"""
+    pass  # Used for schema alignment and validation failures

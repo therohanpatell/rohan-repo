@@ -26,20 +26,8 @@ class PipelineConfig:
     """Pipeline configuration constants"""
     
     # Schema configurations for output tables
-    METRICS_SCHEMA = StructType([  # Schema for metrics output table
-        StructField("metric_id", StringType(), False),
-        StructField("metric_name", StringType(), False),
-        StructField("metric_type", StringType(), False),
-        StructField("metric_description", StringType(), True),
-        StructField("frequency", StringType(), True),
-        StructField("numerator_value", DecimalType(38, 9), True),
-        StructField("denominator_value", DecimalType(38, 9), True),
-        StructField("metric_output", DecimalType(38, 9), True),
-        StructField("business_data_date", StringType(), False),
-        StructField("partition_dt", StringType(), False),
-        StructField("pipeline_execution_ts", TimestampType(), False)
-    ])
-    
+    # Note: METRICS_SCHEMA has been removed - the pipeline now uses dynamic schema fetching
+    # from BigQuery target tables instead of hardcoded schema definitions
     RECON_SCHEMA = StructType([  # Schema for reconciliation tracking table
         StructField("module_id", StringType(), False),
         StructField("module_type_nm", StringType(), False),
@@ -106,6 +94,7 @@ class PipelineConfig:
         'PIPELINE_EXECUTION_ERROR': 'General pipeline execution error',
         'PIPELINE_VALIDATION_ERROR': 'Pipeline validation error',
         'CANNOT_BE_NONE': 'Required argument cannot be None',
+        'SCHEMA_VALIDATION_ERROR': 'Schema validation failed',  # Added for dynamic schema validation
         'UNKNOWN_ERROR': 'Unknown error occurred'
     }
 

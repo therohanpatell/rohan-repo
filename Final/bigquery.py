@@ -11,10 +11,13 @@ from google.cloud import bigquery
 from google.cloud.exceptions import NotFound, GoogleCloudError
 from pyspark.sql import SparkSession, DataFrame
 from pyspark.sql.functions import col, to_date
-from pyspark.sql.types import TimestampType, DecimalType, DoubleType, DateType
+from pyspark.sql.types import (
+    TimestampType, DecimalType, DoubleType, DateType, 
+    StructType, StructField, StringType, IntegerType, BooleanType
+)
 
 from config import PipelineConfig, setup_logging
-from exceptions import BigQueryError, SQLExecutionError, MetricsPipelineError
+from exceptions import BigQueryError, SQLExecutionError, MetricsPipelineError, SchemaValidationError
 from utils import StringUtils, NumericUtils
 
 logger = setup_logging()
@@ -60,47 +63,182 @@ class BigQueryOperations:
             logger.error(f"Failed to get table schema: {str(e)}")
             raise BigQueryError(f"Failed to get table schema: {str(e)}")
     
-    def align_dataframe_schema_with_bq(self, df: DataFrame, target_table: str) -> DataFrame:
+    def get_spark_schema_from_bq_table(self, table_name: str) -> StructType:
         """
-        Align Spark DataFrame with BigQuery table schema
+        Get Spark StructType schema from BigQuery table schema
+        
+        This method enables dynamic schema fetching by converting BigQuery table schemas
+        to Spark StructType at runtime, eliminating the need for hardcoded schemas.
         
         Args:
-            df: Spark DataFrame to align
-            target_table: Target BigQuery table name
+            table_name: Full table name (project.dataset.table)
             
         Returns:
-            DataFrame with aligned schema
+            Spark StructType schema matching the BigQuery table with proper type mappings
+            and nullable/required field information preserved
+            
+        Raises:
+            BigQueryError: If table not found or schema conversion fails
+        """
+        try:
+            logger.info(f"Fetching Spark schema from BigQuery table: {table_name}")
+            
+            # Fetch BigQuery schema using existing get_table_schema method
+            bq_schema = self.get_table_schema(table_name)
+            
+            # Map BigQuery data types to Spark data types
+            # This mapping supports dynamic schema conversion for any BigQuery table structure
+            spark_fields = []
+            for field in bq_schema:
+                field_name = field.name
+                field_type = field.field_type.upper()
+                # Preserve nullable/required information from BigQuery schema
+                nullable = field.mode != 'REQUIRED'  # REQUIRED fields are not nullable
+                
+                # Map BigQuery types to Spark types with appropriate precision
+                if field_type in ['STRING', 'BYTES']:
+                    spark_type = StringType()
+                elif field_type in ['INTEGER', 'INT64']:
+                    spark_type = IntegerType()
+                elif field_type in ['FLOAT', 'FLOAT64']:
+                    spark_type = DoubleType()
+                elif field_type in ['NUMERIC', 'DECIMAL', 'BIGNUMERIC']:
+                    spark_type = DecimalType(38, 9)
+                elif field_type in ['BOOLEAN', 'BOOL']:
+                    spark_type = BooleanType()
+                elif field_type == 'DATE':
+                    spark_type = DateType()
+                elif field_type in ['TIMESTAMP', 'DATETIME']:
+                    spark_type = TimestampType()
+                else:
+                    # Unsupported type - log error and raise exception
+                    error_msg = f"Unsupported BigQuery data type '{field_type}' for field '{field_name}' in table {table_name}"
+                    logger.error(error_msg)
+                    raise BigQueryError(error_msg)
+                
+                spark_fields.append(StructField(field_name, spark_type, nullable))
+            
+            spark_schema = StructType(spark_fields)
+            logger.info(f"Successfully converted BigQuery schema to Spark schema for {table_name}")
+            logger.debug(f"Spark schema: {spark_schema}")
+            
+            return spark_schema
+            
+        except BigQueryError:
+            # Re-raise BigQueryError as-is
+            raise
+        except Exception as e:
+            error_msg = f"Failed to convert BigQuery schema to Spark schema for {table_name}: {str(e)}"
+            logger.error(error_msg)
+            raise BigQueryError(error_msg)
+    
+    def align_dataframe_schema_with_bq(self, df: DataFrame, target_table: str) -> DataFrame:
+        """
+        Align Spark DataFrame with BigQuery table schema with comprehensive validation
+        
+        This method ensures the DataFrame schema matches the target BigQuery table by:
+        - Validating all required (non-nullable) columns are present
+        - Adding null values for missing nullable columns
+        - Dropping extra columns not in the target schema
+        - Converting data types to match BigQuery expectations
+        
+        Enhanced for dynamic schema support: This method now validates that SQL query results
+        contain all required columns from the target table, enabling flexible metric definitions
+        without hardcoded schema constraints.
+        
+        Args:
+            df: Spark DataFrame to align (typically created from SQL query results)
+            target_table: Target BigQuery table name (project.dataset.table)
+            
+        Returns:
+            DataFrame with aligned schema, column order, and data types matching target table
+            
+        Raises:
+            SchemaValidationError: If required columns are missing from the DataFrame
         """
         logger.info(f"Aligning DataFrame schema with BigQuery table: {target_table}")
+        logger.info(f"DataFrame current columns: {df.columns}")
         
+        # Fetch BigQuery table schema to compare against DataFrame
         bq_schema = self.get_table_schema(target_table)
         current_columns = df.columns
         bq_columns = [field.name for field in bq_schema]
         
+        logger.info(f"BigQuery table columns: {bq_columns}")
+        
+        # Identify required (non-nullable) and nullable columns from BigQuery schema
+        # This distinction is critical for validation - required columns must be present in SQL results
+        required_columns = [field.name for field in bq_schema if field.mode == 'REQUIRED']
+        nullable_columns = [field.name for field in bq_schema if field.mode != 'REQUIRED']
+        
+        logger.info(f"Required columns in target table: {required_columns}")
+        logger.info(f"Nullable columns in target table: {nullable_columns}")
+        
+        # Validate: Check for missing required columns
+        # This ensures SQL queries return all mandatory columns for the target table
+        missing_required = [col_name for col_name in required_columns if col_name not in current_columns]
+        if missing_required:
+            error_msg = f"Missing required columns in DataFrame for table {target_table}: {missing_required}"
+            logger.error(error_msg)
+            logger.error(f"DataFrame has columns: {current_columns}")
+            logger.error(f"Target table requires: {required_columns}")
+            raise SchemaValidationError(error_msg)
+        
+        logger.info("All required columns are present in DataFrame")
+        
+        # Identify missing nullable columns that need to be added with null values
+        missing_nullable = [col_name for col_name in nullable_columns if col_name not in current_columns]
+        
+        # Add null values for missing nullable columns
+        # This allows SQL queries to omit optional columns - they'll be filled with nulls
+        if missing_nullable:
+            logger.info(f"Adding null values for {len(missing_nullable)} missing nullable columns: {missing_nullable}")
+            from pyspark.sql.functions import lit
+            for col_name in missing_nullable:
+                logger.info(f"  Adding column '{col_name}' with null values")
+                df = df.withColumn(col_name, lit(None))
+        else:
+            logger.info("No missing nullable columns to add")
+        
         # Drop extra columns not in BigQuery schema
-        columns_to_keep = [col_name for col_name in current_columns if col_name in bq_columns]
+        # SQL queries may return additional columns (e.g., intermediate calculations) that aren't in target table
         columns_to_drop = [col_name for col_name in current_columns if col_name not in bq_columns]
         
         if columns_to_drop:
-            logger.info(f"Dropping extra columns: {columns_to_drop}")
+            logger.info(f"Dropping {len(columns_to_drop)} extra columns not in target schema: {columns_to_drop}")
+            for col_name in columns_to_drop:
+                logger.info(f"  Dropping column '{col_name}'")
             df = df.drop(*columns_to_drop)
+        else:
+            logger.info("No extra columns to drop")
         
-        # Reorder columns to match BigQuery schema
-        df = df.select(*[col(c) for c in bq_columns if c in columns_to_keep])
+        # Reorder columns to match BigQuery schema order
+        # This ensures consistent column ordering regardless of SQL query structure
+        logger.info("Reordering columns to match BigQuery schema")
+        df = df.select(*[col(c) for c in bq_columns])
         
         # Handle type conversions for BigQuery compatibility
+        # Convert Spark types to match BigQuery expectations for proper data loading
+        logger.info("Applying type conversions for BigQuery compatibility")
         for field in bq_schema:
             if field.name in df.columns:
                 if field.field_type == 'DATE':
+                    logger.info(f"  Converting column '{field.name}' to DATE type")
                     df = df.withColumn(field.name, to_date(col(field.name)))
                 elif field.field_type == 'TIMESTAMP':
+                    logger.info(f"  Converting column '{field.name}' to TIMESTAMP type")
                     df = df.withColumn(field.name, col(field.name).cast(TimestampType()))
                 elif field.field_type == 'NUMERIC':
+                    logger.info(f"  Converting column '{field.name}' to NUMERIC type (Decimal 38,9)")
                     df = df.withColumn(field.name, col(field.name).cast(DecimalType(38, 9)))
                 elif field.field_type == 'FLOAT':
+                    logger.info(f"  Converting column '{field.name}' to FLOAT type (Double)")
                     df = df.withColumn(field.name, col(field.name).cast(DoubleType()))
         
         logger.info(f"Schema alignment complete. Final columns: {df.columns}")
+        logger.info("DataFrame schema after alignment:")
+        df.printSchema()
+        
         return df
     
     # Query Operations
@@ -137,103 +275,51 @@ class BigQueryOperations:
             logger.error(error_msg)
             raise BigQueryError(error_msg)
     
-    def execute_sql_with_results(self, sql: str, metric_id: Optional[str] = None) -> Dict:
+    def execute_sql_with_results(self, sql: str, metric_id: Optional[str] = None) -> List[Dict]:
         """
-        Execute SQL query and return structured results for metrics
+        Execute SQL query and return all results as list of dictionaries
+        
+        Modified to support multi-record SQL queries: Previously returned only the first row,
+        now returns all rows to enable metrics that produce multiple output records (e.g.,
+        grouped aggregations, time series data).
         
         Args:
             sql: SQL query to execute
             metric_id: Optional metric ID for error tracking
             
         Returns:
-            Dictionary with metric results
+            List of dictionaries, one per result row, with all columns from the SQL result.
+            Returns empty list if query produces no results.
             
         Raises:
-            SQLExecutionError: If SQL execution fails
+            SQLExecutionError: If SQL execution fails or times out
         """
         try:
-            logger.info("Executing SQL query with structured results")
+            logger.info("Executing SQL query and returning all results")
             
             query_job = self.bq_client.query(sql)
             results = query_job.result(timeout=PipelineConfig.QUERY_TIMEOUT)
             
-            result_dict = {
-                'metric_output': None,
-                'numerator_value': None,
-                'denominator_value': None,
-                'business_data_date': None,
-                # Additional fields that can be overridden by SQL results
-                'metric_id': None,
-                'metric_name': None,
-                'metric_type': None,
-                'metric_description': None,
-                'frequency': None
-            }
-            
+            # Iterate through all rows and return all columns (multi-record support)
+            # No longer limited to first row - supports SQL queries returning multiple records
+            all_results = []
             for row in results:
                 row_dict = dict(row)
                 
-                for key in result_dict.keys():
-                    if key in row_dict:
-                        value = row_dict[key]
-                        if key in ['metric_output', 'numerator_value', 'denominator_value']:
-                            result_dict[key] = NumericUtils.normalize_numeric_value(value)
-                        else:
-                            result_dict[key] = value
+                # Convert all values to appropriate types for DataFrame compatibility
+                processed_row = {}
+                for key, value in row_dict.items():
+                    # Handle datetime objects by converting to string format
+                    if hasattr(value, 'strftime'):
+                        processed_row[key] = value.strftime('%Y-%m-%d')
+                    else:
+                        processed_row[key] = value
                 
-                break
+                all_results.append(processed_row)
             
-            # Validate denominator_value is not zero
-            if result_dict['denominator_value'] is not None:
-                try:
-                    denominator_decimal = NumericUtils.safe_decimal_conversion(result_dict['denominator_value'])
-                    if denominator_decimal is not None:
-                        if denominator_decimal == 0:
-                            error_msg = f"Invalid denominator value: denominator_value is 0. Cannot calculate metrics with zero denominator."
-                            if metric_id:
-                                error_msg = f"Metric '{metric_id}': {error_msg}"
-                            logger.error(error_msg)
-                            raise MetricsPipelineError(error_msg)
-                        elif denominator_decimal < 0:
-                            error_msg = f"Invalid denominator value: denominator_value is negative ({denominator_decimal}). Negative denominators are not allowed."
-                            if metric_id:
-                                error_msg = f"Metric '{metric_id}': {error_msg}"
-                            logger.error(error_msg)
-                            raise MetricsPipelineError(error_msg)
-                            
-                except (ValueError, TypeError):
-                    # If we can't convert to decimal, log warning but continue
-                    logger.warning(f"Could not validate denominator_value: {result_dict['denominator_value']}")
-            
-            if result_dict['business_data_date'] is not None:
-                business_date = result_dict['business_data_date']
-                
-                if isinstance(business_date, str):
-                    # Validate string is a valid YYYY-MM-DD date (handles {currently} placeholder)
-                    try:
-                        datetime.strptime(business_date, '%Y-%m-%d')  # Validates date format and logical validity
-                        result_dict['business_data_date'] = business_date  # Keep original string if valid
-                    except ValueError:
-                        # Reject invalid date strings like 'random_string' or '2024-13-12'
-                        error_msg = f"Invalid business_data_date format: '{business_date}'. Expected YYYY-MM-DD format."
-                        if metric_id:
-                            error_msg = f"Metric '{metric_id}': {error_msg}"
-                        logger.error(error_msg)
-                        raise SQLExecutionError(error_msg, metric_id)
-                elif hasattr(business_date, 'strftime'):
-                    # Convert datetime objects to YYYY-MM-DD string format
-                    result_dict['business_data_date'] = business_date.strftime('%Y-%m-%d')
-                else:
-                    # Reject non-string, non-datetime types
-                    error_msg = f"Invalid business_data_date type: {type(business_date)}. Expected datetime object or date string."
-                    if metric_id:
-                        error_msg = f"Metric '{metric_id}': {error_msg}"
-                    logger.error(error_msg)
-                    raise SQLExecutionError(error_msg, metric_id)
-            else:
-                raise SQLExecutionError("business_data_date is required but was not returned by the SQL query")
-            
-            return result_dict
+            # Log record count for monitoring multi-record queries
+            logger.info(f"SQL query returned {len(all_results)} records")
+            return all_results
             
         except (DeadlineExceeded, TimeoutError):
             error_msg = f"Query for metric '{metric_id}' timed out after {PipelineConfig.QUERY_TIMEOUT} seconds."
