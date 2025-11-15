@@ -112,13 +112,17 @@ class MetricsPipeline:
             
             # Priority 1: Check if column exists in SQL result
             if column_name in sql_row:
-                final_record[column_name] = sql_row[column_name]
+                final_record[column_name] = self._convert_value_to_schema_type(
+                    sql_row[column_name], field, column_name
+                )
                 logger.debug(f"         Column '{column_name}' populated from SQL result")
                 continue
             
             # Priority 2: Check if column exists in JSON metadata
             if column_name in json_record and json_record[column_name] is not None:
-                final_record[column_name] = json_record[column_name]
+                final_record[column_name] = self._convert_value_to_schema_type(
+                    json_record[column_name], field, column_name
+                )
                 logger.debug(f"         Column '{column_name}' populated from JSON metadata")
                 continue
             
@@ -138,11 +142,63 @@ class MetricsPipeline:
                         f"{missing_required_columns}. These columns are non-nullable in BigQuery schema.")
             raise ValidationError(error_msg)
         
-        # Add pipeline metadata columns
-        final_record['partition_dt'] = partition_dt
-        final_record['pipeline_execution_ts'] = DateUtils.get_current_timestamp()
+        # Add pipeline metadata columns with type conversion
+        # Convert partition_dt string to appropriate type based on schema
+        for field in table_schema.fields:
+            if field.name == 'partition_dt':
+                final_record['partition_dt'] = self._convert_value_to_schema_type(
+                    partition_dt, field, 'partition_dt'
+                )
+            elif field.name == 'pipeline_execution_ts':
+                final_record['pipeline_execution_ts'] = DateUtils.get_current_timestamp()
         
         return final_record
+
+    def _convert_value_to_schema_type(self, value, field, column_name: str):
+        """
+        Convert a value to match the BigQuery schema field type
+        
+        Args:
+            value: The value to convert
+            field: StructField from BigQuery schema
+            column_name: Name of the column (for error messages)
+            
+        Returns:
+            Converted value matching the field type
+        """
+        from pyspark.sql.types import DateType, TimestampType, StringType
+        from datetime import datetime, date
+        
+        if value is None:
+            return None
+        
+        field_type = type(field.dataType).__name__
+        
+        # Handle DateType conversion
+        if isinstance(field.dataType, DateType):
+            if isinstance(value, date):
+                return value
+            elif isinstance(value, str):
+                # Convert string "YYYY-MM-DD" to date object
+                try:
+                    return datetime.strptime(value, '%Y-%m-%d').date()
+                except ValueError as e:
+                    logger.error(f"Failed to convert '{value}' to date for column '{column_name}': {e}")
+                    raise ValidationError(f"Invalid date format for {column_name}: {value}")
+            else:
+                return value
+        
+        # Handle TimestampType - already handled by DateUtils.get_current_timestamp()
+        elif isinstance(field.dataType, TimestampType):
+            return value
+        
+        # Handle StringType
+        elif isinstance(field.dataType, StringType):
+            return str(value) if value is not None else None
+        
+        # For other types, return as-is
+        else:
+            return value
 
     # Validation Operations
     def validate_partition_info_table(self, partition_info_table: str) -> None:
