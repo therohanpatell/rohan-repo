@@ -346,7 +346,7 @@ class MetricsPipeline:
         self.check_dependencies_exist(json_data, dependencies)
         logger.info("All dependencies found in JSON data")
 
-        partition_dt = DateUtils.get_current_partition_dt()
+        partition_dt = run_date
         logger.info(f"Using pipeline run date as partition_dt: {partition_dt}")
 
         logger.info("Filtering data by dependencies...")
