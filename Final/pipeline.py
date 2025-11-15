@@ -70,6 +70,80 @@ class MetricsPipeline:
             logger.error(error_msg)
             raise BigQueryError(error_msg)
 
+    def _merge_sql_json_with_schema(self, sql_row: Dict, json_record: Dict, 
+                                     table_schema: StructType, partition_dt: str, 
+                                     metric_id: str) -> Dict:
+        """
+        Dynamically merge SQL results and JSON metadata based on BigQuery schema
+        
+        Merge priority for each column in BigQuery schema:
+        1. SQL result (if column exists in SQL)
+        2. JSON metadata (if column exists in JSON)
+        3. NULL (if column is nullable)
+        4. ERROR (if column is required/non-nullable)
+        
+        Args:
+            sql_row: Dictionary of SQL query results
+            json_record: Dictionary of JSON metadata
+            table_schema: BigQuery table schema (StructType)
+            partition_dt: Partition date for this record
+            metric_id: Metric ID for error messages
+            
+        Returns:
+            Final merged record with all BigQuery columns populated
+            
+        Raises:
+            ValidationError: If required column is missing from both SQL and JSON
+        """
+        final_record = {}
+        missing_required_columns = []
+        
+        # Reserved columns that are added by pipeline (not from SQL or JSON)
+        pipeline_columns = {'partition_dt', 'pipeline_execution_ts'}
+        
+        # Iterate through all columns in BigQuery schema
+        for field in table_schema.fields:
+            column_name = field.name
+            is_nullable = field.nullable
+            
+            # Skip pipeline-managed columns (handled separately)
+            if column_name in pipeline_columns:
+                continue
+            
+            # Priority 1: Check if column exists in SQL result
+            if column_name in sql_row:
+                final_record[column_name] = sql_row[column_name]
+                logger.debug(f"         Column '{column_name}' populated from SQL result")
+                continue
+            
+            # Priority 2: Check if column exists in JSON metadata
+            if column_name in json_record and json_record[column_name] is not None:
+                final_record[column_name] = json_record[column_name]
+                logger.debug(f"         Column '{column_name}' populated from JSON metadata")
+                continue
+            
+            # Priority 3: If nullable, set to None
+            if is_nullable:
+                final_record[column_name] = None
+                logger.debug(f"         Column '{column_name}' set to NULL (nullable column, not in SQL or JSON)")
+                continue
+            
+            # Priority 4: If required (non-nullable), this is an error
+            missing_required_columns.append(column_name)
+            logger.error(f"         Column '{column_name}' is REQUIRED but missing from both SQL and JSON")
+        
+        # If any required columns are missing, raise validation error
+        if missing_required_columns:
+            error_msg = (f"Metric {metric_id}: Required columns missing from both SQL and JSON: "
+                        f"{missing_required_columns}. These columns are non-nullable in BigQuery schema.")
+            raise ValidationError(error_msg)
+        
+        # Add pipeline metadata columns
+        final_record['partition_dt'] = partition_dt
+        final_record['pipeline_execution_ts'] = DateUtils.get_current_timestamp()
+        
+        return final_record
+
     # Validation Operations
     def validate_partition_info_table(self, partition_info_table: str) -> None:
         """
@@ -354,22 +428,29 @@ class MetricsPipeline:
                         
                         # Process each SQL result row into a final record
                         for sql_row in sql_results:
-                            # Create final_record with all SQL columns plus pipeline metadata
-                            # The SQL columns are preserved as-is (dynamic schema approach)
-                            final_record = {
-                                **sql_row,  # All columns from SQL result (spread operator)
-                                'partition_dt': partition_dt,  # Add partition date
-                                'pipeline_execution_ts': DateUtils.get_current_timestamp()  # Add execution timestamp
-                            }
-                            processed_records.append(final_record)
+                            # Dynamic merge strategy based on BigQuery schema
+                            # Priority: SQL result > JSON metadata > NULL (if nullable) > ERROR (if required)
+                            try:
+                                final_record = self._merge_sql_json_with_schema(
+                                    sql_row, record, table_schema, partition_dt, metric_id
+                                )
+                                processed_records.append(final_record)
+                            except Exception as merge_error:
+                                # If merge fails for this row, log and skip it
+                                error_message = str(merge_error)
+                                logger.error(f"      Failed to merge SQL and JSON for metric {metric_id}: {error_message}")
+                                raise  # Re-raise to be caught by outer exception handler
                     else:
                         # Single record result (backward compatibility for edge cases)
-                        final_record = {
-                            **sql_results,  # All columns from SQL result
-                            'partition_dt': partition_dt,
-                            'pipeline_execution_ts': DateUtils.get_current_timestamp()
-                        }
-                        processed_records.append(final_record)
+                        try:
+                            final_record = self._merge_sql_json_with_schema(
+                                sql_results, record, table_schema, partition_dt, metric_id
+                            )
+                            processed_records.append(final_record)
+                        except Exception as merge_error:
+                            error_message = str(merge_error)
+                            logger.error(f"      Failed to merge SQL and JSON for metric {metric_id}: {error_message}")
+                            raise  # Re-raise to be caught by outer exception handler
 
                     successful_metrics.append(record)
                     table_successful += 1
