@@ -158,6 +158,15 @@ class MetricsPipeline:
         """
         Convert a value to match the BigQuery schema field type
         
+        Handles all common BigQuery/Spark data types with proper conversion:
+        - DateType: String "YYYY-MM-DD" → date object
+        - TimestampType: String ISO format → datetime object
+        - IntegerType: String/float → int
+        - DoubleType/FloatType: String → float
+        - DecimalType: String/int/float → Decimal
+        - BooleanType: String/int → bool
+        - StringType: Any → string
+        
         Args:
             value: The value to convert
             field: StructField from BigQuery schema
@@ -165,40 +174,139 @@ class MetricsPipeline:
             
         Returns:
             Converted value matching the field type
+            
+        Raises:
+            ValidationError: If conversion fails
         """
-        from pyspark.sql.types import DateType, TimestampType, StringType
+        from pyspark.sql.types import (
+            DateType, TimestampType, StringType, IntegerType, 
+            LongType, DoubleType, FloatType, DecimalType, BooleanType
+        )
         from datetime import datetime, date
+        from decimal import Decimal, InvalidOperation
         
+        # Handle None/NULL values for all types
         if value is None:
             return None
         
-        field_type = type(field.dataType).__name__
-        
-        # Handle DateType conversion
-        if isinstance(field.dataType, DateType):
-            if isinstance(value, date):
-                return value
-            elif isinstance(value, str):
-                # Convert string "YYYY-MM-DD" to date object
-                try:
-                    return datetime.strptime(value, '%Y-%m-%d').date()
-                except ValueError as e:
-                    logger.error(f"Failed to convert '{value}' to date for column '{column_name}': {e}")
-                    raise ValidationError(f"Invalid date format for {column_name}: {value}")
+        try:
+            # DateType: Convert string "YYYY-MM-DD" to date object
+            if isinstance(field.dataType, DateType):
+                if isinstance(value, date):
+                    return value
+                elif isinstance(value, datetime):
+                    return value.date()
+                elif isinstance(value, str):
+                    # Try multiple date formats
+                    for fmt in ['%Y-%m-%d', '%Y/%m/%d', '%d-%m-%Y', '%d/%m/%Y']:
+                        try:
+                            return datetime.strptime(value, fmt).date()
+                        except ValueError:
+                            continue
+                    raise ValueError(f"Date string '{value}' does not match expected formats (YYYY-MM-DD, etc.)")
+                else:
+                    raise ValueError(f"Cannot convert {type(value).__name__} to date")
+            
+            # TimestampType: Convert string to datetime object
+            elif isinstance(field.dataType, TimestampType):
+                if isinstance(value, datetime):
+                    return value
+                elif isinstance(value, date):
+                    return datetime.combine(value, datetime.min.time())
+                elif isinstance(value, str):
+                    # Try multiple timestamp formats
+                    for fmt in ['%Y-%m-%d %H:%M:%S', '%Y-%m-%d %H:%M:%S.%f', '%Y-%m-%dT%H:%M:%S', '%Y-%m-%dT%H:%M:%S.%f']:
+                        try:
+                            return datetime.strptime(value, fmt)
+                        except ValueError:
+                            continue
+                    # Try ISO format parsing
+                    try:
+                        return datetime.fromisoformat(value.replace('Z', '+00:00'))
+                    except:
+                        raise ValueError(f"Timestamp string '{value}' does not match expected formats")
+                else:
+                    return value
+            
+            # IntegerType/LongType: Convert to int
+            elif isinstance(field.dataType, (IntegerType, LongType)):
+                if isinstance(value, (int, bool)):
+                    return int(value)
+                elif isinstance(value, float):
+                    return int(value)
+                elif isinstance(value, str):
+                    # Handle empty strings
+                    if value.strip() == '':
+                        return None
+                    return int(float(value))  # Handle "123.0" strings
+                elif isinstance(value, Decimal):
+                    return int(value)
+                else:
+                    raise ValueError(f"Cannot convert {type(value).__name__} to integer")
+            
+            # DoubleType/FloatType: Convert to float
+            elif isinstance(field.dataType, (DoubleType, FloatType)):
+                if isinstance(value, (int, float)):
+                    return float(value)
+                elif isinstance(value, str):
+                    if value.strip() == '':
+                        return None
+                    return float(value)
+                elif isinstance(value, Decimal):
+                    return float(value)
+                else:
+                    raise ValueError(f"Cannot convert {type(value).__name__} to float")
+            
+            # DecimalType: Convert to Decimal
+            elif isinstance(field.dataType, DecimalType):
+                if isinstance(value, Decimal):
+                    return value
+                elif isinstance(value, (int, float)):
+                    return Decimal(str(value))
+                elif isinstance(value, str):
+                    if value.strip() == '':
+                        return None
+                    return Decimal(value)
+                else:
+                    raise ValueError(f"Cannot convert {type(value).__name__} to Decimal")
+            
+            # BooleanType: Convert to bool
+            elif isinstance(field.dataType, BooleanType):
+                if isinstance(value, bool):
+                    return value
+                elif isinstance(value, int):
+                    return bool(value)
+                elif isinstance(value, str):
+                    value_lower = value.lower().strip()
+                    if value_lower in ['true', 't', 'yes', 'y', '1']:
+                        return True
+                    elif value_lower in ['false', 'f', 'no', 'n', '0', '']:
+                        return False
+                    else:
+                        raise ValueError(f"Cannot convert string '{value}' to boolean")
+                else:
+                    return bool(value)
+            
+            # StringType: Convert to string
+            elif isinstance(field.dataType, StringType):
+                if isinstance(value, str):
+                    return value
+                elif isinstance(value, (date, datetime)):
+                    return value.isoformat()
+                elif isinstance(value, Decimal):
+                    return str(value)
+                else:
+                    return str(value)
+            
+            # For any other types, return as-is
             else:
+                logger.debug(f"No conversion defined for type {type(field.dataType).__name__}, returning value as-is")
                 return value
-        
-        # Handle TimestampType - already handled by DateUtils.get_current_timestamp()
-        elif isinstance(field.dataType, TimestampType):
-            return value
-        
-        # Handle StringType
-        elif isinstance(field.dataType, StringType):
-            return str(value) if value is not None else None
-        
-        # For other types, return as-is
-        else:
-            return value
+                
+        except (ValueError, InvalidOperation) as e:
+            error_msg = f"Type conversion failed for column '{column_name}': Cannot convert value '{value}' (type: {type(value).__name__}) to {type(field.dataType).__name__}. Error: {str(e)}"
+            logger.error(error_msg)
+            raise ValidationError(error_msg)
 
     # Validation Operations
     def validate_partition_info_table(self, partition_info_table: str) -> None:
