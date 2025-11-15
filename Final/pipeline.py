@@ -485,10 +485,10 @@ class MetricsPipeline:
                 try:
                     logger.info(f"   Creating DataFrame for {target_table} with {len(processed_records)} records...")
                     
-                    # Create DataFrame without explicit schema - let Spark infer from data
-                    # This replaces the hardcoded METRICS_SCHEMA approach with dynamic inference
-                    df = self.spark.createDataFrame(processed_records)
-                    logger.info(f"   DataFrame created with inferred schema")
+                    # Create DataFrame with explicit BigQuery schema to handle NULL values
+                    # Using the fetched table_schema prevents type inference errors when columns contain NULL
+                    df = self.spark.createDataFrame(processed_records, schema=table_schema)
+                    logger.info(f"   DataFrame created with BigQuery schema")
                     
                     # Align DataFrame with target table schema (validates and transforms)
                     # This ensures SQL results match the target table structure
