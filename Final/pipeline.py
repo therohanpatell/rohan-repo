@@ -46,23 +46,12 @@ class MetricsPipeline:
         Raises:
             BigQueryError: If schema fetch fails
         """
-        # Check if schema exists in cache (dictionary lookup is O(1))
         if target_table in self.schema_cache:
-            # Cache hit - return cached schema without BigQuery call
-            logger.info(f"Schema cache hit for table: {target_table}")
             return self.schema_cache[target_table]
         
-        # Cache miss - need to fetch schema from BigQuery
-        logger.info(f"Schema cache miss for table: {target_table}, fetching from BigQuery")
-        
         try:
-            # Fetch schema using BigQuery operations (makes API call)
             schema = self.bq_operations.get_spark_schema_from_bq_table(target_table)
-            
-            # Store in cache before returning for future reuse
             self.schema_cache[target_table] = schema
-            logger.info(f"Successfully cached schema for table: {target_table}")
-            
             return schema
             
         except Exception as e:
@@ -310,39 +299,27 @@ class MetricsPipeline:
 
     # Validation Operations
     def validate_partition_info_table(self, partition_info_table: str) -> None:
-        """
-        Validate partition info table exists and has required structure
-        
-        Args:
-            partition_info_table: Full table name (project.dataset.table)
-            
-        Raises:
-            MetricsPipelineError: If validation fails
-        """
+        """Validate partition info table exists and has required structure"""
         try:
-            logger.info("Step 0: Validating partition info table before processing metrics")
-            self.bq_operations.validate_partition_info_table(
-                partition_info_table)  # Check table exists and has required structure
-            logger.info("Partition info table validation completed successfully")
+            self.bq_operations.validate_partition_info_table(partition_info_table)
         except Exception as e:
             error_msg = f"Partition info table validation failed: {str(e)}"
             logger.error(error_msg)
-            raise MetricsPipelineError(error_msg)  # Convert to pipeline error
+            raise MetricsPipelineError(error_msg)
 
     # GCS Operations
     def validate_gcs_path(self, gcs_path: str) -> str:
         """Validate GCS path format and accessibility"""
-        if not gcs_path.startswith('gs://'):  # Check GCS path format
+        if not gcs_path.startswith('gs://'):
             raise GCSError(f"Invalid GCS path format: {gcs_path}. Must start with 'gs://'")
 
-        path_parts = gcs_path.replace('gs://', '').split('/')  # Parse path components
-        if len(path_parts) < 2:  # Need at least bucket and file
+        path_parts = gcs_path.replace('gs://', '').split('/')
+        if len(path_parts) < 2:
             raise GCSError(f"Invalid GCS path structure: {gcs_path}")
 
         try:
             test_df = self.spark.read.option("multiline", "true").json(gcs_path).limit(0)
             test_df.count()
-            logger.info(f"GCS path validated successfully: {gcs_path}")
             return gcs_path
         except Exception as e:
             raise GCSError(f"GCS path inaccessible: {gcs_path}. Error: {str(e)}")
@@ -351,18 +328,15 @@ class MetricsPipeline:
         """Read JSON file from GCS and return as list of dictionaries"""
         try:
             validated_path = self.validate_gcs_path(gcs_path)
-            logger.info(f"Reading JSON from GCS: {validated_path}")
             df = self.spark.read.option("multiline", "true").json(validated_path)
 
             if df.count() == 0:
-                raise GCSError(f"No data found in JSON file: {validated_path}. The file might be an empty array [].")
+                raise GCSError(f"No data found in JSON file: {validated_path}")
 
             if len(df.columns) == 0:
-                raise GCSError(
-                    f"Invalid JSON structure in {validated_path}. Expected a JSON array of objects, but received a malformed object like '{{}}'.")
+                raise GCSError(f"Invalid JSON structure in {validated_path}")
 
             json_data = [row.asDict() for row in df.collect()]
-            logger.info(f"Successfully read {len(json_data)} records from JSON")
             return json_data
 
         except Exception as e:
@@ -372,13 +346,9 @@ class MetricsPipeline:
     # Data Validation
     def validate_json(self, json_data: List[Dict]) -> List[Dict]:
         """Validate JSON data for required fields and duplicates"""
-        logger.info("Validating JSON data")
         metric_ids = set()
-
         for i, record in enumerate(json_data):
             ValidationUtils.validate_json_record(record, i, metric_ids)
-
-        logger.info(f"Successfully validated {len(json_data)} records with {len(metric_ids)} unique metric IDs")
         return json_data
 
     # SQL Processing
@@ -390,41 +360,24 @@ class MetricsPipeline:
         """Replace {currently} and {partition_info} placeholders in SQL with appropriate dates"""
         try:
             placeholders = SQLUtils.find_placeholder_positions(sql)
-
             if not placeholders:
-                logger.info("No placeholders found in SQL query")
                 return sql
 
-            logger.info(f"Found {len(placeholders)} placeholders in SQL: {[p[0] for p in placeholders]}")
-
             final_sql = sql
-
             for placeholder_type, start_pos, end_pos in reversed(placeholders):
                 if placeholder_type == 'currently':
                     replacement_date = run_date
-                    logger.info(f"Replacing {{currently}} placeholder with run_date: {replacement_date}")
-
                 elif placeholder_type == 'partition_info':
                     table_info = SQLUtils.get_table_for_placeholder(sql, start_pos)
-
                     if table_info:
                         dataset, table_name = table_info
                         replacement_date = self.get_partition_dt(dataset, table_name, partition_info_table)
-
                         if not replacement_date:
-                            raise SQLExecutionError(
-                                f"Could not determine partition_dt for table {dataset}.{table_name}")
-
-                        logger.info(
-                            f"Replacing {{partition_info}} placeholder with partition_dt: {replacement_date} for table {dataset}.{table_name}")
+                            raise SQLExecutionError(f"Could not determine partition_dt for table {dataset}.{table_name}")
                     else:
-                        raise SQLExecutionError(
-                            f"Could not find table reference for {{partition_info}} placeholder at position {start_pos}")
+                        raise SQLExecutionError(f"Could not find table reference for {{partition_info}} placeholder at position {start_pos}")
 
                 final_sql = final_sql[:start_pos] + f"'{replacement_date}'" + final_sql[end_pos:]
-
-            logger.info(f"Successfully replaced {len(placeholders)} placeholders in SQL")
-            logger.debug(f"Final SQL after placeholder replacement: {final_sql}")
 
             return final_sql
 
@@ -433,37 +386,8 @@ class MetricsPipeline:
             raise SQLExecutionError(f"Failed to replace SQL placeholders: {str(e)}")
 
     def execute_sql(self, sql: str, run_date: str, partition_info_table: str, metric_id: Optional[str] = None) -> List[Dict]:
-        """
-        Execute SQL query with dynamic placeholder replacement and return all result rows
-        
-        Modified to support multi-record results: Previously returned a single dictionary,
-        now returns a list of dictionaries to support SQL queries that produce multiple
-        output records (e.g., grouped metrics, time series data).
-        
-        Args:
-            sql: SQL query with optional placeholders ({currently}, {partition_info})
-            run_date: Run date for {currently} placeholder replacement
-            partition_info_table: Table to query for {partition_info} placeholder values
-            metric_id: Optional metric ID for error tracking
-            
-        Returns:
-            List of dictionaries, one per SQL result row, with all columns
-        """
-        logger.info(f"Executing SQL for metric {metric_id or 'UNKNOWN'}:")
-        logger.info(f"Original SQL: {sql}")
-
-        # Replace placeholders with actual date values
+        """Execute SQL query with dynamic placeholder replacement and return all result rows"""
         final_sql = self.replace_sql_placeholders(sql, run_date, partition_info_table)
-
-        logger.info("=" * 80)
-        logger.info("FINAL SQL QUERY (ready for BigQuery console):")
-        logger.info("=" * 80)
-        logger.info(final_sql)
-        logger.info("=" * 80)
-        logger.info("Copy the above query to run directly in BigQuery console for debugging")
-        logger.info("=" * 80)
-
-        # Execute SQL and return all result rows (multi-record support)
         return self.bq_operations.execute_sql_with_results(final_sql, metric_id)
 
     # Metrics Processing
@@ -475,8 +399,6 @@ class MetricsPipeline:
         if missing_dependencies:
             raise ValidationError(f"Missing dependencies in JSON data: {missing_dependencies}. "
                                   f"Available dependencies: {available_dependencies}")
-
-        logger.info(f"All dependencies found: {dependencies}")
 
     def process_metrics(self, json_data: List[Dict], run_date: str, dependencies: List[str],
                         partition_info_table: str) -> Tuple[Dict[str, DataFrame], List[Dict], List[Dict]]:
@@ -501,29 +423,14 @@ class MetricsPipeline:
             - successful_metrics: List of successfully processed metric records
             - failed_metrics: List of dicts with metric_record, error_message, error_category
         """
-        logger.info("Starting metrics processing...")
-        logger.info(f"Target dependencies: {dependencies}")
-        logger.info(f"Run date: {run_date}")
-        logger.info(f"Partition info table: {partition_info_table}")
-
-        logger.info("Checking if all dependencies exist in JSON data...")
         self.check_dependencies_exist(json_data, dependencies)
-        logger.info("All dependencies found in JSON data")
-
         partition_dt = run_date
-        logger.info(f"Using pipeline run date as partition_dt: {partition_dt}")
-
-        logger.info("Filtering data by dependencies...")
         filtered_data = [record for record in json_data if record['dependency'] in dependencies]
 
         if not filtered_data:
             logger.error(f"No records found for dependencies: {dependencies}")
             raise ValidationError(f"No records found for dependencies: {dependencies}")
 
-        logger.info(f"Found {len(filtered_data)} records to process after filtering")
-
-        # Group records by target_table
-        logger.info("Grouping records by target table...")
         records_by_table = {}
         for record in filtered_data:
             target_table = record['target_table'].strip()
@@ -531,188 +438,82 @@ class MetricsPipeline:
                 records_by_table[target_table] = []
             records_by_table[target_table].append(record)
 
-        logger.info(f"Records grouped into {len(records_by_table)} target tables:")
-        for table, records in records_by_table.items():
-            logger.info(f"   {table}: {len(records)} metrics")
-
-        # Process each group and create DataFrames
-        logger.info("Starting metric processing by target table...")
         result_dfs = {}
         successful_metrics = []
         failed_metrics = []
 
         for target_table, records in records_by_table.items():
-            logger.info("-" * 50)
-            logger.info(f"Processing target table: {target_table}")
-            logger.info(f"Number of metrics to process: {len(records)}")
-
-            # Dynamic schema fetching: Fetch schema once per target table using cache
-            # This replaces the hardcoded METRICS_SCHEMA approach with runtime schema discovery
             try:
-                logger.info(f"Fetching schema for target table: {target_table}")
-                table_schema = self.get_cached_schema(target_table)  # Uses cache to avoid redundant API calls
-                logger.info(f"Successfully fetched schema for target table: {target_table}")
+                table_schema = self.get_cached_schema(target_table)
             except Exception as schema_error:
-                # Handle schema fetch errors by marking all metrics for this table as failed
-                # This prevents cascading failures - other tables can still be processed
                 error_message = f"Failed to fetch schema for target table {target_table}: {str(schema_error)}"
                 logger.error(error_message)
-                
-                # Mark all metrics for this table as failed with schema validation error
                 for record in records:
                     failed_metrics.append({
                         'metric_record': record,
                         'error_message': error_message,
                         'error_category': 'SCHEMA_VALIDATION_ERROR'
                     })
-                
-                logger.warning(f"Skipping all {len(records)} metrics for table {target_table} due to schema fetch failure")
-                continue  # Skip to next table
+                continue
 
             processed_records = []
-            table_successful = 0
-            table_failed = 0
 
-            for i, record in enumerate(records, 1):
+            for record in records:
                 metric_id = record['metric_id']
-                logger.info(f"   [{i}/{len(records)}] Processing metric: {metric_id}")
-
                 try:
-                    # Execute SQL and handle multiple records (multi-record support)
-                    logger.debug(f"      Executing SQL for metric: {metric_id}")
                     sql_results = self.execute_sql(record['sql'], run_date, partition_info_table, record['metric_id'])
-                    logger.debug(f"      SQL execution successful for metric: {metric_id}")
 
-                    # Multi-record processing: Loop through all SQL result rows
-                    # This enables metrics that return multiple records (e.g., grouped data, time series)
                     if isinstance(sql_results, list):
-                        # Log when SQL returns multiple records for monitoring
-                        if len(sql_results) > 1:
-                            logger.info(f"SQL query returned {len(sql_results)} records for metric {metric_id}")
-                        
-                        # Process each SQL result row into a final record
                         for sql_row in sql_results:
-                            # Dynamic merge strategy based on BigQuery schema
-                            # Priority: SQL result > JSON metadata > NULL (if nullable) > ERROR (if required)
-                            try:
-                                final_record = self._merge_sql_json_with_schema(
-                                    sql_row, record, table_schema, partition_dt, metric_id
-                                )
-                                processed_records.append(final_record)
-                            except Exception as merge_error:
-                                # If merge fails for this row, log and skip it
-                                error_message = str(merge_error)
-                                logger.error(f"      Failed to merge SQL and JSON for metric {metric_id}: {error_message}")
-                                raise  # Re-raise to be caught by outer exception handler
-                    else:
-                        # Single record result (backward compatibility for edge cases)
-                        try:
                             final_record = self._merge_sql_json_with_schema(
-                                sql_results, record, table_schema, partition_dt, metric_id
+                                sql_row, record, table_schema, partition_dt, metric_id
                             )
                             processed_records.append(final_record)
-                        except Exception as merge_error:
-                            error_message = str(merge_error)
-                            logger.error(f"      Failed to merge SQL and JSON for metric {metric_id}: {error_message}")
-                            raise  # Re-raise to be caught by outer exception handler
+                    else:
+                        final_record = self._merge_sql_json_with_schema(
+                            sql_results, record, table_schema, partition_dt, metric_id
+                        )
+                        processed_records.append(final_record)
 
                     successful_metrics.append(record)
-                    table_successful += 1
-                    logger.info(f"      [{i}/{len(records)}] Successfully processed metric: {metric_id}")
 
                 except Exception as e:
                     error_message = str(e)
-                    table_failed += 1
-                    logger.error(f"      [{i}/{len(records)}] Failed to process metric: {metric_id}")
-                    logger.error(f"         Error: {error_message}")
+                    logger.error(f"Failed metric {metric_id}: {error_message[:100]}")
 
-                    # Categorize the error type for better tracking
                     error_category = "SQL_EXECUTION_ERROR"
                     if "Braced constructors are not supported" in error_message:
                         error_category = "SQL_SYNTAX_ERROR"
-                        logger.error(f"         Error type: SQL Syntax Error - Braced constructors not supported")
                     elif "timeout" in error_message.lower():
                         error_category = "SQL_TIMEOUT_ERROR"
-                        logger.error(f"         Error type: SQL Timeout Error")
                     elif "not found" in error_message.lower():
                         error_category = "SQL_TABLE_NOT_FOUND_ERROR"
-                        logger.error(f"         Error type: SQL Table Not Found Error")
-                    else:
-                        logger.error(f"         Error type: General SQL Execution Error")
 
                     failed_metrics.append(
                         {'metric_record': record, 'error_message': error_message, 'error_category': error_category})
-                    continue
 
-            # Dynamic DataFrame creation and schema validation
             if processed_records:
                 try:
-                    logger.info(f"   Creating DataFrame for {target_table} with {len(processed_records)} records...")
-                    
-                    # Create DataFrame with explicit BigQuery schema to handle NULL values
-                    # Using the fetched table_schema prevents type inference errors when columns contain NULL
                     df = self.spark.createDataFrame(processed_records, schema=table_schema)
-                    logger.info(f"   DataFrame created with BigQuery schema")
-                    
-                    # Align DataFrame with target table schema (validates and transforms)
-                    # This ensures SQL results match the target table structure
-                    logger.info(f"   Aligning DataFrame schema with BigQuery table: {target_table}")
                     aligned_df = self.align_schema_with_bq(df, target_table)
-                    
                     result_dfs[target_table] = aligned_df
-                    logger.info(f"   Successfully created and aligned DataFrame for {target_table}")
                     
                 except Exception as schema_validation_error:
-                    # Schema validation error handling: Catch missing columns, type mismatches, etc.
                     error_message = str(schema_validation_error)
-                    logger.error(f"   Schema validation failed for target table {target_table}")
-                    logger.error(f"   Error: {error_message}")
+                    logger.error(f"Schema validation failed for {target_table}: {error_message}")
                     
-                    # Mark all metrics in this batch as failed with schema validation error
-                    # This prevents partial writes and maintains data consistency
                     for record in records:
-                        # Check if this metric was in the successful list
                         if record in successful_metrics:
-                            # Remove from successful and add to failed
                             successful_metrics.remove(record)
-                            table_successful -= 1
-                            table_failed += 1
-                            
                             metric_id = record['metric_id']
-                            detailed_error = f"Schema validation failed for metric {metric_id} targeting table {target_table}: {error_message}"
-                            logger.error(f"   {detailed_error}")
-                            
-                            # Add to failed metrics with SCHEMA_VALIDATION_ERROR category
+                            detailed_error = f"Schema validation failed for metric {metric_id}: {error_message}"
                             failed_metrics.append({
                                 'metric_record': record,
                                 'error_message': detailed_error,
                                 'error_category': 'SCHEMA_VALIDATION_ERROR'
                             })
-                    
-                    logger.warning(f"   Continuing to process other target tables after schema validation failure")
-                    continue  # Continue processing other tables
-            else:
-                logger.warning(f"   No records processed successfully for target table: {target_table}")
 
-            logger.info(f"   Table {target_table} summary: {table_successful} successful, {table_failed} failed")
-
-        logger.info("-" * 50)
-        logger.info("METRICS PROCESSING SUMMARY:")
-        logger.info(f"   Total successful metrics: {len(successful_metrics)}")
-        logger.info(f"   Total failed metrics: {len(failed_metrics)}")
-        logger.info(f"   Target tables with data: {len(result_dfs)}")
-
-        if failed_metrics:
-            logger.warning("FAILED METRICS DETAILS:")
-            for i, fm in enumerate(failed_metrics[:10], 1):  # Show first 10 failures
-                metric_id = fm['metric_record']['metric_id']
-                error_category = fm.get('error_category', 'UNKNOWN')
-                error_msg = fm['error_message'][:100] + "..." if len(fm['error_message']) > 100 else fm['error_message']
-                logger.warning(f"   {i}. {metric_id} [{error_category}]: {error_msg}")
-            if len(failed_metrics) > 10:
-                logger.warning(f"   ... and {len(failed_metrics) - 10} more failed metrics")
-
-        logger.info("Metrics processing completed")
+        logger.info(f"Processing complete: {len(successful_metrics)} success, {len(failed_metrics)} failed")
         return result_dfs, successful_metrics, failed_metrics
 
     # BigQuery Operations

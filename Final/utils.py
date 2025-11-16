@@ -338,34 +338,21 @@ class ExecutionUtils:
 
 @contextmanager
 def managed_spark_session(app_name: str = "MetricsPipeline"):
-    """
-    Context manager for Spark session with proper cleanup
-    
-    Args:
-        app_name: Spark application name
-        
-    Yields:
-        SparkSession instance
-    """
+    """Context manager for Spark session with proper cleanup"""
     spark = None
     try:
-        builder = SparkSession.builder.appName(app_name)  # Create Spark session builder
-        
-        # Apply configurations
-        for key, value in PipelineConfig.SPARK_CONFIGS.items():  # Apply optimization configs
+        builder = SparkSession.builder.appName(app_name)
+        for key, value in PipelineConfig.SPARK_CONFIGS.items():
             builder = builder.config(key, value)
-        
-        spark = builder.getOrCreate()  # Create or get existing session
-        logger.info(f"Spark session created successfully: {app_name}")
-        yield spark  # Provide session to calling code
+        spark = builder.getOrCreate()
+        yield spark
         
     except Exception as e:
         logger.error(f"Error in Spark session: {str(e)}")
         raise
     finally:
-        if spark:  # Ensure cleanup even if errors occur
+        if spark:
             try:
-                spark.stop()  # Clean shutdown of Spark session
-                logger.info("Spark session stopped successfully")
+                spark.stop()
             except Exception as e:
-                logger.error(f"Error stopping Spark session: {str(e)}")  # Log cleanup errors
+                logger.error(f"Error stopping Spark session: {str(e)}")

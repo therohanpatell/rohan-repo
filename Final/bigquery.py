@@ -27,33 +27,14 @@ class BigQueryOperations:
     """Handles all BigQuery operations for the Metrics Pipeline"""
     
     def __init__(self, spark: SparkSession, bq_client: Optional[bigquery.Client] = None):
-        """
-        Initialize BigQuery operations
-        
-        Args:
-            spark: SparkSession instance
-            bq_client: Optional BigQuery client, will create one if not provided
-        """
+        """Initialize BigQuery operations"""
         self.spark = spark
         self.bq_client = bq_client or bigquery.Client(location="europe-west2")
-        logger.info("BigQuery operations initialized")
     
     # Schema Operations
     def get_table_schema(self, table_name: str) -> List[bigquery.SchemaField]:
-        """
-        Get BigQuery table schema
-        
-        Args:
-            table_name: Full table name (project.dataset.table)
-            
-        Returns:
-            List of BigQuery schema fields
-            
-        Raises:
-            BigQueryError: If table not found or schema retrieval fails
-        """
+        """Get BigQuery table schema"""
         try:
-            logger.info(f"Getting schema for table: {table_name}")
             table = self.bq_client.get_table(table_name)
             return table.schema
             
@@ -81,21 +62,14 @@ class BigQueryOperations:
             BigQueryError: If table not found or schema conversion fails
         """
         try:
-            logger.info(f"Fetching Spark schema from BigQuery table: {table_name}")
-            
-            # Fetch BigQuery schema using existing get_table_schema method
             bq_schema = self.get_table_schema(table_name)
             
-            # Map BigQuery data types to Spark data types
-            # This mapping supports dynamic schema conversion for any BigQuery table structure
             spark_fields = []
             for field in bq_schema:
                 field_name = field.name
                 field_type = field.field_type.upper()
-                # Preserve nullable/required information from BigQuery schema
-                nullable = field.mode != 'REQUIRED'  # REQUIRED fields are not nullable
+                nullable = field.mode != 'REQUIRED'
                 
-                # Map BigQuery types to Spark types with appropriate precision
                 if field_type in ['STRING', 'BYTES']:
                     spark_type = StringType()
                 elif field_type in ['INTEGER', 'INT64']:
@@ -110,30 +84,18 @@ class BigQueryOperations:
                     spark_type = DateType()
                 elif field_type in ['TIMESTAMP', 'DATETIME']:
                     spark_type = TimestampType()
-                elif field_type in ['GEOGRAPHY', 'JSON']:
-                    # Convert complex types to STRING for compatibility
-                    logger.warning(f"Converting unsupported BigQuery type '{field_type}' to STRING for field '{field_name}' in table {table_name}")
-                    spark_type = StringType()
-                elif field_type in ['ARRAY', 'STRUCT', 'RECORD']:
-                    # Complex nested types - convert to STRING representation
-                    logger.warning(f"Converting complex BigQuery type '{field_type}' to STRING for field '{field_name}' in table {table_name}")
+                elif field_type in ['GEOGRAPHY', 'JSON', 'ARRAY', 'STRUCT', 'RECORD']:
                     spark_type = StringType()
                 else:
-                    # Truly unsupported type - log error and raise exception
-                    error_msg = f"Unsupported BigQuery data type '{field_type}' for field '{field_name}' in table {table_name}. Supported types: STRING, INTEGER, FLOAT, NUMERIC, BOOLEAN, DATE, TIMESTAMP, GEOGRAPHY, JSON, ARRAY, STRUCT"
+                    error_msg = f"Unsupported BigQuery data type '{field_type}' for field '{field_name}' in table {table_name}"
                     logger.error(error_msg)
                     raise BigQueryError(error_msg)
                 
                 spark_fields.append(StructField(field_name, spark_type, nullable))
             
-            spark_schema = StructType(spark_fields)
-            logger.info(f"Successfully converted BigQuery schema to Spark schema for {table_name}")
-            logger.debug(f"Spark schema: {spark_schema}")
-            
-            return spark_schema
+            return StructType(spark_fields)
             
         except BigQueryError:
-            # Re-raise BigQueryError as-is
             raise
         except Exception as e:
             error_msg = f"Failed to convert BigQuery schema to Spark schema for {table_name}: {str(e)}"
@@ -164,115 +126,51 @@ class BigQueryOperations:
         Raises:
             SchemaValidationError: If required columns are missing from the DataFrame
         """
-        logger.info(f"Aligning DataFrame schema with BigQuery table: {target_table}")
-        logger.info(f"DataFrame current columns: {df.columns}")
-        
-        # Fetch BigQuery table schema to compare against DataFrame
         bq_schema = self.get_table_schema(target_table)
         current_columns = df.columns
         bq_columns = [field.name for field in bq_schema]
         
-        logger.info(f"BigQuery table columns: {bq_columns}")
-        
-        # Identify required (non-nullable) and nullable columns from BigQuery schema
-        # This distinction is critical for validation - required columns must be present in SQL results
         required_columns = [field.name for field in bq_schema if field.mode == 'REQUIRED']
-        nullable_columns = [field.name for field in bq_schema if field.mode != 'REQUIRED']
-        
-        logger.info(f"Required columns in target table: {required_columns}")
-        logger.info(f"Nullable columns in target table: {nullable_columns}")
-        
-        # Validate: Check for missing required columns
-        # This ensures SQL queries return all mandatory columns for the target table
         missing_required = [col_name for col_name in required_columns if col_name not in current_columns]
+        
         if missing_required:
             error_msg = f"Missing required columns in DataFrame for table {target_table}: {missing_required}"
             logger.error(error_msg)
-            logger.error(f"DataFrame has columns: {current_columns}")
-            logger.error(f"Target table requires: {required_columns}")
             raise SchemaValidationError(error_msg)
         
-        logger.info("All required columns are present in DataFrame")
-        
-        # Identify missing nullable columns that need to be added with null values
+        nullable_columns = [field.name for field in bq_schema if field.mode != 'REQUIRED']
         missing_nullable = [col_name for col_name in nullable_columns if col_name not in current_columns]
         
-        # Add null values for missing nullable columns
-        # This allows SQL queries to omit optional columns - they'll be filled with nulls
         if missing_nullable:
-            logger.info(f"Adding null values for {len(missing_nullable)} missing nullable columns: {missing_nullable}")
             from pyspark.sql.functions import lit
             for col_name in missing_nullable:
-                logger.info(f"  Adding column '{col_name}' with null values")
                 df = df.withColumn(col_name, lit(None))
-        else:
-            logger.info("No missing nullable columns to add")
         
-        # Drop extra columns not in BigQuery schema
-        # SQL queries may return additional columns (e.g., intermediate calculations) that aren't in target table
         columns_to_drop = [col_name for col_name in current_columns if col_name not in bq_columns]
-        
         if columns_to_drop:
-            logger.info(f"Dropping {len(columns_to_drop)} extra columns not in target schema: {columns_to_drop}")
-            for col_name in columns_to_drop:
-                logger.info(f"  Dropping column '{col_name}'")
             df = df.drop(*columns_to_drop)
-        else:
-            logger.info("No extra columns to drop")
         
-        # Reorder columns to match BigQuery schema order
-        # This ensures consistent column ordering regardless of SQL query structure
-        logger.info("Reordering columns to match BigQuery schema")
         df = df.select(*[col(c) for c in bq_columns])
         
-        # Handle type conversions for BigQuery compatibility
-        # Convert Spark types to match BigQuery expectations for proper data loading
-        logger.info("Applying type conversions for BigQuery compatibility")
         for field in bq_schema:
             if field.name in df.columns:
                 if field.field_type == 'DATE':
-                    logger.info(f"  Converting column '{field.name}' to DATE type")
                     df = df.withColumn(field.name, to_date(col(field.name)))
                 elif field.field_type == 'TIMESTAMP':
-                    logger.info(f"  Converting column '{field.name}' to TIMESTAMP type")
                     df = df.withColumn(field.name, col(field.name).cast(TimestampType()))
                 elif field.field_type == 'NUMERIC':
-                    logger.info(f"  Converting column '{field.name}' to NUMERIC type (Decimal 38,9)")
                     df = df.withColumn(field.name, col(field.name).cast(DecimalType(38, 9)))
                 elif field.field_type == 'FLOAT':
-                    logger.info(f"  Converting column '{field.name}' to FLOAT type (Double)")
                     df = df.withColumn(field.name, col(field.name).cast(DoubleType()))
-        
-        logger.info(f"Schema alignment complete. Final columns: {df.columns}")
-        logger.info("DataFrame schema after alignment:")
-        df.printSchema()
         
         return df
     
     # Query Operations
     def execute_query(self, query: str, timeout: int = PipelineConfig.QUERY_TIMEOUT) -> bigquery.table.RowIterator:
-        """
-        Execute a BigQuery SQL query
-        
-        Args:
-            query: SQL query to execute
-            timeout: Query timeout in seconds
-            
-        Returns:
-            BigQuery query results
-            
-        Raises:
-            BigQueryError: If query execution fails
-        """
+        """Execute a BigQuery SQL query"""
         try:
-            logger.info("Executing BigQuery SQL query")
-            logger.debug(f"Query: {query}")
-            
             query_job = self.bq_client.query(query)
-            results = query_job.result(timeout=timeout)
-            
-            logger.info("Query executed successfully")
-            return results
+            return query_job.result(timeout=timeout)
             
         except (DeadlineExceeded, TimeoutError):
             error_msg = f"Query timed out after {timeout} seconds"
@@ -303,30 +201,20 @@ class BigQueryOperations:
             SQLExecutionError: If SQL execution fails or times out
         """
         try:
-            logger.info("Executing SQL query and returning all results")
-            
             query_job = self.bq_client.query(sql)
             results = query_job.result(timeout=PipelineConfig.QUERY_TIMEOUT)
             
-            # Iterate through all rows and return all columns (multi-record support)
-            # No longer limited to first row - supports SQL queries returning multiple records
             all_results = []
             for row in results:
                 row_dict = dict(row)
-                
-                # Convert all values to appropriate types for DataFrame compatibility
                 processed_row = {}
                 for key, value in row_dict.items():
-                    # Handle datetime objects by converting to string format
                     if hasattr(value, 'strftime'):
                         processed_row[key] = value.strftime('%Y-%m-%d')
                     else:
                         processed_row[key] = value
-                
                 all_results.append(processed_row)
             
-            # Log record count for monitoring multi-record queries
-            logger.info(f"SQL query returned {len(all_results)} records")
             return all_results
             
         except (DeadlineExceeded, TimeoutError):
@@ -358,8 +246,6 @@ class BigQueryOperations:
             WHERE project_dataset = '{project_dataset}' 
             AND table_name = '{table_name}'
             """
-            
-            logger.info(f"Querying partition info for {project_dataset}.{table_name}")
             
             results = self.execute_query(query)
             
@@ -406,17 +292,8 @@ class BigQueryOperations:
             AND partition_dt = '{partition_dt}'
             """
             
-            logger.info(f"Checking existing metrics for partition_dt: {partition_dt}")
-            logger.debug(f"Query: {query}")
-            
             results = self.execute_query(query)
             existing_metrics = [row.metric_id for row in results]
-            
-            if existing_metrics:
-                logger.info(f"Found {len(existing_metrics)} existing metrics: {existing_metrics}")
-            else:
-                logger.info("No existing metrics found")
-            
             return existing_metrics
             
         except Exception as e:
@@ -437,18 +314,12 @@ class BigQueryOperations:
             BigQueryError: If write operation fails
         """
         try:
-            logger.info(f"Writing DataFrame to BigQuery table: {target_table}")
-            logger.info(f"Write mode: {write_mode}")
-            logger.info(f"Records to write: {df.count()}")
-            
             df.write \
                 .format("bigquery") \
                 .option("table", target_table) \
                 .option("writeMethod", "direct") \
                 .mode(write_mode) \
                 .save()
-            
-            logger.info(f"Successfully wrote DataFrame to {target_table}")
             
         except Exception as e:
             error_message = str(e)
@@ -467,46 +338,22 @@ class BigQueryOperations:
             Tuple of (successful_metric_ids, failed_metrics)
         """
         try:
-            logger.info(f"Writing DataFrame to BigQuery table with overwrite: {target_table}")
-            
-            # Validate input DataFrame
             if df.count() == 0:
-                logger.warning("No records to process - DataFrame is empty")
                 return [], []
             
-            # Get metrics info for processing
             metric_records = df.select('metric_id', 'partition_dt').distinct().collect()
-            
             if not metric_records:
-                logger.warning("No valid metric records found")
                 return [], []
             
             partition_dt = metric_records[0]['partition_dt']
             metric_ids = [row['metric_id'] for row in metric_records]
-            record_count = df.count()
             
-            logger.info(f"Processing {len(metric_ids)} unique metrics ({record_count} total records) for partition_dt: {partition_dt}")
-            
-            # Check which metrics already exist for robust overwrite
             existing_metrics = self.check_existing_metrics(metric_ids, partition_dt, target_table)
-            new_metrics = [mid for mid in metric_ids if mid not in existing_metrics]
             
-            # Delete existing metrics if any (part of overwrite operation)
             if existing_metrics:
-                logger.info(f"Found {len(existing_metrics)} existing metrics to overwrite")
                 self.delete_metrics(existing_metrics, partition_dt, target_table)
             
-            if new_metrics:
-                logger.info(f"Adding {len(new_metrics)} new metrics")
-            
-            # Write the DataFrame to BigQuery (append mode after deletion = overwrite)
-            logger.info(f"Writing {record_count} records to {target_table}")
             self.write_dataframe_to_table(df, target_table, "append")
-            
-            # Final success logging
-            logger.info(f"Successfully completed overwrite operation for {target_table}")
-            logger.info(f"Total metrics processed: {len(metric_ids)} ({len(existing_metrics)} overwritten, {len(new_metrics)} new)")
-            
             return metric_ids, []
             
         except Exception as e:
