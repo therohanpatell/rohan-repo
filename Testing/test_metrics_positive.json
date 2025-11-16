@@ -1,0 +1,167 @@
+[
+  {
+    "metric_id": "TEST_001",
+    "metric_name": "Simple Single Record Test",
+    "metric_type": "Count",
+    "metric_description": "Test single record return with basic columns",
+    "sql": "SELECT 'TEST_001' AS metric_id, 'Simple Single Record Test' AS metric_name, 'Count' AS metric_type, 'Test Description' AS metric_description, 'Daily' AS frequency, 100 AS numerator_value, 100 AS denominator_value, 100.00 AS metric_output, '2024-01-15' AS business_data_date",
+    "dependency": "test_dependency_1",
+    "frequency": "Daily",
+    "target_table": "test_project.test_dataset.test_metrics_output",
+    "modified_date": "2024-01-15"
+  },
+  {
+    "metric_id": "TEST_002",
+    "metric_name": "Multiple Records Test",
+    "metric_type": "Count",
+    "metric_description": "Test SQL returning multiple records (10 rows)",
+    "sql": "SELECT CONCAT('TEST_002_', CAST(row_num AS STRING)) AS metric_id, 'Multiple Records Test' AS metric_name, 'Count' AS metric_type, 'Test multiple records' AS metric_description, 'Daily' AS frequency, row_num * 10 AS numerator_value, row_num * 10 AS denominator_value, CAST(row_num * 10 AS FLOAT64) AS metric_output, '2024-01-15' AS business_data_date FROM UNNEST(GENERATE_ARRAY(1, 10)) AS row_num",
+    "dependency": "test_dependency_2",
+    "frequency": "Daily",
+    "target_table": "test_project.test_dataset.test_metrics_output",
+    "modified_date": "2024-01-15"
+  },
+  {
+    "metric_id": "TEST_003",
+    "metric_name": "Currently Placeholder Test",
+    "metric_type": "Count",
+    "metric_description": "Test {currently} placeholder replacement",
+    "sql": "SELECT 'TEST_003' AS metric_id, 'Currently Placeholder Test' AS metric_name, 'Count' AS metric_type, 'Test placeholder' AS metric_description, 'Daily' AS frequency, COUNT(*) AS numerator_value, COUNT(*) AS denominator_value, CAST(COUNT(*) AS FLOAT64) AS metric_output, '{currently}' AS business_data_date FROM `test_project.test_dataset.test_source_data` WHERE partition_dt = '{currently}'",
+    "dependency": "test_dependency_3",
+    "frequency": "Daily",
+    "target_table": "test_project.test_dataset.test_metrics_output",
+    "modified_date": "2024-01-15"
+  },
+  {
+    "metric_id": "TEST_004",
+    "metric_name": "Partition Info Placeholder Test",
+    "metric_type": "Count",
+    "metric_description": "Test {partition_info} placeholder replacement",
+    "sql": "SELECT 'TEST_004' AS metric_id, 'Partition Info Test' AS metric_name, 'Count' AS metric_type, 'Test partition info' AS metric_description, 'Daily' AS frequency, COUNT(*) AS numerator_value, COUNT(*) AS denominator_value, CAST(COUNT(*) AS FLOAT64) AS metric_output, partition_dt AS business_data_date FROM `test_project.test_dataset.test_source_data` WHERE partition_dt = (SELECT partition_dt FROM `test_project.test_dataset.test_source_data` WHERE partition_dt = {partition_info} LIMIT 1)",
+    "dependency": "test_dependency_4",
+    "frequency": "Daily",
+    "target_table": "test_project.test_dataset.test_metrics_output",
+    "modified_date": "2024-01-15"
+  },
+  {
+    "metric_id": "TEST_005",
+    "metric_name": "All Data Types Test",
+    "metric_type": "Mixed",
+    "metric_description": "Test all supported data types in results",
+    "sql": "SELECT 'TEST_005' AS metric_id, 'All Data Types Test' AS metric_name, 'Mixed' AS metric_type, 'Test all types' AS metric_description, 'Daily' AS frequency, 100 AS numerator_value, 200 AS denominator_value, 50.5 AS metric_output, DATE('2024-01-15') AS business_data_date",
+    "dependency": "test_dependency_5",
+    "frequency": "Daily",
+    "target_table": "test_project.test_dataset.test_metrics_output",
+    "modified_date": "2024-01-15"
+  },
+  {
+    "metric_id": "TEST_006",
+    "metric_name": "NULL Values Test",
+    "metric_type": "Count",
+    "metric_description": "Test handling of NULL values in results",
+    "sql": "SELECT 'TEST_006' AS metric_id, 'NULL Values Test' AS metric_name, 'Count' AS metric_type, NULL AS metric_description, 'Daily' AS frequency, NULL AS numerator_value, NULL AS denominator_value, 0.0 AS metric_output, '2024-01-15' AS business_data_date",
+    "dependency": "test_dependency_6",
+    "frequency": "Daily",
+    "target_table": "test_project.test_dataset.test_metrics_output",
+    "modified_date": "2024-01-15"
+  },
+  {
+    "metric_id": "TEST_007",
+    "metric_name": "Custom Columns Test",
+    "metric_type": "Custom",
+    "metric_description": "Test custom columns not in old METRICS_SCHEMA",
+    "sql": "SELECT 'TEST_007' AS metric_id, 'Custom Columns Test' AS metric_name, 'Custom' AS metric_type, 'Test custom columns' AS metric_description, 'Daily' AS frequency, 'Region A' AS region, 'Department X' AS department, 'Category 1' AS category, 100 AS numerator_value, 200 AS denominator_value, 50.0 AS metric_output, '2024-01-15' AS business_data_date",
+    "dependency": "test_dependency_7",
+    "frequency": "Daily",
+    "target_table": "test_project.test_dataset.test_custom_metrics",
+    "modified_date": "2024-01-15"
+  },
+  {
+    "metric_id": "TEST_008",
+    "metric_name": "Medium Volume Test",
+    "metric_type": "Count",
+    "metric_description": "Test SQL returning 1000 records",
+    "sql": "SELECT CONCAT('TEST_008_', CAST(row_num AS STRING)) AS metric_id, 'Medium Volume Test' AS metric_name, 'Count' AS metric_type, 'Test 1000 records' AS metric_description, 'Daily' AS frequency, row_num AS numerator_value, row_num * 2 AS denominator_value, CAST(row_num AS FLOAT64) AS metric_output, '2024-01-15' AS business_data_date FROM UNNEST(GENERATE_ARRAY(1, 1000)) AS row_num",
+    "dependency": "test_dependency_8",
+    "frequency": "Daily",
+    "target_table": "test_project.test_dataset.test_metrics_output",
+    "modified_date": "2024-01-15"
+  },
+  {
+    "metric_id": "TEST_009",
+    "metric_name": "Same Table Cache Test 1",
+    "metric_type": "Count",
+    "metric_description": "First metric targeting same table for cache test",
+    "sql": "SELECT 'TEST_009' AS metric_id, 'Same Table Cache Test 1' AS metric_name, 'Count' AS metric_type, 'Cache test 1' AS metric_description, 'Daily' AS frequency, 10 AS numerator_value, 10 AS denominator_value, 10.0 AS metric_output, '2024-01-15' AS business_data_date",
+    "dependency": "test_dependency_9",
+    "frequency": "Daily",
+    "target_table": "test_project.test_dataset.test_metrics_output",
+    "modified_date": "2024-01-15"
+  },
+  {
+    "metric_id": "TEST_010",
+    "metric_name": "Same Table Cache Test 2",
+    "metric_type": "Count",
+    "metric_description": "Second metric targeting same table for cache test",
+    "sql": "SELECT 'TEST_010' AS metric_id, 'Same Table Cache Test 2' AS metric_name, 'Count' AS metric_type, 'Cache test 2' AS metric_description, 'Daily' AS frequency, 20 AS numerator_value, 20 AS denominator_value, 20.0 AS metric_output, '2024-01-15' AS business_data_date",
+    "dependency": "test_dependency_9",
+    "frequency": "Daily",
+    "target_table": "test_project.test_dataset.test_metrics_output",
+    "modified_date": "2024-01-15"
+  },
+  {
+    "metric_id": "TEST_011",
+    "metric_name": "Different Table Test",
+    "metric_type": "Count",
+    "metric_description": "Metric targeting different table",
+    "sql": "SELECT 'TEST_011' AS metric_id, 'Different Table Test' AS metric_name, 'Count' AS metric_type, 'Different table' AS metric_description, 'Daily' AS frequency, 30 AS numerator_value, 30 AS denominator_value, 30.0 AS metric_output, '2024-01-15' AS business_data_date",
+    "dependency": "test_dependency_10",
+    "frequency": "Daily",
+    "target_table": "test_project.test_dataset.test_metrics_output_2",
+    "modified_date": "2024-01-15"
+  },
+  {
+    "metric_id": "TEST_012",
+    "metric_name": "Group By Multiple Columns Test",
+    "metric_type": "Count",
+    "metric_description": "Test SQL with GROUP BY returning multiple records",
+    "sql": "SELECT CONCAT('TEST_012_', region, '_', gender) AS metric_id, 'Group By Test' AS metric_name, 'Count' AS metric_type, 'Test GROUP BY' AS metric_description, 'Daily' AS frequency, region, gender, COUNT(*) AS numerator_value, COUNT(*) AS denominator_value, CAST(COUNT(*) AS FLOAT64) AS metric_output, '2024-01-15' AS business_data_date FROM `test_project.test_dataset.test_employee_data` WHERE partition_dt = '{currently}' GROUP BY region, gender",
+    "dependency": "test_dependency_11",
+    "frequency": "Daily",
+    "target_table": "test_project.test_dataset.test_custom_metrics",
+    "modified_date": "2024-01-15"
+  },
+  {
+    "metric_id": "TEST_013",
+    "metric_name": "CTE Query Test",
+    "metric_type": "Percentage",
+    "metric_description": "Test SQL with Common Table Expressions",
+    "sql": "WITH perm_count AS (SELECT COUNT(*) AS perm_total FROM `test_project.test_dataset.test_perm_employees` WHERE partition_dt = '{currently}'), non_perm_count AS (SELECT COUNT(*) AS non_perm_total FROM `test_project.test_dataset.test_non_perm_employees` WHERE partition_dt = '{currently}') SELECT 'TEST_013' AS metric_id, 'CTE Query Test' AS metric_name, 'Percentage' AS metric_type, 'Test CTE' AS metric_description, 'Daily' AS frequency, perm_total AS numerator_value, perm_total + non_perm_total AS denominator_value, ROUND(perm_total * 100.0 / (perm_total + non_perm_total), 2) AS metric_output, '{currently}' AS business_data_date FROM perm_count, non_perm_count",
+    "dependency": "test_dependency_12",
+    "frequency": "Daily",
+    "target_table": "test_project.test_dataset.test_metrics_output",
+    "modified_date": "2024-01-15"
+  },
+  {
+    "metric_id": "TEST_014",
+    "metric_name": "Decimal Precision Test",
+    "metric_type": "Decimal",
+    "metric_description": "Test decimal values with high precision",
+    "sql": "SELECT 'TEST_014' AS metric_id, 'Decimal Precision Test' AS metric_name, 'Decimal' AS metric_type, 'Test decimal precision' AS metric_description, 'Daily' AS frequency, 123456789.123456789 AS numerator_value, 987654321.987654321 AS denominator_value, 12.345678912 AS metric_output, '2024-01-15' AS business_data_date",
+    "dependency": "test_dependency_13",
+    "frequency": "Daily",
+    "target_table": "test_project.test_dataset.test_metrics_output",
+    "modified_date": "2024-01-15"
+  },
+  {
+    "metric_id": "TEST_015",
+    "metric_name": "Join Query Test",
+    "metric_type": "Count",
+    "metric_description": "Test SQL with JOIN operations",
+    "sql": "SELECT 'TEST_015' AS metric_id, 'Join Query Test' AS metric_name, 'Count' AS metric_type, 'Test JOIN' AS metric_description, 'Daily' AS frequency, COUNT(DISTINCT e.employee_id) AS numerator_value, COUNT(*) AS denominator_value, CAST(COUNT(DISTINCT e.employee_id) AS FLOAT64) AS metric_output, '{currently}' AS business_data_date FROM `test_project.test_dataset.test_employee_data` e INNER JOIN `test_project.test_dataset.test_department_data` d ON e.department_id = d.department_id WHERE e.partition_dt = '{currently}' AND d.partition_dt = '{currently}'",
+    "dependency": "test_dependency_14",
+    "frequency": "Daily",
+    "target_table": "test_project.test_dataset.test_metrics_output",
+    "modified_date": "2024-01-15"
+  }
+]

@@ -1,0 +1,221 @@
+[
+  {
+    "metric_id": "NEG_001",
+    "metric_name": "Non-Existent Table Test",
+    "metric_type": "Count",
+    "metric_description": "Test schema fetch failure for non-existent table",
+    "sql": "SELECT 'NEG_001' AS metric_id, 'Non-Existent Table Test' AS metric_name, 'Count' AS metric_type, 'Test non-existent table' AS metric_description, 'Daily' AS frequency, 100 AS numerator_value, 100 AS denominator_value, 100.0 AS metric_output, '2024-01-15' AS business_data_date",
+    "dependency": "test_dependency_neg_1",
+    "frequency": "Daily",
+    "target_table": "test_project.test_dataset.nonexistent_table",
+    "modified_date": "2024-01-15"
+  },
+  {
+    "metric_id": "NEG_002",
+    "metric_name": "Invalid Table Name Format Test",
+    "metric_type": "Count",
+    "metric_description": "Test invalid table name format (missing project/dataset)",
+    "sql": "SELECT 'NEG_002' AS metric_id, 'Invalid Table Name Test' AS metric_name, 'Count' AS metric_type, 'Test invalid format' AS metric_description, 'Daily' AS frequency, 100 AS numerator_value, 100 AS denominator_value, 100.0 AS metric_output, '2024-01-15' AS business_data_date",
+    "dependency": "test_dependency_neg_2",
+    "frequency": "Daily",
+    "target_table": "invalid_table_name",
+    "modified_date": "2024-01-15"
+  },
+  {
+    "metric_id": "NEG_003",
+    "metric_name": "SQL Syntax Error Test",
+    "metric_type": "Count",
+    "metric_description": "Test SQL with syntax error",
+    "sql": "SELCT 'NEG_003' AS metric_id, 'SQL Syntax Error Test' AS metric_name FROM test_table",
+    "dependency": "test_dependency_neg_3",
+    "frequency": "Daily",
+    "target_table": "test_project.test_dataset.test_metrics_output",
+    "modified_date": "2024-01-15"
+  },
+  {
+    "metric_id": "NEG_004",
+    "metric_name": "Table Not Found in SQL Test",
+    "metric_type": "Count",
+    "metric_description": "Test SQL referencing non-existent table",
+    "sql": "SELECT 'NEG_004' AS metric_id, 'Table Not Found Test' AS metric_name, 'Count' AS metric_type, 'Test table not found' AS metric_description, 'Daily' AS frequency, COUNT(*) AS numerator_value, COUNT(*) AS denominator_value, CAST(COUNT(*) AS FLOAT64) AS metric_output, '2024-01-15' AS business_data_date FROM `test_project.test_dataset.nonexistent_source_table` WHERE partition_dt = '{currently}'",
+    "dependency": "test_dependency_neg_4",
+    "frequency": "Daily",
+    "target_table": "test_project.test_dataset.test_metrics_output",
+    "modified_date": "2024-01-15"
+  },
+  {
+    "metric_id": "NEG_005",
+    "metric_name": "Column Not Found in SQL Test",
+    "metric_type": "Count",
+    "metric_description": "Test SQL referencing non-existent column",
+    "sql": "SELECT 'NEG_005' AS metric_id, 'Column Not Found Test' AS metric_name, 'Count' AS metric_type, 'Test column not found' AS metric_description, 'Daily' AS frequency, nonexistent_column AS numerator_value, 100 AS denominator_value, 100.0 AS metric_output, '2024-01-15' AS business_data_date FROM `test_project.test_dataset.test_source_data` WHERE partition_dt = '{currently}'",
+    "dependency": "test_dependency_neg_5",
+    "frequency": "Daily",
+    "target_table": "test_project.test_dataset.test_metrics_output",
+    "modified_date": "2024-01-15"
+  },
+  {
+    "metric_id": "NEG_006",
+    "metric_name": "Empty Result Set Test",
+    "metric_type": "Count",
+    "metric_description": "Test SQL returning 0 records",
+    "sql": "SELECT 'NEG_006' AS metric_id, 'Empty Result Set Test' AS metric_name, 'Count' AS metric_type, 'Test empty result' AS metric_description, 'Daily' AS frequency, 100 AS numerator_value, 100 AS denominator_value, 100.0 AS metric_output, '2024-01-15' AS business_data_date WHERE 1 = 0",
+    "dependency": "test_dependency_neg_6",
+    "frequency": "Daily",
+    "target_table": "test_project.test_dataset.test_metrics_output",
+    "modified_date": "2024-01-15"
+  },
+  {
+    "metric_id": "NEG_007",
+    "metric_name": "Missing Required Column Test",
+    "metric_type": "Count",
+    "metric_description": "Test SQL missing required column (metric_id)",
+    "sql": "SELECT 'Missing Required Column Test' AS metric_name, 'Count' AS metric_type, 'Test missing column' AS metric_description, 'Daily' AS frequency, 100 AS numerator_value, 100 AS denominator_value, 100.0 AS metric_output, '2024-01-15' AS business_data_date",
+    "dependency": "test_dependency_neg_7",
+    "frequency": "Daily",
+    "target_table": "test_project.test_dataset.test_metrics_output",
+    "modified_date": "2024-01-15"
+  },
+  {
+    "metric_id": "NEG_008",
+    "metric_name": "Multiple Missing Required Columns Test",
+    "metric_type": "Count",
+    "metric_description": "Test SQL missing multiple required columns",
+    "sql": "SELECT 'Test missing multiple columns' AS metric_description, 'Daily' AS frequency, 100 AS numerator_value, 100 AS denominator_value, 100.0 AS metric_output, '2024-01-15' AS business_data_date",
+    "dependency": "test_dependency_neg_8",
+    "frequency": "Daily",
+    "target_table": "test_project.test_dataset.test_metrics_output",
+    "modified_date": "2024-01-15"
+  },
+  {
+    "metric_id": "NEG_009",
+    "metric_name": "Type Conversion Failure Test",
+    "metric_type": "Count",
+    "metric_description": "Test SQL returning wrong type for column",
+    "sql": "SELECT 'NEG_009' AS metric_id, 'Type Conversion Failure Test' AS metric_name, 'Count' AS metric_type, 'Test type conversion' AS metric_description, 'Daily' AS frequency, 'invalid_number' AS numerator_value, 'invalid_number' AS denominator_value, 'invalid_number' AS metric_output, 'invalid_date_format' AS business_data_date",
+    "dependency": "test_dependency_neg_9",
+    "frequency": "Daily",
+    "target_table": "test_project.test_dataset.test_metrics_output",
+    "modified_date": "2024-01-15"
+  },
+  {
+    "metric_id": "NEG_010",
+    "metric_name": "Completely Wrong Schema Test",
+    "metric_type": "Count",
+    "metric_description": "Test SQL returning columns with no overlap to target",
+    "sql": "SELECT 'NEG_010' AS wrong_column_x, 'Wrong Schema Test' AS wrong_column_y, 'Count' AS wrong_column_z",
+    "dependency": "test_dependency_neg_10",
+    "frequency": "Daily",
+    "target_table": "test_project.test_dataset.test_metrics_output",
+    "modified_date": "2024-01-15"
+  },
+  {
+    "metric_id": "NEG_011",
+    "metric_name": "Division by Zero Test",
+    "metric_type": "Percentage",
+    "metric_description": "Test SQL with division by zero",
+    "sql": "SELECT 'NEG_011' AS metric_id, 'Division by Zero Test' AS metric_name, 'Percentage' AS metric_type, 'Test division by zero' AS metric_description, 'Daily' AS frequency, 100 AS numerator_value, 0 AS denominator_value, 100.0 / 0 AS metric_output, '2024-01-15' AS business_data_date",
+    "dependency": "test_dependency_neg_11",
+    "frequency": "Daily",
+    "target_table": "test_project.test_dataset.test_metrics_output",
+    "modified_date": "2024-01-15"
+  },
+  {
+    "metric_id": "NEG_012",
+    "metric_name": "Invalid Date Format Test",
+    "metric_type": "Count",
+    "metric_description": "Test SQL with invalid date format",
+    "sql": "SELECT 'NEG_012' AS metric_id, 'Invalid Date Format Test' AS metric_name, 'Count' AS metric_type, 'Test invalid date' AS metric_description, 'Daily' AS frequency, 100 AS numerator_value, 100 AS denominator_value, 100.0 AS metric_output, '2024-13-45' AS business_data_date",
+    "dependency": "test_dependency_neg_12",
+    "frequency": "Daily",
+    "target_table": "test_project.test_dataset.test_metrics_output",
+    "modified_date": "2024-01-15"
+  },
+  {
+    "metric_id": "NEG_013",
+    "metric_name": "Missing Target Table Field Test",
+    "metric_type": "Count",
+    "metric_description": "Test metric without target_table field",
+    "sql": "SELECT 'NEG_013' AS metric_id, 'Missing Target Table Test' AS metric_name, 'Count' AS metric_type, 'Test missing target_table' AS metric_description, 'Daily' AS frequency, 100 AS numerator_value, 100 AS denominator_value, 100.0 AS metric_output, '2024-01-15' AS business_data_date",
+    "dependency": "test_dependency_neg_13",
+    "frequency": "Daily",
+    "modified_date": "2024-01-15"
+  },
+  {
+    "metric_id": "NEG_014",
+    "metric_name": "Null SQL Query Test",
+    "metric_type": "Count",
+    "metric_description": "Test metric with null SQL query",
+    "sql": null,
+    "dependency": "test_dependency_neg_14",
+    "frequency": "Daily",
+    "target_table": "test_project.test_dataset.test_metrics_output",
+    "modified_date": "2024-01-15"
+  },
+  {
+    "metric_id": "NEG_015",
+    "metric_name": "Empty SQL Query Test",
+    "metric_type": "Count",
+    "metric_description": "Test metric with empty SQL query",
+    "sql": "",
+    "dependency": "test_dependency_neg_15",
+    "frequency": "Daily",
+    "target_table": "test_project.test_dataset.test_metrics_output",
+    "modified_date": "2024-01-15"
+  },
+  {
+    "metric_id": "NEG_016",
+    "metric_name": "SQL Injection Attempt Test",
+    "metric_type": "Count",
+    "metric_description": "Test SQL with potential injection attempt",
+    "sql": "SELECT 'NEG_016' AS metric_id, 'SQL Injection Test' AS metric_name, 'Count' AS metric_type, 'Test SQL injection' AS metric_description, 'Daily' AS frequency, 100 AS numerator_value, 100 AS denominator_value, 100.0 AS metric_output, '2024-01-15' AS business_data_date; DROP TABLE test_metrics_output; --",
+    "dependency": "test_dependency_neg_16",
+    "frequency": "Daily",
+    "target_table": "test_project.test_dataset.test_metrics_output",
+    "modified_date": "2024-01-15"
+  },
+  {
+    "metric_id": "NEG_017",
+    "metric_name": "Extremely Long SQL Test",
+    "metric_type": "Count",
+    "metric_description": "Test SQL query that is extremely long",
+    "sql": "SELECT 'NEG_017' AS metric_id, 'Extremely Long SQL Test' AS metric_name, 'Count' AS metric_type, 'Test long SQL' AS metric_description, 'Daily' AS frequency, 100 AS numerator_value, 100 AS denominator_value, 100.0 AS metric_output, '2024-01-15' AS business_data_date FROM `test_project.test_dataset.test_source_data` WHERE 1=1 AND 1=1 AND 1=1 AND 1=1 AND 1=1 AND 1=1 AND 1=1 AND 1=1 AND 1=1 AND 1=1 AND 1=1 AND 1=1 AND 1=1 AND 1=1 AND 1=1 AND 1=1 AND 1=1 AND 1=1 AND 1=1 AND 1=1",
+    "dependency": "test_dependency_neg_17",
+    "frequency": "Daily",
+    "target_table": "test_project.test_dataset.test_metrics_output",
+    "modified_date": "2024-01-15"
+  },
+  {
+    "metric_id": "NEG_018",
+    "metric_name": "Special Characters in Data Test",
+    "metric_type": "Count",
+    "metric_description": "Test SQL with special characters in data",
+    "sql": "SELECT 'NEG_018' AS metric_id, 'Special Characters Test: <>&\"\\'' AS metric_name, 'Count' AS metric_type, 'Test special chars' AS metric_description, 'Daily' AS frequency, 100 AS numerator_value, 100 AS denominator_value, 100.0 AS metric_output, '2024-01-15' AS business_data_date",
+    "dependency": "test_dependency_neg_18",
+    "frequency": "Daily",
+    "target_table": "test_project.test_dataset.test_metrics_output",
+    "modified_date": "2024-01-15"
+  },
+  {
+    "metric_id": "NEG_019",
+    "metric_name": "Circular Dependency Test",
+    "metric_type": "Count",
+    "metric_description": "Test metric with circular dependency reference",
+    "sql": "SELECT 'NEG_019' AS metric_id, 'Circular Dependency Test' AS metric_name, 'Count' AS metric_type, 'Test circular dependency' AS metric_description, 'Daily' AS frequency, metric_output AS numerator_value, metric_output AS denominator_value, metric_output AS metric_output, '2024-01-15' AS business_data_date FROM `test_project.test_dataset.test_metrics_output` WHERE metric_id = 'NEG_019'",
+    "dependency": "test_dependency_neg_19",
+    "frequency": "Daily",
+    "target_table": "test_project.test_dataset.test_metrics_output",
+    "modified_date": "2024-01-15"
+  },
+  {
+    "metric_id": "NEG_020",
+    "metric_name": "Negative Values Test",
+    "metric_type": "Count",
+    "metric_description": "Test SQL with negative values",
+    "sql": "SELECT 'NEG_020' AS metric_id, 'Negative Values Test' AS metric_name, 'Count' AS metric_type, 'Test negative values' AS metric_description, 'Daily' AS frequency, -100 AS numerator_value, -200 AS denominator_value, -50.0 AS metric_output, '2024-01-15' AS business_data_date",
+    "dependency": "test_dependency_neg_20",
+    "frequency": "Daily",
+    "target_table": "test_project.test_dataset.test_metrics_output",
+    "modified_date": "2024-01-15"
+  }
+]
