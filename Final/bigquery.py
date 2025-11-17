@@ -217,13 +217,24 @@ class BigQueryOperations:
             
             return all_results
             
-        except (DeadlineExceeded, TimeoutError):
-            error_msg = f"Query for metric '{metric_id}' timed out after {PipelineConfig.QUERY_TIMEOUT} seconds."
+        except (DeadlineExceeded, TimeoutError) as timeout_error:
+            error_msg = f"Query for metric '{metric_id}' timed out after {PipelineConfig.QUERY_TIMEOUT} seconds. Error: {str(timeout_error)}"
+            logger.error(error_msg)
+            raise SQLExecutionError(error_msg, metric_id)
+        
+        except NotFound as nf:
+            error_msg = f"Table or resource not found for metric '{metric_id}': {str(nf)}"
+            logger.error(error_msg)
+            raise SQLExecutionError(error_msg, metric_id)
+        
+        except GoogleCloudError as gce:
+            error_msg = f"Google Cloud error executing SQL for metric '{metric_id}': {str(gce)}"
             logger.error(error_msg)
             raise SQLExecutionError(error_msg, metric_id)
         
         except Exception as e:
-            error_msg = f"Failed to execute SQL: {str(e)}"
+            error_type = type(e).__name__
+            error_msg = f"Failed to execute SQL for metric '{metric_id}' with {error_type}: {str(e)}"
             logger.error(error_msg)
             raise SQLExecutionError(error_msg, metric_id)
     
@@ -391,26 +402,21 @@ class BigQueryOperations:
                 logger.info("No recon records to write")
                 return
             
-            logger.info("Starting recon records write to BigQuery...")
-            logger.info(f"   Number of records: {len(recon_records)}")
-            logger.info(f"   Target table: {recon_table}")
+            logger.info(f"Writing {len(recon_records)} recon records to {recon_table}")
             
             # Validate recon records before creating DataFrame
-            logger.info("Validating recon records before DataFrame creation...")
             validation_errors = []
+            required_fields = [
+                'module_id', 'module_type_nm', 'source_server_nm', 'target_server_nm',
+                'source_vl', 'target_vl', 'rcncln_exact_pass_in', 'latest_source_parttn_dt',
+                'latest_target_parttn_dt', 'load_ts', 'schdld_dt', 'source_system_id',
+                'schdld_yr', 'Job_Name'
+            ]
             
             for i, record in enumerate(recon_records):
                 if record is None:
                     validation_errors.append(f"Record at index {i} is None")
                     continue
-                
-                # Check required non-nullable fields
-                required_fields = [
-                    'module_id', 'module_type_nm', 'source_server_nm', 'target_server_nm',
-                    'source_vl', 'target_vl', 'rcncln_exact_pass_in', 'latest_source_parttn_dt',
-                    'latest_target_parttn_dt', 'load_ts', 'schdld_dt', 'source_system_id',
-                    'schdld_yr', 'Job_Name'
-                ]
                 
                 for field in required_fields:
                     if field not in record or record[field] is None:
@@ -418,161 +424,80 @@ class BigQueryOperations:
                         validation_errors.append(f"Field '{field}' is None/missing in record {i} for metric {metric_id}")
             
             if validation_errors:
-                logger.error("Recon record validation failed:")
-                for error in validation_errors[:10]:  # Show first 10 errors
-                    logger.error(f"   {error}")
-                if len(validation_errors) > 10:
-                    logger.error(f"   ... and {len(validation_errors) - 10} more validation errors")
+                logger.error(f"Recon record validation failed with {len(validation_errors)} errors")
+                for error in validation_errors[:5]:
+                    logger.error(f"  {error}")
+                if len(validation_errors) > 5:
+                    logger.error(f"  ... and {len(validation_errors) - 5} more errors")
                 raise BigQueryError(f"Recon record validation failed with {len(validation_errors)} errors")
             
-            logger.info("All recon records validated successfully")
-            
-            logger.info("Creating Spark DataFrame from recon records...")
-            
-            # Validate recon records before DataFrame creation
-            logger.info("PRE-VALIDATING RECON RECORDS FOR DATAFRAME CREATION...")
-            logger.info(f"   Total records to validate: {len(recon_records)}")
-            
-            for i, record in enumerate(recon_records):
-                logger.info(f"VALIDATING RECORD {i+1}/{len(recon_records)}:")
-                
-                if record is None:
-                    logger.error(f"CRITICAL: Recon record at index {i} is None!")
-                    raise BigQueryError(f"Recon record at index {i} is None")
-                
-                logger.info(f"   Record type: {type(record)}")
-                logger.info(f"   Record keys: {list(record.keys()) if isinstance(record, dict) else 'NOT A DICT'}")
-                
-                # Check critical non-nullable fields
-                required_fields = [
-                    'module_id', 'module_type_nm', 'source_server_nm', 'target_server_nm',
-                    'source_vl', 'target_vl', 'rcncln_exact_pass_in', 'latest_source_parttn_dt',
-                    'latest_target_parttn_dt', 'load_ts', 'schdld_dt', 'source_system_id',
-                    'schdld_yr', 'Job_Name'
-                ]
-                
-                metric_id = record.get('source_system_id', 'UNKNOWN') if isinstance(record, dict) else 'UNKNOWN'
-                logger.info(f"   Metric ID: {metric_id}")
-                
-                none_fields = []
-                missing_fields = []
-                
-                for field in required_fields:
-                    if field not in record:
-                        missing_fields.append(field)
-                        logger.error(f"   MISSING FIELD: '{field}' not in record")
-                    elif record[field] is None:
-                        none_fields.append(field)
-                        logger.error(f"   NONE VALUE: '{field}' is None")
-                    else:
-                        field_value = record[field]
-                        field_type = type(field_value).__name__
-                        logger.info(f"   {field}: {repr(field_value)} (type: {field_type})")
-                
-                if missing_fields or none_fields:
-                    logger.error(f"VALIDATION FAILED FOR RECORD {i} (metric: {metric_id}):")
-                    if missing_fields:
-                        logger.error(f"   Missing fields: {missing_fields}")
-                    if none_fields:
-                        logger.error(f"   None value fields: {none_fields}")
-                    
-                    logger.error(f"   FULL RECORD CONTENT:")
-                    for key, value in record.items():
-                        logger.error(f"     {key}: {repr(value)} (type: {type(value)})")
-                    
-                    error_msg = f"Validation failed for record {i} (metric: {metric_id})"
-                    if missing_fields:
-                        error_msg += f" - Missing fields: {missing_fields}"
-                    if none_fields:
-                        error_msg += f" - None value fields: {none_fields}"
-                    
-                    raise BigQueryError(error_msg)
-                
-                logger.info(f"   Record {i+1} validation PASSED")
-            
-            logger.info("ALL RECON RECORDS PRE-VALIDATION COMPLETED SUCCESSFULLY")
-            
-            logger.info("ATTEMPTING TO CREATE SPARK DATAFRAME...")
-            logger.info(f"   Number of records: {len(recon_records)}")
-            logger.info(f"   Schema: {PipelineConfig.RECON_SCHEMA}")
-            
+            # Create DataFrame
             try:
-                logger.info("   Calling spark.createDataFrame()...")
                 recon_df = self.spark.createDataFrame(recon_records, PipelineConfig.RECON_SCHEMA)
-                logger.info("SPARK DATAFRAME CREATED SUCCESSFULLY")
-            except Exception as df_error:
-                logger.error("FAILED TO CREATE SPARK DATAFRAME!")
-                logger.error(f"   Error type: {type(df_error).__name__}")
-                logger.error(f"   Error message: {str(df_error)}")
+            except ValueError as ve:
+                error_msg = f"DataFrame creation failed due to value error: {str(ve)}"
+                logger.error(error_msg)
                 
-                # Log detailed information about the error
-                logger.error("DEBUGGING DATAFRAME CREATION FAILURE:")
-                logger.error(f"   Total records: {len(recon_records)}")
-                
-                # Show first few records that caused the error
-                logger.error("   FIRST 3 RECON RECORDS THAT CAUSED THE ERROR:")
-                for i, record in enumerate(recon_records[:3]):
-                    logger.error(f"     Record {i}:")
+                # Find records with None values
+                for i, record in enumerate(recon_records[:5]):  # Check first 5 records
                     if record is None:
-                        logger.error(f"       RECORD IS NONE!")
+                        logger.error(f"  Record {i}: entire record is None")
                     else:
-                        for key, value in record.items():
-                            if value is None:
-                                logger.error(f"       {key}: None (THIS IS THE PROBLEM!)")
-                            else:
-                                logger.error(f"       {key}: {repr(value)} (type: {type(value)})")
+                        none_values = [(k, v) for k, v in record.items() if v is None]
+                        if none_values:
+                            logger.error(f"  Record {i} has None values: {[k for k, v in none_values]}")
                 
-                # Check if it's the specific "Argument obj can not be None" error
-                if "can not be None" in str(df_error) or "cannot be None" in str(df_error):
-                    logger.error("THIS IS THE 'ARGUMENT OBJ CAN NOT BE NONE' ERROR!")
-                    logger.error("   This means one of the record values is None when it shouldn't be")
-                    
-                    # Find the exact None values
-                    logger.error("SCANNING ALL RECORDS FOR NONE VALUES:")
-                    for i, record in enumerate(recon_records):
-                        if record is None:
-                            logger.error(f"   Record {i}: ENTIRE RECORD IS NONE!")
-                        else:
-                            none_values = [(k, v) for k, v in record.items() if v is None]
-                            if none_values:
-                                logger.error(f"   Record {i} has None values: {none_values}")
+                raise BigQueryError(f"Recon DataFrame creation failed (ValueError): {str(ve)}")
+            except TypeError as te:
+                error_msg = f"DataFrame creation failed due to type error: {str(te)}"
+                logger.error(error_msg)
+                raise BigQueryError(f"Recon DataFrame creation failed (TypeError): {str(te)}")
+            except Exception as df_error:
+                error_type = type(df_error).__name__
+                error_msg = f"DataFrame creation failed with {error_type}: {str(df_error)}"
+                logger.error(error_msg)
                 
-                raise BigQueryError(f"Failed to create Spark DataFrame from recon records: {str(df_error)}")
+                # Find records with None values
+                for i, record in enumerate(recon_records[:5]):  # Check first 5 records
+                    if record is None:
+                        logger.error(f"  Record {i}: entire record is None")
+                    else:
+                        none_values = [(k, v) for k, v in record.items() if v is None]
+                        if none_values:
+                            logger.error(f"  Record {i} has None values: {[k for k, v in none_values]}")
+                
+                raise BigQueryError(f"Recon DataFrame creation failed ({error_type}): {str(df_error)}")
             
-            logger.info("Recon DataFrame Schema:")
-            recon_df.printSchema()
+            # Write to BigQuery
+            try:
+                self.write_dataframe_to_table(recon_df, recon_table, "append")
+            except NotFound as nf:
+                error_msg = f"Recon table not found: {recon_table}. Error: {str(nf)}"
+                logger.error(error_msg)
+                raise BigQueryError(error_msg)
+            except GoogleCloudError as gce:
+                error_msg = f"Google Cloud error writing recon records to {recon_table}: {str(gce)}"
+                logger.error(error_msg)
+                raise BigQueryError(error_msg)
+            except Exception as write_error:
+                error_type = type(write_error).__name__
+                error_msg = f"Failed to write recon DataFrame to BigQuery with {error_type}: {str(write_error)}"
+                logger.error(error_msg)
+                raise BigQueryError(error_msg)
             
-            logger.info("Sample Recon Data (first 5 records):")
-            recon_df.show(5, truncate=False)
+            # Log summary
+            success_count = sum(1 for r in recon_records if r.get('rcncln_exact_pass_in') == 'Passed')
+            failed_count = sum(1 for r in recon_records if r.get('rcncln_exact_pass_in') == 'Failed')
+            logger.info(f"Recon records written: {success_count} passed, {failed_count} failed")
             
-            # Count success/failure records for logging
-            success_records = [r for r in recon_records if r.get('rcncln_exact_pass_in') == 'Passed']
-            failed_records = [r for r in recon_records if r.get('rcncln_exact_pass_in') == 'Failed']
-            
-            logger.info("Recon Records Summary:")
-            logger.info(f"   Success records: {len(success_records)}")
-            logger.info(f"   Failed records: {len(failed_records)}")
-            
-            if failed_records:
-                logger.info("Failed Records Details (first 5):")
-                for i, record in enumerate(failed_records[:5], 1):
-                    metric_id = record.get('source_system_id', 'UNKNOWN')
-                    reason = record.get('excldd_reason_tx', 'No reason provided')
-                    reason_short = reason[:100] + "..." if len(reason) > 100 else reason
-                    logger.info(f"   {i}. Metric {metric_id}: {reason_short}")
-            
-            logger.info("Writing DataFrame to BigQuery table...")
-            self.write_dataframe_to_table(recon_df, recon_table, "append")
-            
-            logger.info("RECON RECORDS WRITE COMPLETED SUCCESSFULLY")
-            logger.info(f"   Total records written: {len(recon_records)}")
-            logger.info(f"   Target table: {recon_table}")
-            
+        except BigQueryError:
+            # Re-raise BigQueryError as-is
+            raise
         except Exception as e:
-            logger.error("RECON RECORDS WRITE FAILED")
-            logger.error(f"   Error: {str(e)}")
-            logger.error(f"   Error type: {type(e).__name__}")
-            raise BigQueryError(f"Failed to write recon records: {str(e)}")
+            error_type = type(e).__name__
+            error_msg = f"Unexpected error writing recon records with {error_type}: {str(e)}"
+            logger.error(error_msg)
+            raise BigQueryError(error_msg)
     
     # Delete Operations
     def delete_metrics(self, metric_ids: List[str], partition_dt: str, target_table: str) -> None:
@@ -589,7 +514,6 @@ class BigQueryOperations:
         """
         try:
             if not metric_ids:
-                logger.info("No metrics to delete")
                 return
             
             escaped_metric_ids = [StringUtils.escape_sql_string(mid) for mid in metric_ids]
@@ -601,21 +525,19 @@ class BigQueryOperations:
             AND partition_dt = '{partition_dt}'
             """
             
-            logger.info(f"Overwriting {len(metric_ids)} existing metrics for partition_dt: {partition_dt}")
-            logger.debug(f"Delete query: {delete_query}")
-            
+            logger.info(f"Deleting {len(metric_ids)} existing metrics for overwrite")
             results = self.execute_query(delete_query)
             
-            # Try to get the number of affected rows (not always available)
             try:
                 deleted_count = results.num_dml_affected_rows if hasattr(results, 'num_dml_affected_rows') else 0
-                logger.info(f"Successfully deleted {deleted_count} existing records for overwrite")
+                if deleted_count > 0:
+                    logger.info(f"Deleted {deleted_count} existing records")
             except:
-                logger.info(f"Successfully executed delete query for overwrite operation")
+                pass
             
         except Exception as e:
-            logger.error(f"Failed to delete existing metrics for overwrite: {str(e)}")
-            raise BigQueryError(f"Failed to delete existing metrics for overwrite: {str(e)}")
+            logger.error(f"Failed to delete existing metrics: {str(e)}")
+            raise BigQueryError(f"Failed to delete existing metrics: {str(e)}")
     
     def validate_partition_info_table(self, partition_info_table: str) -> bool:
         """
@@ -652,10 +574,10 @@ class BigQueryOperations:
             results = self.execute_query(test_query)
             
             for row in results:
-                logger.info(f"Partition info table validation successful. Table has {row.record_count} records.")
+                logger.info(f"Partition info table validated: {row.record_count} records")
                 return True
             
-            logger.info("Partition info table validation successful")
+            logger.info("Partition info table validated")
             return True
             
         except NotFound:

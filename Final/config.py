@@ -90,12 +90,18 @@ class PipelineConfig:
         'SQL_TABLE_NOT_FOUND_ERROR': 'SQL table not found',
         'SQL_SYNTAX_ERROR': 'SQL syntax error',
         'BIGQUERY_WRITE_ERROR': 'BigQuery write operation failed',
+        'BIGQUERY_ERROR': 'BigQuery operation failed',
+        'VALIDATION_ERROR': 'Data validation failed',
+        'PERMISSION_ERROR': 'Permission denied',
         'RECON_CREATION_ERROR': 'Recon record creation failed',
+        'RECON_VALIDATION_ERROR': 'Recon record validation failed',
+        'RECON_PIPELINE_ERROR': 'Recon pipeline error',
+        'METRIC_TRACKING_ERROR': 'Metric tracking error',
         'PIPELINE_EXECUTION_ERROR': 'General pipeline execution error',
         'PIPELINE_VALIDATION_ERROR': 'Pipeline validation error',
         'CANNOT_BE_NONE': 'Required argument cannot be None',
-        'SCHEMA_VALIDATION_ERROR': 'Schema validation failed',  # Added for dynamic schema validation
-        'UNKNOWN_ERROR': 'Unknown error occurred'
+        'SCHEMA_VALIDATION_ERROR': 'Schema validation failed',
+        'UNSPECIFIED_ERROR': 'Error occurred without specific category'
     }
 
 

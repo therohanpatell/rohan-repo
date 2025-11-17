@@ -461,6 +461,7 @@ class MetricsPipeline:
             for record in records:
                 metric_id = record['metric_id']
                 try:
+                    logger.info(f"Executing metric: {metric_id}")
                     sql_results = self.execute_sql(record['sql'], run_date, partition_info_table, record['metric_id'])
 
                     if isinstance(sql_results, list):
@@ -475,19 +476,53 @@ class MetricsPipeline:
                         )
                         processed_records.append(final_record)
 
+                    # Store the actual metric_id that will be written to BigQuery
+                    # If SQL returns metric_id, it takes priority over JSON metric_id
+                    # This ensures recon records and delete operations use the correct metric_id
+                    actual_metric_id = final_record.get('metric_id', metric_id)
+                    record['_actual_metric_id'] = actual_metric_id
                     successful_metrics.append(record)
+                    logger.info(f"Metric {metric_id} executed successfully")
 
+                except ValidationError as ve:
+                    error_message = str(ve)
+                    error_category = "VALIDATION_ERROR"
+                    logger.error(f"Metric {metric_id} validation failed: {error_message}")
+                    failed_metrics.append(
+                        {'metric_record': record, 'error_message': error_message, 'error_category': error_category})
+                except SQLExecutionError as se:
+                    error_message = str(se)
+                    error_category = "SQL_EXECUTION_ERROR"
+                    logger.error(f"Metric {metric_id} SQL execution failed: {error_message}")
+                    failed_metrics.append(
+                        {'metric_record': record, 'error_message': error_message, 'error_category': error_category})
+                except BigQueryError as bqe:
+                    error_message = str(bqe)
+                    error_category = "BIGQUERY_ERROR"
+                    logger.error(f"Metric {metric_id} BigQuery error: {error_message}")
+                    failed_metrics.append(
+                        {'metric_record': record, 'error_message': error_message, 'error_category': error_category})
                 except Exception as e:
                     error_message = str(e)
-                    logger.error(f"Failed metric {metric_id}: {error_message[:100]}")
+                    error_type = type(e).__name__
+                    logger.error(f"Metric {metric_id} execution failed with {error_type}: {error_message}")
 
+                    # Categorize based on error message content
                     error_category = "SQL_EXECUTION_ERROR"
                     if "Braced constructors are not supported" in error_message:
                         error_category = "SQL_SYNTAX_ERROR"
-                    elif "timeout" in error_message.lower():
+                    elif "timeout" in error_message.lower() or "deadline" in error_message.lower():
                         error_category = "SQL_TIMEOUT_ERROR"
                     elif "not found" in error_message.lower():
                         error_category = "SQL_TABLE_NOT_FOUND_ERROR"
+                    elif "permission" in error_message.lower() or "denied" in error_message.lower():
+                        error_category = "PERMISSION_ERROR"
+                    elif "invalid" in error_message.lower():
+                        error_category = "SQL_SYNTAX_ERROR"
+                    elif "schema" in error_message.lower():
+                        error_category = "SCHEMA_VALIDATION_ERROR"
+                    else:
+                        error_category = f"{error_type}_ERROR"
 
                     failed_metrics.append(
                         {'metric_record': record, 'error_message': error_message, 'error_category': error_category})
@@ -550,17 +585,38 @@ class MetricsPipeline:
             # Use BigQuery operations to write with robust overwrite
             return self.bq_operations.write_metrics_with_overwrite(df, target_table)
 
-        except Exception as e:
-            error_message = str(e)
-            logger.error(f"Failed to write to BigQuery with overwrite: {error_message}")
+        except BigQueryError as bqe:
+            error_message = str(bqe)
+            error_type = "BigQueryError"
+            logger.error(f"BigQuery error writing to {target_table}: {error_message}")
 
             failed_metrics = []
             try:
                 metric_records = df.select('metric_id').distinct().collect()
                 for row in metric_records:
-                    failed_metrics.append({'metric_id': row['metric_id'], 'error_message': error_message})
-            except:
-                pass
+                    failed_metrics.append({
+                        'metric_id': row['metric_id'], 
+                        'error_message': f"{error_type}: {error_message}"
+                    })
+            except Exception as extract_error:
+                logger.error(f"Failed to extract metric IDs from failed write: {str(extract_error)}")
+
+            return [], failed_metrics
+        except Exception as e:
+            error_message = str(e)
+            error_type = type(e).__name__
+            logger.error(f"Failed to write to BigQuery with {error_type}: {error_message}")
+
+            failed_metrics = []
+            try:
+                metric_records = df.select('metric_id').distinct().collect()
+                for row in metric_records:
+                    failed_metrics.append({
+                        'metric_id': row['metric_id'], 
+                        'error_message': f"{error_type}: {error_message}"
+                    })
+            except Exception as extract_error:
+                logger.error(f"Failed to extract metric IDs from failed write: {str(extract_error)}")
 
             return [], failed_metrics
 
@@ -689,25 +745,14 @@ class MetricsPipeline:
                                  error_message: str, error_category: str = 'UNKNOWN_ERROR') -> Dict:
         """Create a safe recon record with guaranteed no None values"""
         try:
-            logger.debug(f"Creating safe recon record for metric {metric_id}")
-            logger.debug(f"   metric_id: {repr(metric_id)} (type: {type(metric_id)})")
-            logger.debug(f"   metric_name: {repr(metric_name)} (type: {type(metric_name)})")
-            logger.debug(f"   run_date: {repr(run_date)} (type: {type(run_date)})")
-            logger.debug(f"   env: {repr(env)} (type: {type(env)})")
-            logger.debug(f"   partition_dt: {repr(partition_dt)} (type: {type(partition_dt)})")
-            logger.debug(f"   error_message: {repr(error_message)} (type: {type(error_message)})")
-            logger.debug(f"   error_category: {repr(error_category)} (type: {type(error_category)})")
-            
             # Use safe defaults for all parameters
             safe_metric_id = str(metric_id or 'UNKNOWN')
             safe_metric_name = str(metric_name or 'UNKNOWN')
             safe_run_date = str(run_date or DateUtils.get_current_partition_dt())
             safe_env = str(env or 'UNKNOWN')
             safe_partition_dt = str(partition_dt or DateUtils.get_current_partition_dt())
-            safe_error_message = str(error_message or 'Unknown error occurred')
-            safe_error_category = str(error_category or 'UNKNOWN_ERROR')
-
-            logger.debug(f"Safe values after sanitization: metric_id={safe_metric_id}, env={safe_env}")
+            safe_error_message = str(error_message or 'Error occurred without specific details')
+            safe_error_category = str(error_category or 'UNSPECIFIED_ERROR')
 
             # Get safe timestamp
             try:
@@ -723,13 +768,13 @@ class MetricsPipeline:
                 logger.error(f"Error parsing partition date: {str(date_error)}")
                 scheduled_date = datetime.now().date()
 
-            # Create minimal exclusion reason
+            # Create exclusion reason with proper error formatting
             try:
-                formatted_error = StringUtils.format_error_with_category(safe_error_message, safe_error_category)
-                exclusion_reason = f'Metric processing failed: {formatted_error}'
+                clean_error = StringUtils.clean_error_message(safe_error_message)
+                exclusion_reason = f'Metric processing failed. Error Category: {safe_error_category}. Details: {clean_error}'
             except Exception as format_error:
                 logger.error(f"Error formatting error message: {str(format_error)}")
-                exclusion_reason = f'Metric processing failed: {safe_error_message}'
+                exclusion_reason = f'Metric processing failed. Error: {safe_error_message}'
 
             # Get default values
             try:
@@ -747,9 +792,6 @@ class MetricsPipeline:
                     'rcncln_tolrnc_pass_in': 'NA'
                 }
 
-            # Build the record step by step
-            logger.debug(f"Building recon record fields for metric {safe_metric_id}")
-            
             # Core required fields
             module_id_val = str(PipelineConfig.RECON_MODULE_ID)
             module_type_nm_val = str(PipelineConfig.RECON_MODULE_TYPE)
@@ -787,7 +829,7 @@ class MetricsPipeline:
             none_fields = [field_name for field_name, field_value in required_field_values.items() if field_value is None]
             
             if none_fields:
-                logger.error(f"Found {len(none_fields)} None values in required fields: {none_fields}")
+                logger.error(f"Required fields contain None values: {none_fields}")
                 raise ValueError(f"Required fields are None: {none_fields}")
             
             safe_record = {
@@ -814,9 +856,6 @@ class MetricsPipeline:
                 'excldd_reason_tx': str(exclusion_reason),
                 **default_values
             }
-
-            logger.info(f"Successfully created safe recon record for metric {safe_metric_id}")
-            logger.debug(f"Recon record details: status={rcncln_exact_pass_in_val}, error_category={safe_error_category}")
             
             return safe_record
 
@@ -842,40 +881,27 @@ class MetricsPipeline:
                                                 failed_write_metrics: Dict[str, List[Dict]], partition_dt: str) -> List[
         Dict]:
         """Create recon records based on execution results and write success/failure to target tables"""
-        logger.info("Starting recon record creation from write results...")
+        logger.info("Creating reconciliation records")
 
-        # Validate required parameters to prevent None values
-        logger.info("Validating input parameters...")
-        if json_data is None:
-            logger.error("json_data cannot be None")
-            return []
-        if run_date is None:
-            logger.error("run_date cannot be None")
-            return []
-        if dependencies is None:
-            logger.error("dependencies cannot be None")
-            return []
-        if env is None:
-            logger.error("env cannot be None")
-            return []
-        if partition_dt is None:
-            logger.error("partition_dt cannot be None")
+        # Validate required parameters
+        if json_data is None or run_date is None or dependencies is None or env is None or partition_dt is None:
+            logger.error("Missing required parameters for recon record creation")
             return []
 
-        logger.info("All input parameters validated successfully")
-
-        logger.info("Filtering data by dependencies...")
         filtered_data = [record for record in json_data if record['dependency'] in dependencies]
-        logger.info(f"Filtered to {len(filtered_data)} records for dependencies: {dependencies}")
+        logger.info(f"Processing {len(filtered_data)} metrics for reconciliation")
 
-        # Create lookup dictionaries for failed metrics and their error messages
-        logger.info("Creating error lookup dictionaries...")
+        # Create lookup dictionaries for failed metrics (using both JSON and actual metric_id)
         failed_execution_lookup = {}
         failed_execution_categories = {}
         for failed_metric in failed_execution_metrics:
-            metric_id = failed_metric['metric_record']['metric_id']
-            failed_execution_lookup[metric_id] = failed_metric['error_message']
-            failed_execution_categories[metric_id] = failed_metric.get('error_category', 'SQL_EXECUTION_ERROR')
+            json_metric_id = failed_metric['metric_record']['metric_id']
+            actual_metric_id = failed_metric['metric_record'].get('_actual_metric_id', json_metric_id)
+            # Store under both IDs to handle lookups
+            failed_execution_lookup[json_metric_id] = failed_metric['error_message']
+            failed_execution_lookup[actual_metric_id] = failed_metric['error_message']
+            failed_execution_categories[json_metric_id] = failed_metric.get('error_category', 'SQL_EXECUTION_ERROR')
+            failed_execution_categories[actual_metric_id] = failed_metric.get('error_category', 'SQL_EXECUTION_ERROR')
 
         failed_write_lookup = {}
         for target_table, failed_metrics in failed_write_metrics.items():
@@ -883,130 +909,129 @@ class MetricsPipeline:
                 metric_id = failed_metric['metric_id']
                 failed_write_lookup[metric_id] = failed_metric['error_message']
 
-        logger.info(f"Error lookup summary:")
-        logger.info(f"   Failed execution metrics: {len(failed_execution_lookup)}")
-        logger.info(f"   Failed write metrics: {len(failed_write_lookup)}")
-
         all_recon_records = []
         success_count = 0
         failed_count = 0
         safe_record_count = 0
 
-        logger.info("Processing individual metrics for recon record creation...")
-
-        for i, record in enumerate(filtered_data, 1):
-            metric_id = record.get('metric_id', 'UNKNOWN')
+        for record in filtered_data:
+            # Use actual metric_id from SQL if available (stored during processing), 
+            # otherwise fallback to JSON metric_id
+            json_metric_id = record.get('metric_id', 'UNKNOWN')
+            actual_metric_id = record.get('_actual_metric_id', json_metric_id)
             metric_name = record.get('metric_name', 'UNKNOWN')
             target_table = record.get('target_table', 'UNKNOWN').strip()
 
-            logger.debug(f"   [{i}/{len(filtered_data)}] Processing metric: {metric_id}")
-
-            # Determine status and error message with enhanced error categorization
+            # Determine status and error message
             is_success = False
             error_message = None
             error_category = None
 
-            # Check if metric was successfully written to target table
-            if target_table in successful_writes and metric_id in successful_writes[target_table]:
+            # Check if metric was successfully written to target table using actual metric_id
+            if target_table in successful_writes and actual_metric_id in successful_writes[target_table]:
                 is_success = True
                 success_count += 1
-                logger.debug(f"       Metric {metric_id} was successfully written to {target_table}")
             else:
                 failed_count += 1
-                # Determine the specific failure reason
-                if metric_id in failed_execution_lookup:
-                    error_message = failed_execution_lookup[metric_id]
-                    error_category = failed_execution_categories.get(metric_id, "SQL_EXECUTION_ERROR")
-                    logger.debug(f"       Metric {metric_id} failed during SQL execution: {error_category}")
-                elif metric_id in failed_write_lookup:
-                    error_message = failed_write_lookup[metric_id]
+                # Determine the specific failure reason (check both JSON and actual metric_id)
+                if json_metric_id in failed_execution_lookup:
+                    error_message = failed_execution_lookup[json_metric_id]
+                    error_category = failed_execution_categories.get(json_metric_id, "SQL_EXECUTION_ERROR")
+                elif actual_metric_id in failed_execution_lookup:
+                    error_message = failed_execution_lookup[actual_metric_id]
+                    error_category = failed_execution_categories.get(actual_metric_id, "SQL_EXECUTION_ERROR")
+                elif json_metric_id in failed_write_lookup:
+                    error_message = failed_write_lookup[json_metric_id]
                     error_category = "BIGQUERY_WRITE_ERROR"
-                    logger.debug(f"       Metric {metric_id} failed during BigQuery write: {error_category}")
+                elif actual_metric_id in failed_write_lookup:
+                    error_message = failed_write_lookup[actual_metric_id]
+                    error_category = "BIGQUERY_WRITE_ERROR"
                 else:
-                    error_message = "Unknown failure occurred during processing"
-                    error_category = "UNKNOWN_ERROR"
-                    logger.debug(f"       Metric {metric_id} failed with unknown error")
+                    # Metric not found in any success or failure list - this is unexpected
+                    error_message = f"Metric {actual_metric_id} not found in processing results. Target table: {target_table}. This may indicate a tracking issue in the pipeline."
+                    error_category = "METRIC_TRACKING_ERROR"
+                    logger.warning(error_message)
 
             execution_status = 'success' if is_success else 'failed'
 
-            # Create recon record with comprehensive error handling
-            logger.info(f"🔧 CREATING RECON RECORD FOR METRIC {metric_id} (Status: {execution_status})")
+            # Create recon record using actual metric_id
             try:
                 if is_success:
-                    logger.info(f"   Using standard method for successful metric {metric_id}")
-                    # For successful metrics, use the standard method
                     final_sql = self.replace_sql_placeholders(record.get('sql', 'SELECT 1'), run_date,
                                                               partition_info_table)
-                    recon_record = self.build_recon_record(record, final_sql, run_date, env, execution_status,
+                    # Update record with actual metric_id for recon
+                    recon_metric_record = record.copy()
+                    recon_metric_record['metric_id'] = actual_metric_id
+                    recon_record = self.build_recon_record(recon_metric_record, final_sql, run_date, env, execution_status,
                         partition_dt, error_message, error_category)
                 else:
-                    logger.info(f"   Using safe method for failed metric {metric_id}")
-                    # For failed metrics, use the safe method to avoid cascading errors
-                    recon_record = self.create_safe_recon_record(metric_id, metric_name, run_date, env, partition_dt,
-                        error_message or "Unknown failure occurred during processing",
-                        error_category or "UNKNOWN_ERROR")
+                    # Ensure we have a valid error message
+                    if not error_message:
+                        error_message = f"Metric processing failed without specific error details. Category: {error_category}"
+                        logger.warning(f"Missing error message for failed metric {actual_metric_id}")
+                    
+                    recon_record = self.create_safe_recon_record(actual_metric_id, metric_name, run_date, env, partition_dt,
+                        error_message, error_category or "UNSPECIFIED_ERROR")
                     safe_record_count += 1
 
-                # Validate the created record before adding it
+                # Validate the created record
                 if recon_record is None:
-                    logger.error(f"CRITICAL: Created recon record is None for metric {metric_id}!")
-                    raise ValueError(f"Recon record is None for metric {metric_id}")
+                    logger.error(f"Recon record is None for metric {actual_metric_id}")
+                    raise ValueError(f"Recon record is None for metric {actual_metric_id}")
                 
-                # Check for None values in the created record
                 none_fields = [k for k, v in recon_record.items() if v is None]
                 if none_fields:
-                    logger.error(f"CRITICAL: Recon record for metric {metric_id} has None values in fields: {none_fields}")
-                    logger.error(f"   Full record: {recon_record}")
+                    logger.error(f"Recon record for metric {actual_metric_id} has None values in fields: {none_fields}")
                     raise ValueError(f"Recon record has None values in fields: {none_fields}")
 
                 all_recon_records.append(recon_record)
-                logger.info(f"Successfully created and added recon record for metric {metric_id}: {execution_status}")
 
-            except Exception as recon_error:
-                logger.error(f"Failed to create recon record for metric {metric_id}: {str(recon_error)}")
-                logger.error(f"   Error type: {type(recon_error).__name__}")
-                # Last resort: create absolute minimal record
+            except ValidationError as ve:
+                logger.error(f"Validation error creating recon record for metric {actual_metric_id}: {str(ve)}")
                 try:
-                    logger.info(f"   Attempting minimal safe recon record for metric {metric_id}")
-                    minimal_record = self.create_safe_recon_record(metric_id, metric_name, run_date, env, partition_dt,
-                        f"Recon creation failed: {str(recon_error)}", "RECON_CREATION_ERROR")
+                    minimal_record = self.create_safe_recon_record(actual_metric_id, metric_name, run_date, env, partition_dt,
+                        f"Recon validation failed: {str(ve)}", "RECON_VALIDATION_ERROR")
+                    all_recon_records.append(minimal_record)
+                    safe_record_count += 1
+                except Exception as minimal_error:
+                    logger.error(f"Failed to create minimal recon record for metric {actual_metric_id}: {str(minimal_error)}")
+            except MetricsPipelineError as mpe:
+                logger.error(f"Pipeline error creating recon record for metric {actual_metric_id}: {str(mpe)}")
+                try:
+                    minimal_record = self.create_safe_recon_record(actual_metric_id, metric_name, run_date, env, partition_dt,
+                        f"Recon pipeline error: {str(mpe)}", "RECON_PIPELINE_ERROR")
+                    all_recon_records.append(minimal_record)
+                    safe_record_count += 1
+                except Exception as minimal_error:
+                    logger.error(f"Failed to create minimal recon record for metric {actual_metric_id}: {str(minimal_error)}")
+            except Exception as recon_error:
+                error_type = type(recon_error).__name__
+                logger.error(f"Failed to create recon record for metric {actual_metric_id} with {error_type}: {str(recon_error)}")
+                # Last resort: create minimal record
+                try:
+                    minimal_record = self.create_safe_recon_record(actual_metric_id, metric_name, run_date, env, partition_dt,
+                        f"Recon creation failed ({error_type}): {str(recon_error)}", f"RECON_{error_type.upper()}")
                     
-                    # Validate minimal record too
                     if minimal_record is None:
-                        logger.error(f"CRITICAL: Minimal recon record is None for metric {metric_id}!")
+                        logger.error(f"Minimal recon record is None for metric {metric_id}")
                         raise ValueError(f"Minimal recon record is None for metric {metric_id}")
                     
                     none_fields = [k for k, v in minimal_record.items() if v is None]
                     if none_fields:
-                        logger.error(f"CRITICAL: Minimal recon record for metric {metric_id} has None values: {none_fields}")
+                        logger.error(f"Minimal recon record has None values: {none_fields}")
                         raise ValueError(f"Minimal recon record has None values: {none_fields}")
                     
                     all_recon_records.append(minimal_record)
                     safe_record_count += 1
-                    logger.info(f"Created minimal safe recon record for metric {metric_id}")
                 except Exception as minimal_error:
-                    logger.error(f"CRITICAL: Failed to create minimal recon record for metric {metric_id}: {str(minimal_error)}")
-                    logger.error(f"   This metric will have NO recon record!")
+                    logger.error(f"Failed to create minimal recon record for metric {metric_id}: {str(minimal_error)}")
 
-        logger.info("RECON RECORD CREATION SUMMARY:")
-        logger.info(f"   Total metrics processed: {len(filtered_data)}")
-        logger.info(f"    Successful metrics (written to target tables): {success_count}")
-        logger.info(f"    Failed metrics (not written to target tables): {failed_count}")
-        logger.info(f"   Total recon records created: {len(all_recon_records)}")
-        logger.info(f"   Standard recon records: {len(all_recon_records) - safe_record_count}")
-        logger.info(f"   Safe/minimal records created: {safe_record_count}")
+        logger.info(f"Reconciliation complete: {len(all_recon_records)} records created ({success_count} passed, {failed_count} failed)")
 
         if len(all_recon_records) != len(filtered_data):
             missing_count = len(filtered_data) - len(all_recon_records)
-            logger.error(f"   WARNING: {missing_count} metrics have no recon records!")
+            logger.error(f"Warning: {missing_count} metrics have no recon records")
 
-        # Log recon record status distribution
-        passed_recon_count = sum(1 for r in all_recon_records if r.get('rcncln_exact_pass_in') == 'Passed')
-        failed_recon_count = sum(1 for r in all_recon_records if r.get('rcncln_exact_pass_in') == 'Failed')
-        logger.info(f"   Recon records marked as 'Passed': {passed_recon_count}")
-        logger.info(f"   Recon records marked as 'Failed': {failed_recon_count}")
-
-        logger.info("Recon record creation completed")
         return all_recon_records
 
     def write_recon_to_bq(self, recon_records: List[Dict], recon_table: str) -> None:
@@ -1017,11 +1042,7 @@ class MetricsPipeline:
                                               env: str, error_message: str, error_category: str = "PIPELINE_ERROR") -> \
     List[Dict]:
         """Create recon records for pipeline-level failures"""
-        logger.info("Creating recon records for pipeline failure")
-
-        # Filter data by dependencies
         filtered_data = [record for record in json_data if record.get('dependency') in dependencies]
-
         partition_dt = DateUtils.get_current_partition_dt()
         recon_records = []
 
