@@ -1,0 +1,2563 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Agent Zero – Unified AI Game</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root {
+      --bg: #050816;
+      --bg-soft: #0b1020;
+      --accent: #4ade80;
+      --accent-soft: rgba(74, 222, 128, 0.18);
+      --accent-strong: #22c55e;
+      --danger: #f97373;
+      --text: #f9fafb;
+      --muted: #9ca3af;
+      --border: #1f2937;
+      --card-radius: 18px;
+      --shadow-soft: 0 18px 40px rgba(15, 23, 42, 0.85);
+      --transition: 0.2s ease-in-out;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text",
+        "Segoe UI", sans-serif;
+      background: radial-gradient(circle at top, #111827 0, #020617 45%, #000 100%);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .app-shell {
+      max-width: 1200px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    header {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 14px 18px;
+      border-radius: 16px;
+      border: 1px solid rgba(148, 163, 184, 0.35);
+      background: radial-gradient(circle at top left, #111827 0, #020617 45%);
+      backdrop-filter: blur(14px);
+      box-shadow: var(--shadow-soft);
+    }
+
+    .title-block {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .title-block h1 {
+      margin: 0;
+      font-size: 20px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .title-sub {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .pill-row {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .pill {
+      font-size: 12px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(148, 163, 184, 0.4);
+      color: var(--muted);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .pill span.dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: radial-gradient(circle, var(--accent-strong), #16a34a);
+      box-shadow: 0 0 14px rgba(34, 197, 94, 0.85);
+    }
+
+    .meta {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      align-items: flex-end;
+    }
+
+    .score-chip {
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px solid rgba(148, 163, 184, 0.5);
+      font-size: 12px;
+      display: inline-flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .score-chip strong {
+      color: var(--accent-strong);
+      font-weight: 600;
+    }
+
+    .progress-bar-shell {
+      width: 180px;
+      height: 6px;
+      border-radius: 999px;
+      background: #020617;
+      overflow: hidden;
+      border: 1px solid #1f2937;
+    }
+
+    .progress-bar-inner {
+      height: 100%;
+      width: 0%;
+      border-radius: 999px;
+      background: linear-gradient(90deg, #22c55e, #a855f7);
+      transition: width 0.25s ease-out;
+    }
+
+    main {
+      display: grid;
+      grid-template-columns: minmax(0, 260px) minmax(0, 1fr);
+      gap: 14px;
+    }
+
+    @media (max-width: 900px) {
+      main {
+        grid-template-columns: 1fr;
+      }
+      .meta {
+        align-items: flex-start;
+      }
+    }
+
+    .worlds-panel {
+      border-radius: var(--card-radius);
+      background: rgba(15, 23, 42, 0.94);
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow-soft);
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .worlds-panel h2 {
+      margin: 0;
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--muted);
+    }
+
+    .world-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .world-btn {
+      width: 100%;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      padding: 8px 10px;
+      background: radial-gradient(circle at left, #020617 0, #020617 60%, #020617 100%);
+      font-size: 13px;
+      color: var(--text);
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      cursor: pointer;
+      text-align: left;
+      transition: var(--transition);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .world-btn::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at left, rgba(34, 197, 94, 0.1), transparent);
+      opacity: 0;
+      transition: var(--transition);
+      pointer-events: none;
+    }
+
+    .world-btn:hover {
+      transform: translateY(-1px);
+      border-color: rgba(148, 163, 184, 0.9);
+    }
+
+    .world-btn:hover::before {
+      opacity: 1;
+    }
+
+    .world-btn.active {
+      border-color: var(--accent-strong);
+      box-shadow: 0 0 0 1px rgba(34, 197, 94, 0.35);
+      background: radial-gradient(circle at left, rgba(34, 197, 94, 0.15), #020617);
+    }
+
+    .world-name-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .world-name {
+      font-weight: 600;
+    }
+
+    .world-tagline {
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    .world-status {
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 999px;
+      border: 1px solid rgba(148, 163, 184, 0.7);
+      color: var(--muted);
+    }
+
+    .world-status.completed {
+      color: #bbf7d0;
+      border-color: var(--accent-strong);
+      background: rgba(34, 197, 94, 0.16);
+    }
+
+    .world-status.current {
+      color: #e0f2fe;
+      border-color: #38bdf8;
+      background: rgba(56, 189, 248, 0.15);
+    }
+
+    .world-main {
+      border-radius: var(--card-radius);
+      background: radial-gradient(circle at top, rgba(37, 99, 235, 0.18), #020617 55%, #020617);
+      border: 1px solid rgba(148, 163, 184, 0.35);
+      box-shadow: var(--shadow-soft);
+      padding: 18px 16px 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      min-height: 360px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .world-main::before {
+      content: "";
+      position: absolute;
+      inset: -40%;
+      background:
+        radial-gradient(circle at 15% 0, rgba(244, 114, 182, 0.14), transparent 55%),
+        radial-gradient(circle at 85% 0, rgba(56, 189, 248, 0.2), transparent 55%);
+      opacity: 0.4;
+      pointer-events: none;
+    }
+
+    .world-main > * {
+      position: relative;
+      z-index: 1;
+    }
+
+    .world-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 10px;
+    }
+
+    .world-header-left {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .world-header h2 {
+      margin: 0;
+      font-size: 18px;
+    }
+
+    .world-caption {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .world-badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      justify-content: flex-end;
+    }
+
+    .badge {
+      font-size: 10px;
+      padding: 3px 7px;
+      border-radius: 999px;
+      border: 1px solid rgba(148, 163, 184, 0.7);
+      background: rgba(15, 23, 42, 0.9);
+      color: var(--muted);
+    }
+
+    .badge.accent {
+      border-color: var(--accent-strong);
+      color: #bbf7d0;
+      background: var(--accent-soft);
+    }
+
+    .content-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 2.2fr) minmax(0, 1.3fr);
+      gap: 12px;
+    }
+
+    @media (max-width: 900px) {
+      .content-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .card {
+      border-radius: 14px;
+      border: 1px solid rgba(148, 163, 184, 0.35);
+      background: rgba(15, 23, 42, 0.96);
+      padding: 10px 11px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .card-header-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .card-title {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+      color: var(--muted);
+    }
+
+    .card-sub {
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    .question-area {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 4px;
+    }
+
+    .question-text {
+      font-size: 14px;
+      line-height: 1.4;
+      font-weight: 500;
+    }
+
+    .help-text {
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    .options-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .option-btn {
+      border-radius: 10px;
+      padding: 7px 9px;
+      border: 1px solid rgba(30, 64, 175, 0.8);
+      background: rgba(15, 23, 42, 0.96);
+      color: var(--text);
+      font-size: 13px;
+      text-align: left;
+      cursor: pointer;
+      transition: var(--transition);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .option-btn:hover {
+      border-color: var(--accent-strong);
+      transform: translateY(-1px);
+    }
+
+    .option-label {
+      font-size: 12px;
+      color: var(--muted);
+      margin-right: 6px;
+    }
+
+    .pill-small {
+      border-radius: 999px;
+      border: 1px solid rgba(148, 163, 184, 0.7);
+      font-size: 10px;
+      padding: 2px 6px;
+      color: var(--muted);
+    }
+
+    .state-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 11px;
+      color: var(--muted);
+      gap: 5px;
+    }
+
+    .state-left,
+    .state-right {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .timer {
+      font-variant-numeric: tabular-nums;
+    }
+
+    .locks-row {
+      display: flex;
+      gap: 6px;
+    }
+
+    .lock-pill {
+      width: 16px;
+      height: 16px;
+      border-radius: 5px;
+      border: 1px solid rgba(148, 163, 184, 0.7);
+      background: rgba(15, 23, 42, 0.96);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .lock-pill.completed {
+      border-color: var(--accent-strong);
+      background: var(--accent-soft);
+    }
+
+    .lock-pill.completed::after {
+      content: "";
+      position: absolute;
+      inset: 2px;
+      border-radius: 3px;
+      background: linear-gradient(135deg, var(--accent-strong), #a855f7);
+    }
+
+    .lock-pill.current {
+      border-style: dashed;
+      border-color: #38bdf8;
+    }
+
+    .feedback {
+      font-size: 12px;
+      margin-top: 4px;
+    }
+
+    .feedback.positive {
+      color: #bbf7d0;
+    }
+
+    .feedback.negative {
+      color: #fecaca;
+    }
+
+    .primary-btn,
+    .secondary-btn,
+    .ghost-btn {
+      border-radius: 999px;
+      font-size: 12px;
+      padding: 6px 10px;
+      border: 1px solid rgba(148, 163, 184, 0.7);
+      background: rgba(15, 23, 42, 0.96);
+      color: var(--text);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: var(--transition);
+    }
+
+    .primary-btn {
+      border-color: var(--accent-strong);
+      background: linear-gradient(90deg, #22c55e, #22c55e, #16a34a);
+      color: #022c22;
+      font-weight: 600;
+      box-shadow: 0 12px 22px rgba(22, 163, 74, 0.3);
+    }
+
+    .primary-btn:hover {
+      transform: translateY(-1px) scale(1.01);
+      box-shadow: 0 16px 30px rgba(22, 163, 74, 0.45);
+    }
+
+    .secondary-btn:hover,
+    .ghost-btn:hover {
+      transform: translateY(-1px);
+      border-color: var(--accent-strong);
+    }
+
+    .ghost-btn {
+      background: transparent;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 70px;
+      border-radius: 10px;
+      border: 1px solid rgba(148, 163, 184, 0.6);
+      background: rgba(15, 23, 42, 0.95);
+      color: var(--text);
+      font-size: 13px;
+      padding: 6px 8px;
+      resize: vertical;
+      outline: none;
+    }
+
+    textarea:focus {
+      border-color: var(--accent-strong);
+      box-shadow: 0 0 0 1px rgba(34, 197, 94, 0.4);
+    }
+
+    .mini-visual {
+      font-size: 11px;
+      color: var(--muted);
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .chip-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+    }
+
+    .chip {
+      border-radius: 999px;
+      border: 1px dashed rgba(148, 163, 184, 0.5);
+      padding: 2px 6px;
+      font-size: 10px;
+      color: var(--muted);
+    }
+
+    .hash-row {
+      font-family: "SF Mono", ui-monospace, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size: 11px;
+      background: rgba(15, 23, 42, 0.96);
+      padding: 6px 8px;
+      border-radius: 8px;
+      border: 1px dashed rgba(148, 163, 184, 0.6);
+      overflow-x: auto;
+      white-space: nowrap;
+    }
+
+    .flex-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .hint {
+      font-size: 11px;
+      color: #e5e7eb;
+    }
+
+    .hint span {
+      color: var(--accent-strong);
+    }
+
+    .divider {
+      height: 1px;
+      background: radial-gradient(circle, rgba(148, 163, 184, 0.4), transparent);
+      margin: 4px -6px;
+    }
+
+    .small-label {
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    /* WIN MODAL – 3 WORLDS CLEARED */
+    .win-modal {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s ease-out;
+      z-index: 999;
+    }
+
+    .win-modal.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .win-modal-backdrop {
+      position: absolute;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.88);
+      backdrop-filter: blur(12px);
+    }
+
+    .win-modal-content {
+      position: relative;
+      border-radius: 22px;
+      border: 1px solid rgba(74, 222, 128, 0.7);
+      background: radial-gradient(circle at top, rgba(74, 222, 128, 0.18), #020617);
+      padding: 22px 20px 18px;
+      box-shadow: 0 24px 60px rgba(22, 163, 74, 0.6);
+      max-width: 360px;
+      width: 90%;
+      text-align: center;
+      animation: pop-in 0.4s ease-out;
+    }
+
+    .win-title {
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+
+    .win-body {
+      font-size: 13px;
+      color: var(--muted);
+      margin-bottom: 14px;
+    }
+
+    .win-confetti {
+      position: absolute;
+      inset: -40px;
+      pointer-events: none;
+      background:
+        radial-gradient(circle at 10% 20%, rgba(239, 68, 68, 0.24), transparent 55%),
+        radial-gradient(circle at 80% 10%, rgba(59, 130, 246, 0.3), transparent 55%),
+        radial-gradient(circle at 20% 90%, rgba(234, 179, 8, 0.26), transparent 55%);
+      opacity: 0.6;
+      mix-blend-mode: screen;
+    }
+
+    @keyframes pop-in {
+      0% {
+        transform: translateY(10px) scale(0.96);
+        opacity: 0;
+      }
+      100% {
+        transform: translateY(0) scale(1);
+        opacity: 1;
+      }
+    }
+  </style>
+</head>
+<body>
+<div class="app-shell">
+  <header>
+    <div class="title-block">
+      <h1>Agent Zero: Digital Recovery Suite</h1>
+      <div class="title-sub">One browser, eight worlds, zero installations.</div>
+      <div class="pill-row">
+        <div class="pill">
+          <span class="dot"></span>
+          Live session · <span id="world-counter-label">World 1 of 8</span>
+        </div>
+        <div class="pill">
+          Mode: <strong>Solo</strong> · Difficulty: Adaptive
+        </div>
+      </div>
+    </div>
+    <div class="meta">
+      <div class="score-chip">
+        SCORE: <strong id="score-display">0</strong>
+        <span style="width:1px;height:14px;background:#1f2937;"></span>
+        Cleared worlds: <span id="cleared-worlds-count">0</span>/8
+      </div>
+      <div class="progress-bar-shell">
+        <div id="progress-bar-inner" class="progress-bar-inner"></div>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <!-- LEFT: WORLD SELECTOR -->
+    <aside class="worlds-panel">
+      <h2>World Map</h2>
+      <div class="world-grid" id="world-grid">
+        <!-- buttons are created by JS to keep state synced -->
+      </div>
+    </aside>
+
+    <!-- RIGHT: ACTIVE WORLD CONTENT -->
+    <section class="world-main">
+      <div class="world-header">
+        <div class="world-header-left">
+          <h2 id="world-title">AI Escape Room</h2>
+          <div id="world-caption" class="world-caption">
+            Unlock corrupted doors by answering core AI questions under time pressure.
+          </div>
+        </div>
+        <div class="world-badges">
+          <span class="badge accent" id="world-badge-primary">AI Fundamentals</span>
+          <span class="badge" id="world-badge-secondary">Timed · Scenario-based</span>
+        </div>
+      </div>
+
+      <div class="content-grid" id="world-content">
+        <!-- Each world injects its own markup -->
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- WIN MODAL – FIRES AFTER ANY 3 WORLDS CLEARED -->
+<div id="win-modal" class="win-modal">
+  <div class="win-modal-backdrop"></div>
+  <div class="win-modal-content">
+    <div class="win-confetti"></div>
+    <div class="win-title">🎉 Mission Accomplished!</div>
+    <div class="win-body">
+      You’ve successfully cleared 3 rooms.<br/>
+      The system will reset with fresh questions for the next player.
+    </div>
+    <button id="win-reset-btn" class="primary-btn">Start New Session</button>
+  </div>
+</div>
+
+<script>
+  /****************************************************
+   * GLOBAL STATE
+   ****************************************************/
+  const appState = {
+    score: 0,
+    currentWorldId: "escape",
+    gameWon: false,
+    worlds: {
+      escape: { id: "escape", name: "AI Escape Room", completed: false },
+      mlbuilder: { id: "mlbuilder", name: "ML Model Builder", completed: false },
+      prompt: { id: "prompt", name: "GenAI Prompt Arena", completed: false },
+      chain: { id: "chain", name: "Blockchain Hash Hunt", completed: false },
+      clean: { id: "clean", name: "Data Cleaning Ninja", completed: false },
+      schema: { id: "schema", name: "Schema Validator Lab", completed: false },
+      query: { id: "query", name: "Query Optimizer Race", completed: false },
+      crypto: { id: "crypto", name: "Crypto-for-Data Puzzle", completed: false },
+    },
+    timers: {
+      escape: { secondsLeft: 45, intervalId: null },
+    },
+  };
+
+  function shuffle(array) {
+    for (let i = array.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [array[i], array[j]] = [array[j], array[i]];
+    }
+    return array;
+  }
+
+  function getClearedWorldsCount() {
+    return Object.values(appState.worlds).filter(w => w.completed).length;
+  }
+
+  function getDifficultyLevel() {
+    const cleared = getClearedWorldsCount();
+    if (cleared < 2) return "easy"; // 0–1 worlds: easier onboarding
+    return "hard";                  // 2+ worlds: ramp up difficulty
+  }
+
+  function updateGlobalHUD() {
+    document.getElementById("score-display").textContent = appState.score;
+    const cleared = getClearedWorldsCount();
+    document.getElementById("cleared-worlds-count").textContent = cleared;
+    const progressPercent = (cleared / 8) * 100;
+    document.getElementById("progress-bar-inner").style.width = progressPercent + "%";
+
+    const worldOrder = [
+      "escape","mlbuilder","prompt","chain","clean","schema","query","crypto"
+    ];
+    const index = worldOrder.indexOf(appState.currentWorldId);
+    document.getElementById("world-counter-label").textContent =
+      "World " + (index + 1) + " of 8";
+  }
+
+  function showWinModal() {
+    const modal = document.getElementById("win-modal");
+    if (!modal) return;
+    modal.classList.add("active");
+  }
+
+  function hideWinModal() {
+    const modal = document.getElementById("win-modal");
+    if (!modal) return;
+    modal.classList.remove("active");
+  }
+
+  function checkGlobalWin() {
+    const cleared = getClearedWorldsCount();
+    if (cleared >= 3 && !appState.gameWon) {
+      appState.gameWon = true;
+      showWinModal();
+    }
+  }
+
+  /****************************************************
+   * WORLD SELECTOR WIDGET
+   ****************************************************/
+  const worldDefinitions = [
+    {
+      id: "escape",
+      label: "AI Escape Room",
+      subtitle: "Clear timed knowledge locks.",
+    },
+    {
+      id: "mlbuilder",
+      label: "ML Model Builder",
+      subtitle: "Design, tune, and debug a model pipeline.",
+    },
+    {
+      id: "prompt",
+      label: "GenAI Prompt Arena",
+      subtitle: "Optimize prompts and mitigate hallucinations.",
+    },
+    {
+      id: "chain",
+      label: "Blockchain Hash Hunt",
+      subtitle: "Locate hashes and validate blocks.",
+    },
+    {
+      id: "clean",
+      label: "Data Cleaning Ninja",
+      subtitle: "Normalize, dedupe, and repair datasets.",
+    },
+    {
+      id: "schema",
+      label: "Schema Validator Lab",
+      subtitle: "Catch schema drift before prod does.",
+    },
+    {
+      id: "query",
+      label: "Query Optimizer Race",
+      subtitle: "Pick the faster plan under pressure.",
+    },
+    {
+      id: "crypto",
+      label: "Crypto-for-Data Puzzle",
+      subtitle: "Decrypt, compare keys, and secure data.",
+    },
+  ];
+
+  function buildWorldButtons() {
+    const grid = document.getElementById("world-grid");
+    grid.innerHTML = "";
+    worldDefinitions.forEach((w, idx) => {
+      const btn = document.createElement("button");
+      btn.className = "world-btn";
+      if (w.id === appState.currentWorldId) btn.classList.add("active");
+      btn.dataset.worldId = w.id;
+
+      const status = document.createElement("div");
+      status.className = "world-status";
+      const meta = appState.worlds[w.id];
+      if (meta.completed) {
+        status.textContent = "Cleared";
+        status.classList.add("completed");
+      } else if (w.id === appState.currentWorldId) {
+        status.textContent = "In progress";
+        status.classList.add("current");
+      } else {
+        status.textContent = "Locked in scope";
+      }
+
+      btn.innerHTML = `
+        <div class="world-name-row">
+          <div class="world-name">${idx + 1}. ${w.label}</div>
+        </div>
+        <div class="world-tagline">${w.subtitle}</div>
+      `;
+      btn.querySelector(".world-name-row").appendChild(status);
+
+      btn.addEventListener("click", () => moveToWorld(w.id));
+      grid.appendChild(btn);
+    });
+  }
+
+  function markWorldButtonActive(worldId) {
+    document.querySelectorAll(".world-btn").forEach(btn => {
+      btn.classList.toggle("active", btn.dataset.worldId === worldId);
+      const status = btn.querySelector(".world-status");
+      const meta = appState.worlds[btn.dataset.worldId];
+      status.classList.remove("current","completed");
+      if (meta.completed) {
+        status.textContent = "Cleared";
+        status.classList.add("completed");
+      } else if (btn.dataset.worldId === worldId) {
+        status.textContent = "In progress";
+        status.classList.add("current");
+      } else {
+        status.textContent = "Locked in scope";
+      }
+    });
+  }
+
+  /****************************************************
+   * QUESTION BANKS – TAGGED WITH DIFFICULTY
+   * (Extend up to 50 per world as needed)
+   ****************************************************/
+
+  /*********** 1. AI ESCAPE ROOM ***********/
+  const escapeQuestions = [
+    {
+      question: "What is a transformer in modern AI?",
+      options: [
+        "A neural architecture using self-attention to process sequences in parallel.",
+        "A model that only works for images using convolution layers.",
+        "A simple rule-based system for if/else logic.",
+        "A hardware chip used exclusively in robotics.",
+      ],
+      correctIndex: 0,
+      difficulty: "easy",
+    },
+    {
+      question: "What is Retrieval-Augmented Generation (RAG)?",
+      options: [
+        "Using generative models to compress images.",
+        "Combining an LLM with external retrieval of documents for better answers.",
+        "Training a model only once and freezing it.",
+        "A cryptographic protocol for secure hashing.",
+      ],
+      correctIndex: 1,
+      difficulty: "easy",
+    },
+    {
+      question: "What is an AI hallucination?",
+      options: [
+        "GPU overclocking issue.",
+        "Model producing confident but factually wrong or fabricated outputs.",
+        "When a model refuses to answer.",
+        "Noise in sensor data.",
+      ],
+      correctIndex: 1,
+      difficulty: "hard",
+    },
+    {
+      question: "What is multimodal AI?",
+      options: [
+        "AI that only works for text data.",
+        "AI that can consume and reason over multiple input types (text, image, audio, video).",
+        "AI that runs on multiple GPUs.",
+        "AI that can speak multiple human languages only.",
+      ],
+      correctIndex: 1,
+      difficulty: "hard",
+    },
+    // Add more questions here up to 50 total, each with difficulty "easy" or "hard"
+  ];
+
+  /*********** 2. ML MODEL BUILDER ***********/
+  const mlSteps = [
+    {
+      id: "missing",
+      label: "Handle Missing Values",
+      question:
+        "Your training dataset has 15% missing values in a numeric column. What’s a reasonable first approach?",
+      options: [
+        "Drop all rows with any missing value.",
+        "Impute with median or mean based on distribution.",
+        "Replace missing values with zero blindly.",
+        "Randomly fill values from another column.",
+      ],
+      correctIndex: 1,
+      positive:
+        "Good call. Simple imputation preserves most records and keeps training stable.",
+      negative:
+        "That decision degrades data quality. The validation dashboard lights up red.",
+      difficulty: "easy",
+    },
+    {
+      id: "algo",
+      label: "Pick Algorithm",
+      question:
+        "You’re predicting churn (yes/no) on a tabular dataset with mixed numeric and categorical features. Baseline model?",
+      options: [
+        "Linear Regression",
+        "K-Means Clustering",
+        "Random Forest / Gradient Boosted Trees",
+        "PCA",
+      ],
+      correctIndex: 2,
+      positive:
+        "Tree-based models are a solid, production-friendly default for tabular classification.",
+      negative:
+        "That choice misaligns with the problem type. The model fails the initial sanity checks.",
+      difficulty: "easy",
+    },
+    {
+      id: "overfit",
+      label: "Debug Overfitting",
+      question:
+        "Train accuracy is 0.99 but validation accuracy is 0.68. What’s the most direct mitigation?",
+      options: [
+        "Increase model complexity further.",
+        "Add regularization / early stopping / dropout.",
+        "Remove validation split.",
+        "Train for many more epochs.",
+      ],
+      correctIndex: 1,
+      positive:
+        "Regularization and early stopping reduce variance and stabilize generalization.",
+      negative:
+        "Noise gets amplified. Monitoring flags overfitting, and stakeholders lose confidence.",
+      difficulty: "hard",
+    },
+    // Extend with more steps up to 50 as needed
+  ];
+
+  /*********** 3. GenAI PROMPT ARENA ***********/
+  const promptQuestions = [
+    {
+      type: "mcq",
+      title: "Fix the Prompt",
+      question:
+        'Original: "Write code."\nWhat is the better prompt for a production-ready function?',
+      options: [
+        '“Write any JavaScript code you want.”',
+        '“Write a Python function named `add` that takes two integers and returns their sum. Include type hints and one usage example.”',
+        '“Code please.”',
+        "“Explain life in code form.”",
+      ],
+      correctIndex: 1,
+      difficulty: "easy",
+    },
+    {
+      type: "mcq",
+      title: "Reduce Hallucination",
+      question:
+        "Which instruction is best to reduce hallucination when asking about niche APIs?",
+      options: [
+        "“If you don’t know, invent an answer.”",
+        "“Always respond with code only.”",
+        "“If you are not certain, say you are unsure and indicate what documentation I should check.”",
+        "“Ignore unspecified details.”",
+      ],
+      correctIndex: 2,
+      difficulty: "hard",
+    },
+    // Add more prompt engineering scenarios up to 50
+  ];
+
+  /*********** 4. BLOCKCHAIN HASH HUNT ***********/
+  const chainQuestions = [
+    {
+      question:
+        "You see a block whose hash doesn’t match the recomputed hash from its contents. What does that indicate?",
+      options: [
+        "The block was tampered with or corrupted.",
+        "The consensus algorithm changed.",
+        "The network is offline.",
+        "Hashes are supposed to change randomly all the time.",
+      ],
+      correctIndex: 0,
+      difficulty: "easy",
+    },
+    {
+      question: "Which consensus mechanism is energy-efficient and common in modern chains?",
+      options: [
+        "Proof of Work (PoW)",
+        "Proof of Stake (PoS)",
+        "Proof of Burn",
+        "Proof of Noise",
+      ],
+      correctIndex: 1,
+      difficulty: "hard",
+    },
+    // Extend with additional blockchain items up to 50
+  ];
+
+  /*********** 5. DATA CLEANING NINJA ***********/
+  const cleaningQuestions = [
+    {
+      question: "You see two rows with identical `user_id`, `email`, and `signup_date`.",
+      options: [
+        "Keep both rows.",
+        "Drop one as a duplicate record.",
+        "Randomly modify one of the emails.",
+        "Delete the entire table.",
+      ],
+      correctIndex: 1,
+      difficulty: "easy",
+    },
+    {
+      question: "Dates are in mixed formats: `2025-01-10`, `10/01/2025`, `Jan 10 2025`.",
+      options: [
+        "Leave them as-is.",
+        "Convert all into a single canonical format (e.g., ISO 8601).",
+        "Store them as free text forever.",
+        "Replace with current timestamp.",
+      ],
+      correctIndex: 1,
+      difficulty: "hard",
+    },
+    // Add more data-cleaning questions up to 50
+  ];
+
+  /*********** 6. SCHEMA VALIDATOR LAB ***********/
+  const schemaQuestions = [
+    {
+      question:
+        "Schema requires `user_id` (INT, NOT NULL, PK). You see rows with NULL `user_id`. What’s the issue?",
+      options: [
+        "No issue, PKs can be NULL.",
+        "Violation of PK and NOT NULL constraint.",
+        "Just a formatting concern.",
+        "Only a performance warning.",
+      ],
+      correctIndex: 1,
+      difficulty: "easy",
+    },
+    {
+      question:
+        "Your app reads column `created_at`, but the DB schema changed it to `created_timestamp`. What is this called?",
+      options: [
+        "Schema drift / breaking change.",
+        "Data cleaning.",
+        "Index optimization.",
+        "Query normalization.",
+      ],
+      correctIndex: 0,
+      difficulty: "hard",
+    },
+    // Extend up to 50
+  ];
+
+  /*********** 7. QUERY OPTIMIZER RACE ***********/
+  const queryQuestions = [
+    {
+      question:
+        "Table `orders` has an index on `customer_id`. Which query is likely faster?",
+      options: [
+        "SELECT * FROM orders WHERE customer_id = 42;",
+        "SELECT * FROM orders WHERE amount + 10 > 1000;",
+      ],
+      correctIndex: 0,
+      labels: ["Uses index on customer_id", "Forces full scan"],
+      difficulty: "easy",
+    },
+    {
+      question:
+        "You’re joining large `orders` with small `customers`. Which join order is typically better?",
+      options: [
+        "SELECT * FROM orders o JOIN customers c ON o.customer_id = c.id;",
+        "SELECT * FROM customers c JOIN orders o ON o.customer_id = c.id;",
+      ],
+      correctIndex: 0,
+      labels: ["Drive with big table and leverage index", "Not inherently better"],
+      difficulty: "hard",
+    },
+    // Extend up to 50
+  ];
+
+  /*********** 8. CRYPTO-FOR-DATA PUZZLE ***********/
+  const cryptoQuestions = [
+    {
+      question:
+        "Which key should remain secret in a standard public-key encryption scheme?",
+      options: [
+        "Public key",
+        "Private key",
+        "Both keys must be public",
+        "Neither; keys are irrelevant",
+      ],
+      correctIndex: 1,
+      difficulty: "easy",
+    },
+    {
+      question:
+        "You compute SHA-256 over a file. What property are you primarily using?",
+      options: [
+        "Reversibility",
+        "Collision resistance and integrity checking",
+        "Random number generation",
+        "Encryption",
+      ],
+      correctIndex: 1,
+      difficulty: "hard",
+    },
+    // Extend up to 50
+  ];
+
+  const questionBanks = {
+    escape: escapeQuestions,
+    mlbuilder: mlSteps,
+    prompt: promptQuestions,
+    chain: chainQuestions,
+    clean: cleaningQuestions,
+    schema: schemaQuestions,
+    query: queryQuestions,
+    crypto: cryptoQuestions,
+  };
+
+  function generateSessionQuestions(worldId) {
+    const all = questionBanks[worldId] || [];
+    const difficulty = getDifficultyLevel();
+    let pool = all.filter(q => q.difficulty === difficulty);
+    if (pool.length < 3) {
+      const extras = all.filter(q => !pool.includes(q));
+      pool = pool.concat(extras);
+    }
+    const shuffled = shuffle(pool.slice());
+    return shuffled.slice(0, Math.min(3, shuffled.length));
+  }
+
+  /****************************************************
+   * WORLD-SPECIFIC STATE
+   ****************************************************/
+
+  let escapeState = {
+    sessionQuestions: [],
+    currentIndex: 0,
+    locksCleared: 0,
+    totalLocks: 3,
+    feedback: "",
+  };
+
+  let mlState = {
+    sessionQuestions: [],
+    currentIndex: 0,
+    failure: false,
+    feedback: "",
+  };
+
+  let promptState = {
+    sessionQuestions: [],
+    currentIndex: 0,
+    feedback: "",
+  };
+
+  let chainState = {
+    sessionQuestions: [],
+    currentIndex: 0,
+    feedback: "",
+  };
+
+  let cleanState = {
+    sessionQuestions: [],
+    currentIndex: 0,
+    feedback: "",
+  };
+
+  let schemaState = {
+    sessionQuestions: [],
+    currentIndex: 0,
+    feedback: "",
+  };
+
+  let queryState = {
+    sessionQuestions: [],
+    currentIndex: 0,
+    feedback: "",
+  };
+
+  let cryptoState = {
+    sessionQuestions: [],
+    currentIndex: 0,
+    feedback: "",
+  };
+
+  /****************************************************
+   * ESCAPE ROOM – 3-QUESTION / 3-LOCK SESSION
+   ****************************************************/
+  function startEscapeTimer() {
+    const timerState = appState.timers.escape;
+    if (timerState.intervalId) clearInterval(timerState.intervalId);
+    timerState.secondsLeft = 45;
+    timerState.intervalId = setInterval(() => {
+      timerState.secondsLeft -= 1;
+      renderEscapeWorld(); // re-render timer
+      if (timerState.secondsLeft <= 0) {
+        clearInterval(timerState.intervalId);
+        timerState.intervalId = null;
+        escapeState.feedback = "Time’s up. Room resets. Try again.";
+        resetEscapeWorld();
+      }
+    }, 1000);
+  }
+
+  function handleEscapeAnswer(optionIndex) {
+    if (appState.gameWon) return;
+    const currentQuestion = escapeState.sessionQuestions[escapeState.currentIndex];
+    if (!currentQuestion) return;
+    const isCorrect = optionIndex === currentQuestion.correctIndex;
+
+    const targetLocks = Math.min(
+      escapeState.totalLocks,
+      escapeState.sessionQuestions.length || escapeState.totalLocks
+    );
+
+    if (isCorrect) {
+      escapeState.locksCleared += 1;
+      appState.score += 10;
+      escapeState.feedback = "Lock released. Door segment unlocked.";
+      escapeState.currentIndex += 1;
+
+      if (escapeState.locksCleared >= targetLocks) {
+        escapeState.feedback = "All locks cleared. World stabilized.";
+        appState.worlds.escape.completed = true;
+
+        if (appState.timers.escape.intervalId) {
+          clearInterval(appState.timers.escape.intervalId);
+          appState.timers.escape.intervalId = null;
+        }
+        checkGlobalWin();
+      }
+    } else {
+      escapeState.feedback = "Incorrect sequence. The door re-locks slightly.";
+      appState.score = Math.max(0, appState.score - 3);
+    }
+    updateGlobalHUD();
+    renderEscapeWorld();
+  }
+
+  function resetEscapeWorld(skipRender) {
+    escapeState.sessionQuestions = [];
+    escapeState.currentIndex = 0;
+    escapeState.locksCleared = 0;
+    escapeState.feedback = "";
+    appState.worlds.escape.completed = false;
+    if (!skipRender) {
+      renderEscapeWorld();
+      startEscapeTimer();
+    }
+  }
+
+  function renderEscapeWorld() {
+    const container = document.getElementById("world-content");
+    const timerState = appState.timers.escape;
+
+    if (!escapeState.sessionQuestions || escapeState.sessionQuestions.length === 0) {
+      escapeState.sessionQuestions = generateSessionQuestions("escape");
+      escapeState.currentIndex = 0;
+      escapeState.locksCleared = 0;
+      escapeState.feedback = "";
+    }
+
+    const q =
+      escapeState.sessionQuestions[
+        Math.min(escapeState.currentIndex, escapeState.sessionQuestions.length - 1)
+      ];
+
+    document.getElementById("world-title").textContent = "AI Escape Room";
+    document.getElementById("world-caption").textContent =
+      "Unlock the AI control room by answering fundamentals under a soft timer.";
+    document.getElementById("world-badge-primary").textContent = "AI Fundamentals";
+    document.getElementById("world-badge-secondary").textContent = "Timed · 3 locks";
+
+    const targetLocks = Math.min(
+      escapeState.totalLocks,
+      escapeState.sessionQuestions.length || escapeState.totalLocks
+    );
+
+    const locks = Array.from({ length: targetLocks }).map((_, idx) => {
+      let cls = "lock-pill";
+      if (idx < escapeState.locksCleared) cls += " completed";
+      if (idx === escapeState.locksCleared && !appState.worlds.escape.completed) {
+        cls += " current";
+      }
+      return `<div class="${cls}"></div>`;
+    }).join("");
+
+    const feedbackHtml = escapeState.feedback
+      ? `<div class="feedback ${
+          appState.worlds.escape.completed || escapeState.feedback.includes("Lock")
+            ? "positive"
+            : "negative"
+        }">${escapeState.feedback}</div>`
+      : "";
+
+    const timerHtml = timerState.intervalId
+      ? `<span class="timer">⏱ ${String(timerState.secondsLeft).padStart(2, "0")}s</span>`
+      : `<span class="timer">⏱ Paused</span>`;
+
+    const optionsHtml = q
+      ? q.options
+          .map(
+            (opt, idx) => `
+              <button class="option-btn" data-option-index="${idx}">
+                <div><span class="option-label">${String.fromCharCode(
+                  65 + idx
+                )}.</span> ${opt}</div>
+                <span class="pill-small">+10 pts on correct</span>
+              </button>
+            `
+          )
+          .join("")
+      : "<div class='small-label'>No questions available.</div>";
+
+    container.innerHTML = `
+      <div class="card">
+        <div class="card-header-row">
+          <div>
+            <div class="card-title">Lock Sequence</div>
+            <div class="card-sub">Answer correctly to unlock the digital door.</div>
+          </div>
+          <div class="locks-row">${locks}</div>
+        </div>
+        <div class="divider"></div>
+        <div class="question-area">
+          <div class="question-text">${q ? q.question : "Session not initialized."}</div>
+          <div class="help-text">Select the most accurate description.</div>
+          <div class="options-list">
+            ${optionsHtml}
+          </div>
+          ${feedbackHtml}
+        </div>
+        <div class="state-row">
+          <div class="state-left">
+            <button class="ghost-btn" id="escape-reset-btn">Reset Room</button>
+            <span class="small-label">Locks cleared: ${escapeState.locksCleared} / ${
+              targetLocks
+            }</span>
+          </div>
+          <div class="state-right">
+            ${timerHtml}
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header-row">
+          <div class="card-title">Room Telemetry</div>
+          <span class="pill-small">Simulation overlay</span>
+        </div>
+        <div class="mini-visual">
+          <div class="chip-row">
+            <div class="chip">Door Integrity: ${
+              appState.worlds.escape.completed ? "STABLE" : "FRAGILE"
+            }</div>
+            <div class="chip">Knowledge Drift: LOW</div>
+            <div class="chip">Risk Window: 45s</div>
+          </div>
+          <div class="hint">
+            Tip: focus on concepts, not jargon. <span>Transformers, RAG, hallucinations</span>
+            are foundational across the rest of the worlds.
+          </div>
+        </div>
+      </div>
+    `;
+
+    container
+      .querySelectorAll(".option-btn")
+      .forEach(btn =>
+        btn.addEventListener("click", () =>
+          handleEscapeAnswer(Number(btn.dataset.optionIndex))
+        )
+      );
+
+    const resetBtn = document.getElementById("escape-reset-btn");
+    resetBtn.addEventListener("click", () => {
+      resetEscapeWorld();
+      startEscapeTimer();
+    });
+  }
+
+  /****************************************************
+   * ML MODEL BUILDER – 3-QUESTION SESSION
+   ****************************************************/
+  function handleMLDecision(optionIndex) {
+    if (appState.gameWon) return;
+    if (!mlState.sessionQuestions || mlState.sessionQuestions.length === 0) return;
+
+    const step = mlState.sessionQuestions[
+      Math.min(mlState.currentIndex, mlState.sessionQuestions.length - 1)
+    ];
+    const isCorrect = optionIndex === step.correctIndex;
+    if (isCorrect) {
+      appState.score += 15;
+      mlState.failure = false;
+      mlState.feedback = step.positive;
+      mlState.currentIndex += 1;
+      if (mlState.currentIndex >= mlState.sessionQuestions.length) {
+        appState.worlds.mlbuilder.completed = true;
+        mlState.feedback = "Pipeline validated. Model is deployment-ready.";
+        checkGlobalWin();
+      }
+    } else {
+      mlState.failure = true;
+      mlState.feedback = step.negative;
+      appState.score = Math.max(0, appState.score - 5);
+    }
+    updateGlobalHUD();
+    renderMLWorld();
+  }
+
+  function resetMLWorld(skipRender) {
+    mlState.sessionQuestions = [];
+    mlState.currentIndex = 0;
+    mlState.failure = false;
+    mlState.feedback = "";
+    appState.worlds.mlbuilder.completed = false;
+    if (!skipRender) renderMLWorld();
+  }
+
+  function renderMLWorld() {
+    const container = document.getElementById("world-content");
+
+    if (!mlState.sessionQuestions || mlState.sessionQuestions.length === 0) {
+      mlState.sessionQuestions = generateSessionQuestions("mlbuilder");
+      mlState.currentIndex = 0;
+      mlState.failure = false;
+      mlState.feedback = "";
+    }
+
+    const stepCount = mlState.sessionQuestions.length;
+    const step =
+      mlState.sessionQuestions[
+        Math.min(mlState.currentIndex, Math.max(stepCount - 1, 0))
+      ];
+
+    document.getElementById("world-title").textContent = "ML Model Builder";
+    document.getElementById("world-caption").textContent =
+      "Walk a real model lifecycle: clean, choose, regularize, and ship.";
+    document.getElementById("world-badge-primary").textContent = "ML Lifecycle";
+    document.getElementById("world-badge-secondary").textContent =
+      "Scenario · Step-based";
+
+    const pipelineStatus = mlState.failure
+      ? "FAILED – Metrics out of bounds"
+      : appState.worlds.mlbuilder.completed
+      ? "STABLE – Ready for deployment"
+      : "IN DESIGN – Still tuning";
+
+    const feedbackHtml = mlState.feedback
+      ? `<div class="feedback ${mlState.failure ? "negative" : "positive"}">${
+          mlState.feedback
+        }</div>`
+      : "";
+
+    const optionsHtml = step
+      ? step.options
+          .map(
+            (opt, idx) => `
+              <button class="option-btn" data-option-index="${idx}">
+                <div><span class="option-label">${String.fromCharCode(
+                  65 + idx
+                )}.</span> ${opt}</div>
+                <span class="pill-small">${
+                  idx === step.correctIndex ? "+15 pts" : "Risk: -5 pts"
+                }</span>
+              </button>
+            `
+          )
+          .join("")
+      : "<div class='small-label'>No ML steps configured.</div>";
+
+    const isFinished = appState.worlds.mlbuilder.completed;
+
+    container.innerHTML = `
+      <div class="card">
+        <div class="card-header-row">
+          <div>
+            <div class="card-title">Design Decisions</div>
+            <div class="card-sub">
+              Build a resilient pipeline by picking the right intervention at each step.
+            </div>
+          </div>
+          <span class="pill-small">Question ${
+            Math.min(mlState.currentIndex + 1, stepCount)
+          } of ${stepCount}</span>
+        </div>
+        <div class="divider"></div>
+        <div class="question-area">
+          <div class="question-text">${
+            step ? `${step.label} – ${step.question}` : "Session not initialized."
+          }</div>
+          <div class="options-list">
+            ${optionsHtml}
+          </div>
+          ${feedbackHtml}
+        </div>
+        <div class="state-row">
+          <div class="state-left">
+            <button class="ghost-btn" id="ml-reset-btn">Reset Pipeline</button>
+            <span class="small-label">Status: ${pipelineStatus}</span>
+          </div>
+          <div class="state-right">
+            <span class="small-label">Overfitting risk · ${
+              mlState.failure ? "HIGH" : "CONTROLLED"
+            }</span>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header-row">
+          <div class="card-title">Visual Telemetry</div>
+          <span class="pill-small">Confusion matrix snapshot</span>
+        </div>
+        <div class="mini-visual">
+          <div class="chip-row">
+            <div class="chip">
+              Train Acc: ${mlState.failure ? "0.99" : isFinished ? "0.93" : "0.88"}
+            </div>
+            <div class="chip">
+              Val Acc: ${mlState.failure ? "0.68" : isFinished ? "0.91" : "0.84"}
+            </div>
+            <div class="chip">Class Imbalance: MEDIUM</div>
+          </div>
+          <div class="hash-row">
+            [TP: 420] [FP: 60] [FN: 35] [TN: 485] · <span style="color:#a5b4fc">Precision / Recall stabilized.</span>
+          </div>
+          <div class="hint">
+            Align each decision with the business KPI: stable validation metrics beat vanity training scores.
+          </div>
+        </div>
+      </div>
+    `;
+
+    container
+      .querySelectorAll(".option-btn")
+      .forEach(btn =>
+        btn.addEventListener("click", () =>
+          handleMLDecision(Number(btn.dataset.optionIndex))
+        )
+      );
+
+    document
+      .getElementById("ml-reset-btn")
+      .addEventListener("click", () => resetMLWorld());
+  }
+
+  /****************************************************
+   * PROMPT ARENA – 3-QUESTION SESSION
+   ****************************************************/
+  function handlePromptAnswer(optionIndex) {
+    if (appState.gameWon) return;
+    if (!promptState.sessionQuestions || promptState.sessionQuestions.length === 0)
+      return;
+
+    const q =
+      promptState.sessionQuestions[
+        Math.min(
+          promptState.currentIndex,
+          Math.max(promptState.sessionQuestions.length - 1, 0)
+        )
+      ];
+    const isCorrect = optionIndex === q.correctIndex;
+    if (isCorrect) {
+      appState.score += 10;
+      promptState.feedback = "Prompt upgraded. Model output quality improves.";
+      promptState.currentIndex += 1;
+      if (promptState.currentIndex >= promptState.sessionQuestions.length) {
+        appState.worlds.prompt.completed = true;
+        promptState.feedback = "Arena cleared. You’re now prompt-ops certified.";
+        checkGlobalWin();
+      }
+    } else {
+      appState.score = Math.max(0, appState.score - 4);
+      promptState.feedback = "Ambiguous prompt. Output quality degrades.";
+    }
+    updateGlobalHUD();
+    renderPromptWorld();
+  }
+
+  function resetPromptWorld(skipRender) {
+    promptState.sessionQuestions = [];
+    promptState.currentIndex = 0;
+    promptState.feedback = "";
+    appState.worlds.prompt.completed = false;
+    if (!skipRender) renderPromptWorld();
+  }
+
+  function renderPromptWorld() {
+    const container = document.getElementById("world-content");
+
+    if (!promptState.sessionQuestions || promptState.sessionQuestions.length === 0) {
+      promptState.sessionQuestions = generateSessionQuestions("prompt");
+      promptState.currentIndex = 0;
+      promptState.feedback = "";
+    }
+
+    const qCount = promptState.sessionQuestions.length;
+    const q =
+      promptState.sessionQuestions[
+        Math.min(promptState.currentIndex, Math.max(qCount - 1, 0))
+      ];
+
+    document.getElementById("world-title").textContent = "GenAI Prompt Arena";
+    document.getElementById("world-caption").textContent =
+      "Battle weak prompts and design instructions that ship reliable outputs.";
+    document.getElementById("world-badge-primary").textContent = "Prompt Engineering";
+    document.getElementById("world-badge-secondary").textContent =
+      "Quality · Safety";
+
+    const feedbackHtml = promptState.feedback
+      ? `<div class="feedback ${
+          promptState.feedback.includes("upgraded") ||
+          promptState.feedback.includes("certified")
+            ? "positive"
+            : "negative"
+        }">${promptState.feedback}</div>`
+      : "";
+
+    const optionsHtml = q
+      ? q.options
+          .map(
+            (opt, idx) => `
+              <button class="option-btn" data-option-index="${idx}">
+                <div><span class="option-label">${String.fromCharCode(
+                  65 + idx
+                )}.</span> ${opt}</div>
+                <span class="pill-small">Score impact</span>
+              </button>
+            `
+          )
+          .join("")
+      : "<div class='small-label'>No prompt questions configured.</div>";
+
+    container.innerHTML = `
+      <div class="card">
+        <div class="card-header-row">
+          <div>
+            <div class="card-title">Prompt Duel</div>
+            <div class="card-sub">${q ? q.title : "Session not initialized."}</div>
+          </div>
+          <span class="pill-small">Question ${
+            Math.min(promptState.currentIndex + 1, qCount)
+          } of ${qCount}</span>
+        </div>
+        <div class="divider"></div>
+        <div class="question-area">
+          <div class="question-text" style="white-space:pre-line;">${
+            q ? q.question : ""
+          }</div>
+          <div class="options-list">
+            ${optionsHtml}
+          </div>
+          ${feedbackHtml}
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header-row">
+          <div class="card-title">Prompt Notes</div>
+          <span class="pill-small">Sandbox</span>
+        </div>
+        <div class="mini-visual">
+          <div class="small-label">Draft an improved prompt or store ideas:</div>
+          <textarea placeholder="E.g. Be explicit about inputs, outputs, formats, constraints, and tone."></textarea>
+          <div class="hint">
+            Hint: precise task + format + constraints + examples = more predictable generations.
+          </div>
+        </div>
+      </div>
+    `;
+
+    container
+      .querySelectorAll(".option-btn")
+      .forEach(btn =>
+        btn.addEventListener("click", () =>
+          handlePromptAnswer(Number(btn.dataset.optionIndex))
+        )
+      );
+  }
+
+  /****************************************************
+   * BLOCKCHAIN HASH HUNT – 3-QUESTION SESSION
+   ****************************************************/
+  function handleChainAnswer(optionIndex) {
+    if (appState.gameWon) return;
+    if (!chainState.sessionQuestions || chainState.sessionQuestions.length === 0)
+      return;
+
+    const q =
+      chainState.sessionQuestions[
+        Math.min(chainState.index, Math.max(chainState.sessionQuestions.length - 1, 0))
+      ];
+    const isCorrect = optionIndex === q.correctIndex;
+    if (isCorrect) {
+      appState.score += 10;
+      chainState.feedback = "Hash validated. Chain segment secured.";
+      chainState.index += 1;
+      if (chainState.index >= chainState.sessionQuestions.length) {
+        appState.worlds.chain.completed = true;
+        chainState.feedback = "All blocks verified. Ledger is stable.";
+        checkGlobalWin();
+      }
+    } else {
+      appState.score = Math.max(0, appState.score - 4);
+      chainState.feedback = "Invalid choice. Integrity alarm triggered.";
+    }
+    updateGlobalHUD();
+    renderChainWorld();
+  }
+
+  function resetChainWorld(skipRender) {
+    chainState.sessionQuestions = [];
+    chainState.index = 0;
+    chainState.feedback = "";
+    appState.worlds.chain.completed = false;
+    if (!skipRender) renderChainWorld();
+  }
+
+  function renderChainWorld() {
+    const container = document.getElementById("world-content");
+
+    if (!chainState.sessionQuestions || chainState.sessionQuestions.length === 0) {
+      chainState.sessionQuestions = generateSessionQuestions("chain");
+      chainState.index = 0;
+      chainState.feedback = "";
+    }
+
+    const qCount = chainState.sessionQuestions.length;
+    const q =
+      chainState.sessionQuestions[
+        Math.min(chainState.index, Math.max(qCount - 1, 0))
+      ];
+
+    document.getElementById("world-title").textContent = "Blockchain Hash Hunt";
+    document.getElementById("world-caption").textContent =
+      "Validate hashes, select consensus, and keep the ledger clean.";
+    document.getElementById("world-badge-primary").textContent = "Blockchain Basics";
+    document.getElementById("world-badge-secondary").textContent =
+      "Integrity · Consensus";
+
+    const feedbackHtml = chainState.feedback
+      ? `<div class="feedback ${
+          chainState.feedback.includes("validated") ||
+          chainState.feedback.includes("stable")
+            ? "positive"
+            : "negative"
+        }">${chainState.feedback}</div>`
+      : "";
+
+    const sampleHash =
+      "000000ab94c3f2b38174f5086e22e7b9fb305f615e7a483920c7aa12f";
+
+    const optionsHtml = q
+      ? q.options
+          .map(
+            (opt, idx) => `
+              <button class="option-btn" data-option-index="${idx}">
+                <div><span class="option-label">${String.fromCharCode(
+                  65 + idx
+                )}.</span> ${opt}</div>
+                <span class="pill-small">Chain integrity</span>
+              </button>
+            `
+          )
+          .join("")
+      : "<div class='small-label'>No blockchain questions configured.</div>";
+
+    container.innerHTML = `
+      <div class="card">
+        <div class="card-header-row">
+          <div>
+            <div class="card-title">Hash Puzzle</div>
+            <div class="card-sub">Spot invalid segments and lock the ledger.</div>
+          </div>
+          <span class="pill-small">Question ${
+            Math.min(chainState.index + 1, qCount)
+          } of ${qCount}</span>
+        </div>
+        <div class="divider"></div>
+        <div class="question-area">
+          <div class="hash-row">hash: <strong>${sampleHash}</strong></div>
+          <div class="question-text">${q ? q.question : "Session not initialized."}</div>
+          <div class="options-list">
+            ${optionsHtml}
+          </div>
+          ${feedbackHtml}
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header-row">
+          <div class="card-title">Ledger Telemetry</div>
+          <span class="pill-small">Mini visual</span>
+        </div>
+        <div class="mini-visual">
+          <div class="chip-row">
+            <div class="chip">Valid blocks: ${
+              appState.worlds.chain.completed ? "ALL" : "IN PROGRESS"
+            }</div>
+            <div class="chip">Fork Risk: LOW</div>
+            <div class="chip">Consensus: PoS preferred</div>
+          </div>
+          <div class="hint">
+            Hash mismatch almost always signals tampering. Consensus keeps the network aligned.
+          </div>
+        </div>
+      </div>
+    `;
+
+    container
+      .querySelectorAll(".option-btn")
+      .forEach(btn =>
+        btn.addEventListener("click", () =>
+          handleChainAnswer(Number(btn.dataset.optionIndex))
+        )
+      );
+  }
+
+  /****************************************************
+   * DATA CLEANING NINJA – 3-QUESTION SESSION
+   ****************************************************/
+  function handleCleanAnswer(optionIndex) {
+    if (appState.gameWon) return;
+    if (!cleanState.sessionQuestions || cleanState.sessionQuestions.length === 0)
+      return;
+
+    const q =
+      cleanState.sessionQuestions[
+        Math.min(cleanState.index, Math.max(cleanState.sessionQuestions.length - 1, 0))
+      ];
+    const isCorrect = optionIndex === q.correctIndex;
+    if (isCorrect) {
+      appState.score += 10;
+      cleanState.feedback = "Dataset quality improved. Downstream models thank you.";
+      cleanState.index += 1;
+      if (cleanState.index >= cleanState.sessionQuestions.length) {
+        appState.worlds.clean.completed = true;
+        cleanState.feedback = "All key issues resolved. Dataset is production-grade.";
+        checkGlobalWin();
+      }
+    } else {
+      appState.score = Math.max(0, appState.score - 3);
+      cleanState.feedback = "Dirty data flows downstream. You’ve created debt.";
+    }
+    updateGlobalHUD();
+    renderCleanWorld();
+  }
+
+  function resetCleanWorld(skipRender) {
+    cleanState.sessionQuestions = [];
+    cleanState.index = 0;
+    cleanState.feedback = "";
+    appState.worlds.clean.completed = false;
+    if (!skipRender) renderCleanWorld();
+  }
+
+  function renderCleanWorld() {
+    const container = document.getElementById("world-content");
+
+    if (!cleanState.sessionQuestions || cleanState.sessionQuestions.length === 0) {
+      cleanState.sessionQuestions = generateSessionQuestions("clean");
+      cleanState.index = 0;
+      cleanState.feedback = "";
+    }
+
+    const qCount = cleanState.sessionQuestions.length;
+    const q =
+      cleanState.sessionQuestions[
+        Math.min(cleanState.index, Math.max(qCount - 1, 0))
+      ];
+
+    document.getElementById("world-title").textContent = "Data Cleaning Ninja";
+    document.getElementById("world-caption").textContent =
+      "Neutralize messy datasets before they reach production pipelines.";
+    document.getElementById("world-badge-primary").textContent = "Data Quality";
+    document.getElementById("world-badge-secondary").textContent =
+      "Dedupe · Normalize";
+
+    const feedbackHtml = cleanState.feedback
+      ? `<div class="feedback ${
+          cleanState.feedback.includes("improved") ||
+          cleanState.feedback.includes("production-grade")
+            ? "positive"
+            : "negative"
+        }">${cleanState.feedback}</div>`
+      : "";
+
+    const optionsHtml = q
+      ? q.options
+          .map(
+            (opt, idx) => `
+              <button class="option-btn" data-option-index="${idx}">
+                <div><span class="option-label">${String.fromCharCode(
+                  65 + idx
+                )}.</span> ${opt}</div>
+                <span class="pill-small">Data hygiene</span>
+              </button>
+            `
+          )
+          .join("")
+      : "<div class='small-label'>No cleaning questions configured.</div>";
+
+    container.innerHTML = `
+      <div class="card">
+        <div class="card-header-row">
+          <div>
+            <div class="card-title">Cleaning Task</div>
+            <div class="card-sub">Pick the right action on a messy dataset.</div>
+          </div>
+          <span class="pill-small">Question ${
+            Math.min(cleanState.index + 1, qCount)
+          } of ${qCount}</span>
+        </div>
+        <div class="divider"></div>
+        <div class="question-area">
+          <div class="question-text">${q ? q.question : "Session not initialized."}</div>
+          <div class="options-list">
+            ${optionsHtml}
+          </div>
+          ${feedbackHtml}
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header-row">
+          <div class="card-title">Sample Table</div>
+          <span class="pill-small">Conceptual</span>
+        </div>
+        <div class="mini-visual" style="font-family:ui-monospace,monospace;font-size:11px;">
+          <div>user_id | email             | signup_date</div>
+          <div>------- | ----------------- | -----------</div>
+          <div>42      | a@domain.com      | 2025-01-10</div>
+          <div>42      | a@domain.com      | 10/01/2025</div>
+          <div class="hint">
+            Normalizing formats and removing true duplicates keeps downstream logic deterministic.
+          </div>
+        </div>
+      </div>
+    `;
+
+    container
+      .querySelectorAll(".option-btn")
+      .forEach(btn =>
+        btn.addEventListener("click", () =>
+          handleCleanAnswer(Number(btn.dataset.optionIndex))
+        )
+      );
+  }
+
+  /****************************************************
+   * SCHEMA VALIDATOR LAB – 3-QUESTION SESSION
+   ****************************************************/
+  function handleSchemaAnswer(optionIndex) {
+    if (appState.gameWon) return;
+    if (!schemaState.sessionQuestions || schemaState.sessionQuestions.length === 0)
+      return;
+
+    const q =
+      schemaState.sessionQuestions[
+        Math.min(schemaState.index, Math.max(schemaState.sessionQuestions.length - 1, 0))
+      ];
+    const isCorrect = optionIndex === q.correctIndex;
+    if (isCorrect) {
+      appState.score += 10;
+      schemaState.feedback =
+        "Schema check passes. Application-layer errors drop immediately.";
+      schemaState.index += 1;
+      if (schemaState.index >= schemaState.sessionQuestions.length) {
+        appState.worlds.schema.completed = true;
+        schemaState.feedback = "All constraints aligned. Schema lab stabilized.";
+        checkGlobalWin();
+      }
+    } else {
+      appState.score = Math.max(0, appState.score - 3);
+      schemaState.feedback =
+        "Hidden schema drift introduced. Production incidents spike.";
+    }
+    updateGlobalHUD();
+    renderSchemaWorld();
+  }
+
+  function resetSchemaWorld(skipRender) {
+    schemaState.sessionQuestions = [];
+    schemaState.index = 0;
+    schemaState.feedback = "";
+    appState.worlds.schema.completed = false;
+    if (!skipRender) renderSchemaWorld();
+  }
+
+  function renderSchemaWorld() {
+    const container = document.getElementById("world-content");
+
+    if (!schemaState.sessionQuestions || schemaState.sessionQuestions.length === 0) {
+      schemaState.sessionQuestions = generateSessionQuestions("schema");
+      schemaState.index = 0;
+      schemaState.feedback = "";
+    }
+
+    const qCount = schemaState.sessionQuestions.length;
+    const q =
+      schemaState.sessionQuestions[
+        Math.min(schemaState.index, Math.max(qCount - 1, 0))
+      ];
+
+    document.getElementById("world-title").textContent = "Schema Validator Lab";
+    document.getElementById("world-caption").textContent =
+      "Catch mismatches between expectations and reality before they hit production.";
+    document.getElementById("world-badge-primary").textContent = "Data Contracts";
+    document.getElementById("world-badge-secondary").textContent =
+      "PK/FK · Nullability";
+
+    const feedbackHtml = schemaState.feedback
+      ? `<div class="feedback ${
+          schemaState.feedback.includes("passes") ||
+          schemaState.feedback.includes("stabilized")
+            ? "positive"
+            : "negative"
+        }">${schemaState.feedback}</div>`
+      : "";
+
+    const optionsHtml = q
+      ? q.options
+          .map(
+            (opt, idx) => `
+              <button class="option-btn" data-option-index="${idx}">
+                <div><span class="option-label">${String.fromCharCode(
+                  65 + idx
+                )}.</span> ${opt}</div>
+                <span class="pill-small">Contract health</span>
+              </button>
+            `
+          )
+          .join("")
+      : "<div class='small-label'>No schema questions configured.</div>";
+
+    container.innerHTML = `
+      <div class="card">
+        <div class="card-header-row">
+          <div>
+            <div class="card-title">Schema Check</div>
+            <div class="card-sub">Identify the constraint that is being violated.</div>
+          </div>
+          <span class="pill-small">Question ${
+            Math.min(schemaState.index + 1, qCount)
+          } of ${qCount}</span>
+        </div>
+        <div class="divider"></div>
+        <div class="question-area">
+          <div class="question-text">${q ? q.question : "Session not initialized."}</div>
+          <div class="options-list">
+            ${optionsHtml}
+          </div>
+          ${feedbackHtml}
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header-row">
+          <div class="card-title">DDL Snapshot</div>
+          <span class="pill-small">Conceptual</span>
+        </div>
+        <div class="mini-visual" style="font-family:ui-monospace,monospace;font-size:11px;">
+          <div>CREATE TABLE users (</div>
+          <div>&nbsp;&nbsp;user_id INT PRIMARY KEY NOT NULL,</div>
+          <div>&nbsp;&nbsp;email   TEXT NOT NULL,</div>
+          <div>&nbsp;&nbsp;created_at TIMESTAMP NOT NULL</div>
+          <div>);</div>
+          <div class="hint">
+            Data contracts are your guardrails. Violating them is the fastest way to runtime chaos.
+          </div>
+        </div>
+      </div>
+    `;
+
+    container
+      .querySelectorAll(".option-btn")
+      .forEach(btn =>
+        btn.addEventListener("click", () =>
+          handleSchemaAnswer(Number(btn.dataset.optionIndex))
+        )
+      );
+  }
+
+  /****************************************************
+   * QUERY OPTIMIZER RACE – 3-QUESTION SESSION
+   ****************************************************/
+  function handleQueryAnswer(optionIndex) {
+    if (appState.gameWon) return;
+    if (!queryState.sessionQuestions || queryState.sessionQuestions.length === 0)
+      return;
+
+    const q =
+      queryState.sessionQuestions[
+        Math.min(queryState.index, Math.max(queryState.sessionQuestions.length - 1, 0))
+      ];
+    const isCorrect = optionIndex === q.correctIndex;
+    if (isCorrect) {
+      appState.score += 12;
+      queryState.feedback = "Boost! Execution plan streamlined.";
+      queryState.index += 1;
+      if (queryState.index >= queryState.sessionQuestions.length) {
+        appState.worlds.query.completed = true;
+        queryState.feedback = "Race won. Query fleet fully optimized.";
+        checkGlobalWin();
+      }
+    } else {
+      appState.score = Math.max(0, appState.score - 5);
+      queryState.feedback = "Engine stalls. The optimizer can’t rescue a bad pattern.";
+    }
+    updateGlobalHUD();
+    renderQueryWorld();
+  }
+
+  function resetQueryWorld(skipRender) {
+    queryState.sessionQuestions = [];
+    queryState.index = 0;
+    queryState.feedback = "";
+    appState.worlds.query.completed = false;
+    if (!skipRender) renderQueryWorld();
+  }
+
+  function renderQueryWorld() {
+    const container = document.getElementById("world-content");
+
+    if (!queryState.sessionQuestions || queryState.sessionQuestions.length === 0) {
+      queryState.sessionQuestions = generateSessionQuestions("query");
+      queryState.index = 0;
+      queryState.feedback = "";
+    }
+
+    const qCount = queryState.sessionQuestions.length;
+    const q =
+      queryState.sessionQuestions[
+        Math.min(queryState.index, Math.max(qCount - 1, 0))
+      ];
+
+    document.getElementById("world-title").textContent = "Query Optimizer Race";
+    document.getElementById("world-caption").textContent =
+      "Pick the faster query under race conditions and monitor the plan.";
+    document.getElementById("world-badge-primary").textContent = "SQL Performance";
+    document.getElementById("world-badge-secondary").textContent =
+      "Indexes · Joins";
+
+    const feedbackHtml = queryState.feedback
+      ? `<div class="feedback ${
+          queryState.feedback.includes("Boost") ||
+          queryState.feedback.includes("Race won")
+            ? "positive"
+            : "negative"
+        }">${queryState.feedback}</div>`
+      : "";
+
+    const optionsHtml = q
+      ? q.options
+          .map(
+            (opt, idx) => `
+              <button class="option-btn" data-option-index="${idx}">
+                <div>
+                  <div><span class="option-label">Q${idx + 1}.</span> ${opt}</div>
+                  <div class="small-label">${q.labels && q.labels[idx] ? q.labels[idx] : ""}</div>
+                </div>
+                <span class="pill-small">${
+                  idx === q.correctIndex ? "Boost +12" : "Penalty -5"
+                }</span>
+              </button>
+            `
+          )
+          .join("")
+      : "<div class='small-label'>No query questions configured.</div>";
+
+    container.innerHTML = `
+      <div class="card">
+        <div class="card-header-row">
+          <div>
+            <div class="card-title">Race Segment</div>
+            <div class="card-sub">Two queries. One leaderboard.</div>
+          </div>
+          <span class="pill-small">Question ${
+            Math.min(queryState.index + 1, qCount)
+          } of ${qCount}</span>
+        </div>
+        <div class="divider"></div>
+        <div class="question-area">
+          <div class="question-text">${q ? q.question : "Session not initialized."}</div>
+          <div class="options-list">
+            ${optionsHtml}
+          </div>
+          ${feedbackHtml}
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header-row">
+          <div class="card-title">Plan Snapshot</div>
+          <span class="pill-small">Conceptual EXPLAIN</span>
+        </div>
+        <div class="mini-visual" style="font-family:ui-monospace,monospace;font-size:11px;">
+          <div>Seq Scan on orders  (cost=0.00..1450.00 rows=50000)</div>
+          <div>Idx Scan using idx_orders_customer_id (cost=0.42..50.00 rows=500)</div>
+          <div class="hint">
+            Winning queries leverage indexes, filter early, and avoid unnecessary computation.
+          </div>
+        </div>
+      </div>
+    `;
+
+    container
+      .querySelectorAll(".option-btn")
+      .forEach(btn =>
+        btn.addEventListener("click", () =>
+          handleQueryAnswer(Number(btn.dataset.optionIndex))
+        )
+      );
+  }
+
+  /****************************************************
+   * CRYPTO-FOR-DATA PUZZLE – 3-QUESTION SESSION
+   ****************************************************/
+  function handleCryptoAnswer(optionIndex) {
+    if (appState.gameWon) return;
+    if (!cryptoState.sessionQuestions || cryptoState.sessionQuestions.length === 0)
+      return;
+
+    const q =
+      cryptoState.sessionQuestions[
+        Math.min(cryptoState.index, Math.max(cryptoState.sessionQuestions.length - 1, 0))
+      ];
+    const isCorrect = optionIndex === q.correctIndex;
+    if (isCorrect) {
+      appState.score += 10;
+      cryptoState.feedback = "Cipher cracked. Message integrity restored.";
+      cryptoState.index += 1;
+      if (cryptoState.index >= cryptoState.sessionQuestions.length) {
+        appState.worlds.crypto.completed = true;
+        cryptoState.feedback = "All crypto puzzles cleared. Data vault is secure.";
+        checkGlobalWin();
+      }
+    } else {
+      appState.score = Math.max(0, appState.score - 4);
+      cryptoState.feedback =
+        "Incorrect. The attacker gains signal on your mental model.";
+    }
+    updateGlobalHUD();
+    renderCryptoWorld();
+  }
+
+  function resetCryptoWorld(skipRender) {
+    cryptoState.sessionQuestions = [];
+    cryptoState.index = 0;
+    cryptoState.feedback = "";
+    appState.worlds.crypto.completed = false;
+    if (!skipRender) renderCryptoWorld();
+  }
+
+  function renderCryptoWorld() {
+    const container = document.getElementById("world-content");
+
+    if (!cryptoState.sessionQuestions || cryptoState.sessionQuestions.length === 0) {
+      cryptoState.sessionQuestions = generateSessionQuestions("crypto");
+      cryptoState.index = 0;
+      cryptoState.feedback = "";
+    }
+
+    const qCount = cryptoState.sessionQuestions.length;
+    const q =
+      cryptoState.sessionQuestions[
+        Math.min(cryptoState.index, Math.max(qCount - 1, 0))
+      ];
+
+    document.getElementById("world-title").textContent = "Crypto-for-Data Puzzle";
+    document.getElementById("world-caption").textContent =
+      "Play with basic ciphers and security concepts to keep the data vault intact.";
+    document.getElementById("world-badge-primary").textContent = "Crypto Basics";
+    document.getElementById("world-badge-secondary").textContent =
+      "Keys · Hashes";
+
+    const feedbackHtml = cryptoState.feedback
+      ? `<div class="feedback ${
+          cryptoState.feedback.includes("cracked") ||
+          cryptoState.feedback.includes("secure")
+            ? "positive"
+            : "negative"
+        }">${cryptoState.feedback}</div>`
+      : "";
+
+    const toyCipher = "KHOOR → HELLO (Caesar +3)";
+
+    const optionsHtml = q
+      ? q.options
+          .map(
+            (opt, idx) => `
+              <button class="option-btn" data-option-index="${idx}">
+                <div><span class="option-label">${String.fromCharCode(
+                  65 + idx
+                )}.</span> ${opt}</div>
+                <span class="pill-small">Security posture</span>
+              </button>
+            `
+          )
+          .join("")
+      : "<div class='small-label'>No crypto questions configured.</div>";
+
+    container.innerHTML = `
+      <div class="card">
+        <div class="card-header-row">
+          <div>
+            <div class="card-title">Crypto Question</div>
+            <div class="card-sub">Lock in the correct concept.</div>
+          </div>
+          <span class="pill-small">Question ${
+            Math.min(cryptoState.index + 1, qCount)
+          } of ${qCount}</span>
+        </div>
+        <div class="divider"></div>
+        <div class="question-area">
+          <div class="hash-row">${toyCipher}</div>
+          <div class="question-text">${q ? q.question : "Session not initialized."}</div>
+          <div class="options-list">
+            ${optionsHtml}
+          </div>
+          ${feedbackHtml}
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header-row">
+          <div class="card-title">Key Management Note</div>
+          <span class="pill-small">Conceptual</span>
+        </div>
+        <div class="mini-visual">
+          <div class="chip-row">
+            <div class="chip">Public Key: shareable</div>
+            <div class="chip">Private Key: confidential</div>
+            <div class="chip">Hash: one-way fingerprint</div>
+          </div>
+          <div class="hint">
+            Treat private keys as production secrets. Hashes validate integrity, not confidentiality.
+          </div>
+        </div>
+      </div>
+    `;
+
+    container
+      .querySelectorAll(".option-btn")
+      .forEach(btn =>
+        btn.addEventListener("click", () =>
+          handleCryptoAnswer(Number(btn.dataset.optionIndex))
+        )
+      );
+  }
+
+  /****************************************************
+   * WORLD ROUTING
+   ****************************************************/
+  function moveToWorld(worldId) {
+    appState.currentWorldId = worldId;
+    markWorldButtonActive(worldId);
+    updateGlobalHUD();
+
+    switch (worldId) {
+      case "escape":
+        renderEscapeWorld();
+        startEscapeTimer();
+        break;
+      case "mlbuilder":
+        renderMLWorld();
+        break;
+      case "prompt":
+        renderPromptWorld();
+        break;
+      case "chain":
+        renderChainWorld();
+        break;
+      case "clean":
+        renderCleanWorld();
+        break;
+      case "schema":
+        renderSchemaWorld();
+        break;
+      case "query":
+        renderQueryWorld();
+        break;
+      case "crypto":
+        renderCryptoWorld();
+        break;
+      default:
+        renderEscapeWorld();
+        startEscapeTimer();
+    }
+  }
+
+  /****************************************************
+   * FULL GAME RESET – AFTER 3 WORLDS CLEARED
+   ****************************************************/
+  function resetFullGame() {
+    // Reset global score and win flag
+    appState.score = 0;
+    appState.gameWon = false;
+
+    // Reset world meta
+    Object.keys(appState.worlds).forEach(id => {
+      appState.worlds[id].completed = false;
+    });
+
+    // Reset timer
+    if (appState.timers.escape.intervalId) {
+      clearInterval(appState.timers.escape.intervalId);
+      appState.timers.escape.intervalId = null;
+    }
+    appState.timers.escape.secondsLeft = 45;
+
+    // Reset world states
+    resetEscapeWorld(true);
+    resetMLWorld(true);
+    resetPromptWorld(true);
+    resetChainWorld(true);
+    resetCleanWorld(true);
+    resetSchemaWorld(true);
+    resetQueryWorld(true);
+    resetCryptoWorld(true);
+
+    buildWorldButtons();
+    updateGlobalHUD();
+    hideWinModal();
+    moveToWorld("escape");
+  }
+
+  /****************************************************
+   * BOOTSTRAP
+   ****************************************************/
+  function bootstrap() {
+    buildWorldButtons();
+    updateGlobalHUD();
+    moveToWorld("escape");
+
+    const winResetBtn = document.getElementById("win-reset-btn");
+    if (winResetBtn) {
+      winResetBtn.addEventListener("click", resetFullGame);
+    }
+  }
+
+  bootstrap();
+</script>
+</body>
+</html>
