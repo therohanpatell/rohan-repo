@@ -1086,7 +1086,52 @@
     },
     csvQuestions: {}, // Will store questions loaded from CSV
     csvLoaded: false, // Flag to track if CSV has been loaded
+    usedQuestions: {}, // Track used question indices per world to prevent repeats
   };
+
+  /****************************************************
+   * PERSISTENT QUESTION TRACKING - Uses localStorage
+   ****************************************************/
+  const STORAGE_KEY = 'agentZero_usedQuestions';
+
+  function loadUsedQuestionsFromStorage() {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        // Convert arrays back to Sets
+        Object.keys(parsed).forEach(worldId => {
+          appState.usedQuestions[worldId] = new Set(parsed[worldId]);
+        });
+        console.log('📂 Loaded used questions from storage');
+      }
+    } catch (e) {
+      console.warn('Could not load used questions from storage:', e);
+    }
+  }
+
+  function saveUsedQuestionsToStorage() {
+    try {
+      // Convert Sets to arrays for JSON storage
+      const toStore = {};
+      Object.keys(appState.usedQuestions).forEach(worldId => {
+        toStore[worldId] = Array.from(appState.usedQuestions[worldId]);
+      });
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(toStore));
+    } catch (e) {
+      console.warn('Could not save used questions to storage:', e);
+    }
+  }
+
+  function clearUsedQuestionsStorage() {
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+      appState.usedQuestions = {};
+      console.log('🗑️ Cleared all used questions history');
+    } catch (e) {
+      console.warn('Could not clear storage:', e);
+    }
+  }
 
   /****************************************************
    * CSV LOADER - Load questions from CSV file
@@ -1420,21 +1465,55 @@ function showScorePopup(points, isPositive) {
       return [];
     }
     
-    // Always shuffle the entire pool first for maximum randomness
-    const shuffledAll = shuffle([...all]);
+    // Initialize used questions tracking for this world if not exists
+    if (!appState.usedQuestions[worldId]) {
+      appState.usedQuestions[worldId] = new Set();
+    }
+    
+    // Get the set of used question indices
+    const usedSet = appState.usedQuestions[worldId];
+    
+    // If we've used all questions, reset the tracking (start fresh cycle)
+    if (usedSet.size >= all.length - 2) { // Keep buffer of 2 to ensure we can always pick 3
+      console.log(`🔄 Resetting question pool for ${worldId} - all questions have been shown`);
+      usedSet.clear();
+    }
+    
+    // Filter out already-used questions
+    const availableQuestions = all.filter((q, idx) => !usedSet.has(idx));
+    
+    // Shuffle available questions for randomness
+    const shuffledAvailable = shuffle([...availableQuestions]);
     
     const difficulty = getDifficultyLevel();
-    let pool = shuffledAll.filter(q => q.difficulty === difficulty);
+    let pool = shuffledAvailable.filter(q => q.difficulty === difficulty);
     
     // If we don't have enough questions of the target difficulty, add more
     if (pool.length < 3) {
-      const extras = shuffledAll.filter(q => !pool.includes(q));
+      const extras = shuffledAvailable.filter(q => !pool.includes(q));
       pool = pool.concat(extras);
     }
     
-    // Shuffle again and take exactly 3 questions
-    const finalShuffled = shuffle([...pool]);
-    return finalShuffled.slice(0, 3);
+    // Take exactly 3 questions
+    const selected = pool.slice(0, 3);
+    
+    // Mark these questions as used (find their original indices)
+    selected.forEach(selectedQ => {
+      const originalIdx = all.findIndex(q => 
+        q.question === selectedQ.question && 
+        q.correctIndex === selectedQ.correctIndex
+      );
+      if (originalIdx !== -1) {
+        usedSet.add(originalIdx);
+      }
+    });
+    
+    // Save to localStorage for persistence across sessions
+    saveUsedQuestionsToStorage();
+    
+    console.log(`📋 ${worldId}: Selected ${selected.length} questions, ${usedSet.size}/${all.length} total used`);
+    
+    return selected;
   }
 
   /****************************************************
@@ -2703,6 +2782,10 @@ function showScorePopup(points, isPositive) {
     appState.score = 0;
     appState.gameWon = false;
 
+    // NOTE: We do NOT clear usedQuestions here - they persist across sessions
+    // Questions will only repeat once the entire pool is exhausted
+    // To manually reset question history, call clearUsedQuestionsStorage() from console
+
     // Reset world meta
     Object.keys(appState.worlds).forEach(id => {
       appState.worlds[id].completed = false;
@@ -2735,6 +2818,9 @@ function showScorePopup(points, isPositive) {
    * BOOTSTRAP
    ****************************************************/
   async function bootstrap() {
+    // Load used questions history from localStorage (persists across sessions)
+    loadUsedQuestionsFromStorage();
+    
     // Load questions from CSV first - THIS IS REQUIRED
     await loadQuestionsFromCSV();
     
@@ -2930,14 +3016,3 @@ function showScorePopup(points, isPositive) {
 </script>
 </body>
 </html>
-
-
-
-
-
-
-
-
-
-
-
