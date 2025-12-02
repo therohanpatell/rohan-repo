@@ -1,351 +1,401 @@
 World,Question_Number,Question,Option_A,Option_B,Option_C,Option_D,Correct_Answer,Difficulty
-AI Escape Room,1,What is a transformer in modern AI?,A neural architecture using self-attention to process sequences in parallel.,A model that only works for images using convolution layers.,A simple rule-based system for if/else logic.,A hardware chip used exclusively in robotics.,A,easy
-AI Escape Room,2,What is Retrieval-Augmented Generation (RAG)?,Using generative models to compress images.,Combining an LLM with external retrieval of documents for better answers.,Training a model only once and freezing it.,A cryptographic protocol for secure hashing.,B,easy
-AI Escape Room,3,What is an AI hallucination?,GPU overclocking issue.,Model producing confident but factually wrong or fabricated outputs.,When a model refuses to answer.,Noise in sensor data.,B,hard
+AI Escape Room,1,What is a transformer in modern AI?,A hardware chip used exclusively in robotics.,A model that only works for images using convolution layers.,A neural architecture using self-attention to process sequences in parallel.,A simple rule-based system for if/else logic.,C,easy
+AI Escape Room,2,What is Retrieval-Augmented Generation (RAG)?,Combining an LLM with external retrieval of documents for better answers.,Training a model only once and freezing it.,Using generative models to compress images.,A cryptographic protocol for secure hashing.,A,easy
+AI Escape Room,3,What is an AI hallucination?,When a model refuses to answer.,GPU overclocking issue.,Noise in sensor data.,Model producing confident but factually wrong or fabricated outputs.,D,hard
 AI Escape Room,4,What is multimodal AI?,AI that only works for text data.,"AI that can consume and reason over multiple input types (text, image, audio, video).",AI that runs on multiple GPUs.,AI that can speak multiple human languages only.,B,hard
-AI Escape Room,5,What is fine-tuning in machine learning?,Adjusting hyperparameters before training.,Training a pre-trained model on a specific task or dataset.,Removing outliers from data.,Compressing a model to reduce size.,B,easy
-AI Escape Room,6,What is the purpose of attention mechanisms in neural networks?,To reduce model size.,To allow models to focus on relevant parts of input data.,To speed up training time.,To prevent overfitting.,B,easy
-AI Escape Room,7,What is zero-shot learning?,Training a model with zero data points.,A model performing tasks it wasn't explicitly trained on.,Setting all weights to zero.,Training without a validation set.,B,hard
-AI Escape Room,8,What is the difference between supervised and unsupervised learning?,"Supervised uses labeled data, unsupervised finds patterns in unlabeled data.",Supervised is faster than unsupervised.,Unsupervised requires more compute power.,There is no difference.,A,easy
-AI Escape Room,9,What is a neural network activation function?,A function that starts the training process.,A function that introduces non-linearity to help learn complex patterns.,A function that saves model weights.,A function that loads training data.,B,easy
-AI Escape Room,10,What is transfer learning?,Moving data between servers.,Using knowledge from one task to improve performance on another task.,Transferring model ownership.,Converting models between frameworks.,B,easy
-AI Escape Room,11,What is the vanishing gradient problem?,"When gradients become too small during backpropagation, hindering learning.",When the model runs out of memory.,When training data disappears.,When the learning rate is too high.,A,hard
-AI Escape Room,12,What is batch normalization?,Processing data in batches.,A technique to normalize layer inputs to stabilize and speed up training.,Removing bad data samples.,Grouping similar data together.,B,hard
-AI Escape Room,13,What is the purpose of dropout in neural networks?,To remove bad training examples.,To randomly disable neurons during training to prevent overfitting.,To speed up inference.,To reduce model size.,B,easy
-AI Escape Room,14,What is an embedding in NLP?,A way to compress text files.,A dense vector representation of words or tokens in continuous space.,A type of neural network architecture.,A data preprocessing technique.,B,easy
-AI Escape Room,15,What is the difference between precision and recall?,Precision is true positives / predicted positives; Recall is true positives / actual positives.,They are the same metric.,"Precision measures speed, recall measures accuracy.","Precision is for classification, recall is for regression.",A,hard
-AI Escape Room,16,What is a convolutional neural network (CNN) primarily used for?,Text generation.,Image processing and computer vision tasks.,Time series prediction.,Audio synthesis.,B,easy
-AI Escape Room,17,What is reinforcement learning?,Training with extra labeled data.,Learning through trial and error with rewards and penalties.,Repeating training multiple times.,Using multiple models together.,B,easy
-AI Escape Room,18,What is the purpose of a loss function?,To delete bad data.,To measure how well the model's predictions match the actual values.,To compress the model.,To visualize training progress.,B,easy
-AI Escape Room,19,What is gradient descent?,A method to reduce model size.,An optimization algorithm to minimize the loss function by updating weights.,A way to clean data.,A neural network architecture.,B,easy
-AI Escape Room,20,What is overfitting?,When a model is too large.,When a model learns training data too well and performs poorly on new data.,When training takes too long.,When the model uses too much memory.,B,easy
-AI Escape Room,21,What is a recurrent neural network (RNN) good for?,Image classification.,Sequential data like text or time series.,Static tabular data.,Clustering tasks.,B,easy
-AI Escape Room,22,What is the purpose of a validation set?,To train the model.,To tune hyperparameters and evaluate model performance during training.,To test the final model.,To store backup data.,B,easy
-AI Escape Room,23,What is ensemble learning?,Training one large model.,Combining multiple models to improve overall performance.,Using multiple GPUs.,Training on multiple datasets.,B,hard
+AI Escape Room,5,What is fine-tuning in machine learning?,Removing outliers from data.,Training a pre-trained model on a specific task or dataset.,Adjusting hyperparameters before training.,Compressing a model to reduce size.,B,easy
+AI Escape Room,6,What is the purpose of attention mechanisms in neural networks?,To prevent overfitting.,To reduce model size.,To allow models to focus on relevant parts of input data.,To speed up training time.,C,easy
+AI Escape Room,7,What is zero-shot learning?,Training a model with zero data points.,Setting all weights to zero.,A model performing tasks it wasn't explicitly trained on.,Training without a validation set.,C,hard
+AI Escape Room,8,What is the difference between supervised and unsupervised learning?,"Supervised uses labeled data, unsupervised finds patterns in unlabeled data.",Unsupervised requires more compute power.,There is no difference.,Supervised is faster than unsupervised.,A,easy
+AI Escape Room,9,What is a neural network activation function?,A function that introduces non-linearity to help learn complex patterns.,A function that loads training data.,A function that starts the training process.,A function that saves model weights.,A,easy
+AI Escape Room,10,What is transfer learning?,Converting models between frameworks.,Moving data between servers.,Using knowledge from one task to improve performance on another task.,Transferring model ownership.,C,easy
+AI Escape Room,11,What is the vanishing gradient problem?,When the learning rate is too high.,"When gradients become too small during backpropagation, hindering learning.",When training data disappears.,When the model runs out of memory.,B,hard
+AI Escape Room,12,What is batch normalization?,Removing bad data samples.,Grouping similar data together.,A technique to normalize layer inputs to stabilize and speed up training.,Processing data in batches.,C,hard
+AI Escape Room,13,What is the purpose of dropout in neural networks?,To speed up inference.,To reduce model size.,To remove bad training examples.,To randomly disable neurons during training to prevent overfitting.,D,easy
+AI Escape Room,14,What is an embedding in NLP?,A way to compress text files.,A type of neural network architecture.,A dense vector representation of words or tokens in continuous space.,A data preprocessing technique.,C,easy
+AI Escape Room,15,What is the difference between precision and recall?,"Precision is for classification, recall is for regression.","Precision measures speed, recall measures accuracy.",Precision is true positives / predicted positives; Recall is true positives / actual positives.,They are the same metric.,C,hard
+AI Escape Room,16,What is a convolutional neural network (CNN) primarily used for?,Image processing and computer vision tasks.,Time series prediction.,Audio synthesis.,Text generation.,A,easy
+AI Escape Room,17,What is reinforcement learning?,Training with extra labeled data.,Repeating training multiple times.,Learning through trial and error with rewards and penalties.,Using multiple models together.,C,easy
+AI Escape Room,18,What is the purpose of a loss function?,To measure how well the model's predictions match the actual values.,To compress the model.,To delete bad data.,To visualize training progress.,A,easy
+AI Escape Room,19,What is gradient descent?,A way to clean data.,A method to reduce model size.,An optimization algorithm to minimize the loss function by updating weights.,A neural network architecture.,C,easy
+AI Escape Room,20,What is overfitting?,When training takes too long.,When the model uses too much memory.,When a model is too large.,When a model learns training data too well and performs poorly on new data.,D,easy
+AI Escape Room,21,What is a recurrent neural network (RNN) good for?,Image classification.,Static tabular data.,Sequential data like text or time series.,Clustering tasks.,C,easy
+AI Escape Room,22,What is the purpose of a validation set?,To train the model.,To store backup data.,To test the final model.,To tune hyperparameters and evaluate model performance during training.,D,easy
+AI Escape Room,23,What is ensemble learning?,Training on multiple datasets.,Using multiple GPUs.,Training one large model.,Combining multiple models to improve overall performance.,D,hard
 AI Escape Room,24,What is the bias-variance tradeoff?,Choosing between fast and slow training.,Balancing model simplicity (bias) and complexity (variance) for best generalization.,Deciding between CPU and GPU.,Choosing between supervised and unsupervised learning.,B,hard
-AI Escape Room,25,What is a GAN (Generative Adversarial Network)?,A network for data compression.,"Two networks (generator and discriminator) competing to create realistic data.",A type of supervised learning.,A data cleaning algorithm.,B,hard
-AI Escape Room,26,What is tokenization in NLP?,Encrypting text data.,Breaking text into smaller units like words or subwords.,Removing punctuation.,Translating text.,B,easy
-AI Escape Room,27,What is the purpose of a learning rate?,To control how fast data is loaded.,To control the size of weight updates during training.,To measure model accuracy.,To set the number of epochs.,B,easy
-AI Escape Room,28,What is cross-validation?,Training on multiple datasets.,A technique to assess model performance by splitting data into multiple folds.,Validating data quality.,Comparing different models.,B,hard
-AI Escape Room,29,What is feature engineering?,Building new hardware.,Creating or transforming input features to improve model performance.,Removing features from data.,Visualizing features.,B,easy
-AI Escape Room,30,What is the softmax function used for?,To reduce model size.,To convert raw scores into probabilities for multi-class classification.,To normalize input data.,To speed up training.,B,hard
-AI Escape Room,31,What is data augmentation?,Adding more servers.,Creating modified versions of training data to increase dataset size and diversity.,Removing duplicate data.,Compressing data.,B,easy
-AI Escape Room,32,What is the purpose of pooling layers in CNNs?,To increase image resolution.,"To reduce spatial dimensions and computational cost while retaining important features.",To add more layers.,To colorize images.,B,hard
-AI Escape Room,33,What is early stopping?,Ending training manually.,Stopping training when validation performance stops improving to prevent overfitting.,Starting training early.,Reducing the number of epochs.,B,easy
-AI Escape Room,34,What is a hyperparameter?,A parameter learned during training.,"A configuration setting set before training (like learning rate or batch size).",A type of neural network.,A data preprocessing step.,B,easy
-AI Escape Room,35,What is the F1 score?,The first layer's output.,The harmonic mean of precision and recall.,The training speed metric.,The number of features.,B,hard
-AI Escape Room,36,What is backpropagation?,Moving data backwards.,An algorithm to calculate gradients and update weights by propagating errors backward.,Reversing predictions.,Undoing training.,B,hard
-AI Escape Room,37,What is a confusion matrix?,A matrix that confuses the model.,"A table showing true positives, false positives, true negatives, and false negatives.",A type of neural network layer.,A data visualization tool.,B,easy
-AI Escape Room,38,What is the purpose of regularization?,To make training faster.,To prevent overfitting by adding penalties to the loss function.,To increase model size.,To clean data.,B,easy
+AI Escape Room,25,What is a GAN (Generative Adversarial Network)?,A type of supervised learning.,Two networks (generator and discriminator) competing to create realistic data.,A data cleaning algorithm.,A network for data compression.,B,hard
+AI Escape Room,26,What is tokenization in NLP?,Removing punctuation.,Translating text.,Encrypting text data.,Breaking text into smaller units like words or subwords.,D,easy
+AI Escape Room,27,What is the purpose of a learning rate?,To control how fast data is loaded.,To set the number of epochs.,To measure model accuracy.,To control the size of weight updates during training.,D,easy
+AI Escape Room,28,What is cross-validation?,Validating data quality.,Training on multiple datasets.,A technique to assess model performance by splitting data into multiple folds.,Comparing different models.,C,hard
+AI Escape Room,29,What is feature engineering?,Removing features from data.,Creating or transforming input features to improve model performance.,Visualizing features.,Building new hardware.,B,easy
+AI Escape Room,30,What is the softmax function used for?,To reduce model size.,To normalize input data.,To convert raw scores into probabilities for multi-class classification.,To speed up training.,C,hard
+AI Escape Room,31,What is data augmentation?,Creating modified versions of training data to increase dataset size and diversity.,Adding more servers.,Compressing data.,Removing duplicate data.,A,easy
+AI Escape Room,32,What is the purpose of pooling layers in CNNs?,To increase image resolution.,To colorize images.,To add more layers.,To reduce spatial dimensions and computational cost while retaining important features.,D,hard
+AI Escape Room,33,What is early stopping?,Starting training early.,Ending training manually.,Reducing the number of epochs.,Stopping training when validation performance stops improving to prevent overfitting.,D,easy
+AI Escape Room,34,What is a hyperparameter?,A parameter learned during training.,A type of neural network.,A configuration setting set before training (like learning rate or batch size).,A data preprocessing step.,C,easy
+AI Escape Room,35,What is the F1 score?,The harmonic mean of precision and recall.,The first layer's output.,The number of features.,The training speed metric.,A,hard
+AI Escape Room,36,What is backpropagation?,Reversing predictions.,Undoing training.,An algorithm to calculate gradients and update weights by propagating errors backward.,Moving data backwards.,C,hard
+AI Escape Room,37,What is a confusion matrix?,"A table showing true positives, false positives, true negatives, and false negatives.",A matrix that confuses the model.,A data visualization tool.,A type of neural network layer.,A,easy
+AI Escape Room,38,What is the purpose of regularization?,To increase model size.,To make training faster.,To prevent overfitting by adding penalties to the loss function.,To clean data.,C,easy
 AI Escape Room,39,What is a pre-trained model?,A model that failed training.,A model already trained on a large dataset that can be fine-tuned for specific tasks.,A model without weights.,A model that trains itself.,B,easy
-AI Escape Room,40,"What is the difference between AI, ML, and Deep Learning?",They are all the same thing.,"AI is the broadest concept, ML is a subset of AI, and Deep Learning is a subset of ML.","Deep Learning came first, then ML, then AI.",AI is only for robots.,B,easy
-AI Escape Room,41,What is model inference?,Training a model.,Using a trained model to make predictions on new data.,Evaluating model accuracy.,Saving model weights.,B,easy
-AI Escape Room,42,What is the purpose of batch size in training?,To set the model size.,To determine how many samples are processed before updating weights.,To control the learning rate.,To set the number of layers.,B,easy
-AI Escape Room,43,What is a latent space?,Empty space in memory.,A compressed representation of data in lower dimensions.,The final output layer.,A type of activation function.,B,hard
-AI Escape Room,44,What is the purpose of normalization in data preprocessing?,To remove data.,To scale features to a similar range for better model performance.,To add more features.,To visualize data.,B,easy
-AI Escape Room,45,What is a decision tree?,A tree-like model that makes decisions based on feature values through branching.,A neural network architecture.,A data structure for storage.,A visualization tool.,A,easy
-AI Escape Room,46,What is the curse of dimensionality?,Having too many dimensions in your office.,"As feature dimensions increase, data becomes sparse and models need exponentially more data.",When models are too small.,When training is too fast.,B,hard
-AI Escape Room,47,What is a random forest?,A forest with random trees.,An ensemble of decision trees that vote on predictions.,A single decision tree.,A data cleaning technique.,B,easy
-AI Escape Room,48,What is the purpose of an optimizer in training?,To optimize data storage.,To update model weights efficiently to minimize the loss function.,To speed up data loading.,To compress the model.,B,easy
-AI Escape Room,49,What is prompt engineering?,Building hardware for AI.,Crafting effective input prompts to get better outputs from language models.,Engineering training data.,Optimizing model architecture.,B,easy
-AI Escape Room,50,What is the difference between classification and regression?,"Classification predicts categories, regression predicts continuous values.",They are the same.,Classification is faster.,Regression only works with images.,A,easy
-ML Model Builder,1,Your training dataset has 15% missing values in a numeric column. What's a reasonable first approach?,Drop all rows with any missing value.,Impute with median or mean based on distribution.,Replace missing values with zero blindly.,Randomly fill values from another column.,B,easy
-ML Model Builder,2,"You're predicting churn (yes/no) on a tabular dataset with mixed numeric and categorical features. Baseline model?",Linear Regression,K-Means Clustering,Random Forest / Gradient Boosted Trees,PCA,C,easy
-ML Model Builder,3,Train accuracy is 0.99 but validation accuracy is 0.68. What's the most direct mitigation?,Increase model complexity further.,Add regularization / early stopping / dropout.,Remove validation split.,Train for many more epochs.,B,hard
-ML Model Builder,4,You have 500 features but only 1000 samples. What's the risk?,No risk; more features are always better.,High risk of overfitting due to curse of dimensionality.,The model will train faster.,Features don't matter for model performance.,B,hard
-ML Model Builder,5,Your model performs well on training but poorly on test data. What's happening?,The model is underfitting.,The model is overfitting.,The model is perfect.,The data is corrupted.,B,easy
+AI Escape Room,40,"What is the difference between AI, ML, and Deep Learning?","AI is the broadest concept, ML is a subset of AI, and Deep Learning is a subset of ML.","Deep Learning came first, then ML, then AI.",AI is only for robots.,They are all the same thing.,A,easy
+AI Escape Room,41,What is model inference?,Training a model.,Using a trained model to make predictions on new data.,Saving model weights.,Evaluating model accuracy.,B,easy
+AI Escape Room,42,What is the purpose of batch size in training?,To control the learning rate.,To set the number of layers.,To determine how many samples are processed before updating weights.,To set the model size.,C,easy
+AI Escape Room,43,What is a latent space?,A compressed representation of data in lower dimensions.,The final output layer.,A type of activation function.,Empty space in memory.,A,hard
+AI Escape Room,44,What is the purpose of normalization in data preprocessing?,To remove data.,To visualize data.,To scale features to a similar range for better model performance.,To add more features.,C,easy
+AI Escape Room,45,What is a decision tree?,A tree-like model that makes decisions based on feature values through branching.,A data structure for storage.,A neural network architecture.,A visualization tool.,A,easy
+AI Escape Room,46,What is the curse of dimensionality?,Having too many dimensions in your office.,When training is too fast.,When models are too small.,"As feature dimensions increase, data becomes sparse and models need exponentially more data.",D,hard
+AI Escape Room,47,What is a random forest?,A single decision tree.,A data cleaning technique.,A forest with random trees.,An ensemble of decision trees that vote on predictions.,D,easy
+AI Escape Room,48,What is the purpose of an optimizer in training?,To update model weights efficiently to minimize the loss function.,To speed up data loading.,To compress the model.,To optimize data storage.,A,easy
+AI Escape Room,49,What is prompt engineering?,Crafting effective input prompts to get better outputs from language models.,Building hardware for AI.,Engineering training data.,Optimizing model architecture.,A,easy
+AI Escape Room,50,What is the difference between classification and regression?,They are the same.,"Classification predicts categories, regression predicts continuous values.",Regression only works with images.,Classification is faster.,B,easy
+ML Model Builder,1,Your training dataset has 15% missing values in a numeric column. What's a reasonable first approach?,Randomly fill values from another column.,Replace missing values with zero blindly.,Impute with median or mean based on distribution.,Drop all rows with any missing value.,C,easy
+ML Model Builder,2,You're predicting churn (yes/no) on a tabular dataset with mixed numeric and categorical features. Baseline model?,K-Means Clustering,PCA,Linear Regression,Random Forest / Gradient Boosted Trees,D,easy
+ML Model Builder,3,Train accuracy is 0.99 but validation accuracy is 0.68. What's the most direct mitigation?,Increase model complexity further.,Remove validation split.,Train for many more epochs.,Add regularization / early stopping / dropout.,D,hard
+ML Model Builder,4,You have 500 features but only 1000 samples. What's the risk?,High risk of overfitting due to curse of dimensionality.,Features don't matter for model performance.,No risk; more features are always better.,The model will train faster.,A,hard
+ML Model Builder,5,Your model performs well on training but poorly on test data. What's happening?,The model is underfitting.,The data is corrupted.,The model is perfect.,The model is overfitting.,D,easy
 ML Model Builder,6,Which metric is best for imbalanced classification (99% negative class)?,Accuracy,F1 Score or AUC-ROC,Mean Squared Error,R-squared,B,hard
-ML Model Builder,7,What's the purpose of a train-test split?,To train faster.,To evaluate model performance on unseen data.,To reduce dataset size.,To clean data.,B,easy
-ML Model Builder,8,Your categorical feature has 1000 unique values. What's a good encoding strategy?,One-hot encode all values.,Use target encoding or embeddings.,Ignore the feature.,Convert to numeric arbitrarily.,B,hard
-ML Model Builder,9,Learning rate is too high. What symptom do you see?,Training loss oscillates or diverges.,Training is too slow.,Model accuracy is perfect.,No symptoms.,A,easy
-ML Model Builder,10,What's the benefit of using cross-validation?,Faster training.,More robust performance estimates by testing on multiple data splits.,Larger models.,Better visualizations.,B,easy
-ML Model Builder,11,Your model has high bias. What should you do?,Add more training data.,Increase model complexity.,Decrease model complexity.,Remove features.,B,easy
-ML Model Builder,12,What's the purpose of a confusion matrix?,To confuse the model.,To visualize classification performance (TP/FP/TN/FN).,To plot training loss.,To show feature importance.,B,easy
-ML Model Builder,13,You want to predict house prices. Which algorithm type?,Classification,Regression,Clustering,Dimensionality reduction,B,easy
-ML Model Builder,14,What's the purpose of feature scaling?,To make features look better.,To ensure features contribute equally to distance-based algorithms.,To remove features.,To add features.,B,easy
-ML Model Builder,15,Your gradient boosting model is overfitting. What helps?,Increase number of trees.,Reduce tree depth or add regularization.,Remove all features.,Train longer.,B,hard
-ML Model Builder,16,What's the difference between bagging and boosting?,No difference.,Bagging trains models in parallel; boosting trains sequentially focusing on errors.,Bagging is faster.,Boosting uses less memory.,B,hard
-ML Model Builder,17,What's a good first step in any ML pipeline?,Deploy the model.,Explore and understand the data (EDA).,Train immediately.,Delete outliers.,B,easy
-ML Model Builder,18,Your model predicts probabilities. How do you convert to binary predictions?,Always predict 1.,Use a threshold (typically 0.5).,Random selection.,Always predict 0.,B,easy
-ML Model Builder,19,What's the purpose of a validation set?,To train the model.,To tune hyperparameters without touching test data.,To store extra data.,To clean data.,B,easy
-ML Model Builder,20,Your time series model is leaking future information. What's the issue?,Data leakage - using future data to predict past.,The model is too good.,No issue.,The data is sorted.,A,hard
-ML Model Builder,21,What's the purpose of L1 regularization?,To make training faster.,To add penalty on absolute weights; can lead to sparse models.,To increase model size.,To remove data.,B,hard
-ML Model Builder,22,What's the purpose of L2 regularization?,To delete features.,To add penalty on squared weights; prevents large weights.,To speed up training.,To add more layers.,B,hard
-ML Model Builder,23,Your neural network isn't learning (loss stays flat). What could help?,Decrease learning rate further.,Check learning rate; try different initialization; check data.,Train longer only.,Add more layers.,B,hard
-ML Model Builder,24,What's the purpose of batch gradient descent?,To process all data at once before updating weights.,To process data in batches for efficiency.,To remove batches.,To visualize data.,B,easy
-ML Model Builder,25,What's stochastic gradient descent (SGD)?,Processing all data at once.,Updating weights after each single sample.,Never updating weights.,Random training.,B,easy
-ML Model Builder,26,Your model has high variance. What should you do?,Add more features.,Add more training data or reduce model complexity.,Remove all data.,Train longer.,B,easy
-ML Model Builder,27,What's the purpose of early stopping?,To stop training early randomly.,To stop when validation performance stops improving.,To start training early.,To never stop training.,B,easy
-ML Model Builder,28,What's a good way to handle outliers?,Always delete them.,Analyze context; consider capping/transformation or robust algorithms.,Ignore them.,Set to zero.,B,easy
-ML Model Builder,29,Your model training is very slow. What could help?,Add more features.,Use smaller batch size; use GPU; reduce model complexity.,Add more layers.,Train longer.,B,easy
-ML Model Builder,30,What's the purpose of data augmentation?,To delete data.,To artificially increase training data through transformations.,To compress data.,To visualize data.,B,easy
-ML Model Builder,31,What's transfer learning in deep learning?,Moving data between servers.,Using pre-trained model weights as starting point for new task.,Transferring ownership.,Converting frameworks.,B,easy
-ML Model Builder,32,Your classification model always predicts the majority class. What's wrong?,Perfect model.,Model hasn't learned; check learning rate/data/loss function.,Too complex.,Too simple.,B,easy
-ML Model Builder,33,What's the purpose of dropout?,To remove data.,To randomly drop neurons during training to prevent overfitting.,To speed up inference.,To reduce model size.,B,easy
-ML Model Builder,34,What's the purpose of batch normalization?,To process batches.,To normalize layer inputs for stable and faster training.,To remove batches.,To visualize batches.,B,easy
-ML Model Builder,35,Your model performs well on validation but poorly on test. What happened?,Perfect model.,Possible data leakage or validation set not representative.,Model is too simple.,Model is too complex.,B,hard
-ML Model Builder,36,What's the purpose of learning rate scheduling?,To schedule meetings.,To adjust learning rate during training for better convergence.,To schedule data loading.,To schedule model saving.,B,hard
-ML Model Builder,37,What's the purpose of momentum in optimization?,To make training slower.,To accelerate convergence by accumulating past gradients.,To stop training.,To remove gradients.,B,hard
-ML Model Builder,38,Your model has many correlated features. What could help?,Keep all features.,Use PCA or feature selection to reduce redundancy.,Add more features.,Ignore correlation.,B,hard
-ML Model Builder,39,What's the purpose of grid search?,To search for data.,To systematically search hyperparameter combinations.,To search for bugs.,To search for models.,B,easy
-ML Model Builder,40,What's the purpose of random search?,To search randomly.,To randomly sample hyperparameter combinations (often more efficient).,To search for data.,To randomize training.,B,easy
-ML Model Builder,41,Your model predictions are biased toward one class. What could help?,Ignore it.,Adjust class weights or use resampling techniques.,Remove the class.,Train longer.,B,hard
+ML Model Builder,7,What's the purpose of a train-test split?,To train faster.,To evaluate model performance on unseen data.,To clean data.,To reduce dataset size.,B,easy
+ML Model Builder,8,Your categorical feature has 1000 unique values. What's a good encoding strategy?,Convert to numeric arbitrarily.,Ignore the feature.,Use target encoding or embeddings.,One-hot encode all values.,C,hard
+ML Model Builder,9,Learning rate is too high. What symptom do you see?,Model accuracy is perfect.,No symptoms.,Training is too slow.,Training loss oscillates or diverges.,D,easy
+ML Model Builder,10,What's the benefit of using cross-validation?,Larger models.,Better visualizations.,Faster training.,More robust performance estimates by testing on multiple data splits.,D,easy
+ML Model Builder,11,Your model has high bias. What should you do?,Increase model complexity.,Decrease model complexity.,Remove features.,Add more training data.,A,easy
+ML Model Builder,12,What's the purpose of a confusion matrix?,To show feature importance.,To confuse the model.,To plot training loss.,To visualize classification performance (TP/FP/TN/FN).,D,easy
+ML Model Builder,13,You want to predict house prices. Which algorithm type?,Regression,Classification,Dimensionality reduction,Clustering,A,easy
+ML Model Builder,14,What's the purpose of feature scaling?,To make features look better.,To add features.,To ensure features contribute equally to distance-based algorithms.,To remove features.,C,easy
+ML Model Builder,15,Your gradient boosting model is overfitting. What helps?,Remove all features.,Increase number of trees.,Train longer.,Reduce tree depth or add regularization.,D,hard
+ML Model Builder,16,What's the difference between bagging and boosting?,Bagging is faster.,Boosting uses less memory.,Bagging trains models in parallel; boosting trains sequentially focusing on errors.,No difference.,C,hard
+ML Model Builder,17,What's a good first step in any ML pipeline?,Explore and understand the data (EDA).,Train immediately.,Delete outliers.,Deploy the model.,A,easy
+ML Model Builder,18,Your model predicts probabilities. How do you convert to binary predictions?,Random selection.,Always predict 1.,Use a threshold (typically 0.5).,Always predict 0.,C,easy
+ML Model Builder,19,What's the purpose of a validation set?,To train the model.,To clean data.,To store extra data.,To tune hyperparameters without touching test data.,D,easy
+ML Model Builder,20,Your time series model is leaking future information. What's the issue?,The model is too good.,No issue.,Data leakage - using future data to predict past.,The data is sorted.,C,hard
+ML Model Builder,21,What's the purpose of L1 regularization?,To increase model size.,To remove data.,To add penalty on absolute weights; can lead to sparse models.,To make training faster.,C,hard
+ML Model Builder,22,What's the purpose of L2 regularization?,To add penalty on squared weights; prevents large weights.,To add more layers.,To speed up training.,To delete features.,A,hard
+ML Model Builder,23,Your neural network isn't learning (loss stays flat). What could help?,Check learning rate; try different initialization; check data.,Decrease learning rate further.,Train longer only.,Add more layers.,A,hard
+ML Model Builder,24,What's the purpose of batch gradient descent?,To process data in batches for efficiency.,To process all data at once before updating weights.,To visualize data.,To remove batches.,A,easy
+ML Model Builder,25,What's stochastic gradient descent (SGD)?,Updating weights after each single sample.,Processing all data at once.,Random training.,Never updating weights.,A,easy
+ML Model Builder,26,Your model has high variance. What should you do?,Add more features.,Add more training data or reduce model complexity.,Train longer.,Remove all data.,B,easy
+ML Model Builder,27,What's the purpose of early stopping?,To never stop training.,To stop when validation performance stops improving.,To start training early.,To stop training early randomly.,B,easy
+ML Model Builder,28,What's a good way to handle outliers?,Always delete them.,Ignore them.,Analyze context; consider capping/transformation or robust algorithms.,Set to zero.,C,easy
+ML Model Builder,29,Your model training is very slow. What could help?,Add more layers.,Use smaller batch size; use GPU; reduce model complexity.,Train longer.,Add more features.,B,easy
+ML Model Builder,30,What's the purpose of data augmentation?,To artificially increase training data through transformations.,To visualize data.,To delete data.,To compress data.,A,easy
+ML Model Builder,31,What's transfer learning in deep learning?,Transferring ownership.,Converting frameworks.,Using pre-trained model weights as starting point for new task.,Moving data between servers.,C,easy
+ML Model Builder,32,Your classification model always predicts the majority class. What's wrong?,Too simple.,Too complex.,Perfect model.,Model hasn't learned; check learning rate/data/loss function.,D,easy
+ML Model Builder,33,What's the purpose of dropout?,To randomly drop neurons during training to prevent overfitting.,To remove data.,To reduce model size.,To speed up inference.,A,easy
+ML Model Builder,34,What's the purpose of batch normalization?,To visualize batches.,To remove batches.,To normalize layer inputs for stable and faster training.,To process batches.,C,easy
+ML Model Builder,35,Your model performs well on validation but poorly on test. What happened?,Possible data leakage or validation set not representative.,Model is too simple.,Perfect model.,Model is too complex.,A,hard
+ML Model Builder,36,What's the purpose of learning rate scheduling?,To schedule meetings.,To schedule model saving.,To schedule data loading.,To adjust learning rate during training for better convergence.,D,hard
+ML Model Builder,37,What's the purpose of momentum in optimization?,To accelerate convergence by accumulating past gradients.,To stop training.,To remove gradients.,To make training slower.,A,hard
+ML Model Builder,38,Your model has many correlated features. What could help?,Add more features.,Use PCA or feature selection to reduce redundancy.,Ignore correlation.,Keep all features.,B,hard
+ML Model Builder,39,What's the purpose of grid search?,To search for data.,To search for models.,To systematically search hyperparameter combinations.,To search for bugs.,C,easy
+ML Model Builder,40,What's the purpose of random search?,To randomly sample hyperparameter combinations (often more efficient).,To search for data.,To search randomly.,To randomize training.,A,easy
+ML Model Builder,41,Your model predictions are biased toward one class. What could help?,Ignore it.,Train longer.,Remove the class.,Adjust class weights or use resampling techniques.,D,hard
 ML Model Builder,42,What's the purpose of feature importance?,To make features important.,To identify which features contribute most to predictions.,To remove features.,To add features.,B,easy
-ML Model Builder,43,Your model is too slow for production. What could help?,Add more features.,Model compression/quantization or use simpler model.,Add more layers.,Train longer.,B,easy
-ML Model Builder,44,What's the purpose of A/B testing in ML?,To test alphabets.,To compare model performance in production with control.,To test data.,To test hardware.,B,easy
-ML Model Builder,45,Your model drifts over time in production. What's happening?,Model is perfect.,Data distribution is changing; model needs retraining.,Model is too simple.,Model is too complex.,B,hard
-ML Model Builder,46,What's the purpose of model versioning?,To count versions.,To track and manage different model iterations.,To delete models.,To compress models.,B,easy
+ML Model Builder,43,Your model is too slow for production. What could help?,Add more features.,Model compression/quantization or use simpler model.,Train longer.,Add more layers.,B,easy
+ML Model Builder,44,What's the purpose of A/B testing in ML?,To test data.,To compare model performance in production with control.,To test alphabets.,To test hardware.,B,easy
+ML Model Builder,45,Your model drifts over time in production. What's happening?,Model is perfect.,Model is too simple.,Model is too complex.,Data distribution is changing; model needs retraining.,D,hard
+ML Model Builder,46,What's the purpose of model versioning?,To count versions.,To track and manage different model iterations.,To compress models.,To delete models.,B,easy
 ML Model Builder,47,Your model has data leakage. What does this mean?,Data is leaking from servers.,Training data contains information from test data or future.,Data is corrupted.,Data is missing.,B,hard
-ML Model Builder,48,What's the purpose of feature crosses?,To delete features.,To create interaction features by combining existing features.,To cross out features.,To visualize features.,B,hard
+ML Model Builder,48,What's the purpose of feature crosses?,To visualize features.,To cross out features.,To create interaction features by combining existing features.,To delete features.,C,hard
 ML Model Builder,49,Your model needs to explain predictions. Which approach?,Use any model.,Use interpretable models (linear/tree) or SHAP/LIME.,Use more complex models.,Ignore explanations.,B,hard
-ML Model Builder,50,What's the purpose of ensemble methods?,To use one model.,To combine multiple models for better performance.,To delete models.,To compress models.,B,easy
-GenAI Prompt Arena,1,Original: 'Write code.' What is the better prompt for a production-ready function?,Write any JavaScript code you want.,"Write a Python function named `add` that takes two integers and returns their sum. Include type hints and one usage example.",Code please.,Explain life in code form.,B,easy
-GenAI Prompt Arena,2,Which instruction is best to reduce hallucination when asking about niche APIs?,If you don't know; invent an answer.,Always respond with code only.,"If you are not certain, say you are unsure and indicate what documentation I should check.",Ignore unspecified details.,C,hard
-GenAI Prompt Arena,3,Which prompt is more token-efficient while maintaining clarity?,"Please write a very detailed, comprehensive, and extremely thorough explanation...",Explain in 3 sentences:,"Tell me everything you know about this topic in great detail...",Describe this:,B,easy
-GenAI Prompt Arena,4,You want consistent JSON output. What should you include in the prompt?,Nothing specific.,Specify exact JSON structure with example.,Just ask for JSON.,Hope for the best.,B,easy
-GenAI Prompt Arena,5,Which prompt technique helps with complex tasks?,Give one vague instruction.,Break task into step-by-step instructions (chain-of-thought).,Use shortest possible prompt.,Never give examples.,B,easy
-GenAI Prompt Arena,6,How do you prevent the model from making up facts?,Encourage creativity.,Instruct to only use provided context and admit uncertainty.,Ask for detailed answers.,Use shorter prompts.,B,hard
+ML Model Builder,50,What's the purpose of ensemble methods?,To combine multiple models for better performance.,To use one model.,To compress models.,To delete models.,A,easy
+GenAI Prompt Arena,1,Original: 'Write code.' What is the better prompt for a production-ready function?,Write any JavaScript code you want.,Write a Python function named `add` that takes two integers and returns their sum. Include type hints and one usage example.,Explain life in code form.,Code please.,B,easy
+GenAI Prompt Arena,2,Which instruction is best to reduce hallucination when asking about niche APIs?,Ignore unspecified details.,"If you are not certain, say you are unsure and indicate what documentation I should check.",Always respond with code only.,If you don't know; invent an answer.,B,hard
+GenAI Prompt Arena,3,Which prompt is more token-efficient while maintaining clarity?,Describe this:,"Please write a very detailed, comprehensive, and extremely thorough explanation...",Tell me everything you know about this topic in great detail...,Explain in 3 sentences:,D,easy
+GenAI Prompt Arena,4,You want consistent JSON output. What should you include in the prompt?,Hope for the best.,Nothing specific.,Specify exact JSON structure with example.,Just ask for JSON.,C,easy
+GenAI Prompt Arena,5,Which prompt technique helps with complex tasks?,Use shortest possible prompt.,Break task into step-by-step instructions (chain-of-thought).,Give one vague instruction.,Never give examples.,B,easy
+GenAI Prompt Arena,6,How do you prevent the model from making up facts?,Instruct to only use provided context and admit uncertainty.,Encourage creativity.,Ask for detailed answers.,Use shorter prompts.,A,hard
 GenAI Prompt Arena,7,Which prompt is better for code generation?,Write code.,Write a Python function that validates email addresses using regex. Include error handling and 3 test cases.,Code something.,Make a function.,B,easy
-GenAI Prompt Arena,8,You want the model to act as an expert. What helps?,No context needed.,Provide role context: 'You are a senior data scientist...',Use simple prompts.,Avoid details.,B,easy
-GenAI Prompt Arena,9,How do you handle ambiguous prompts?,Leave them ambiguous.,Add constraints and clarify expected output format.,Make them shorter.,Remove details.,B,easy
-GenAI Prompt Arena,10,Which prompt technique improves reasoning?,Ask for immediate answer.,Ask model to 'think step by step' before answering.,Use one word prompts.,Avoid explanations.,B,hard
-GenAI Prompt Arena,11,You want creative but safe outputs. What helps?,No guidelines.,Provide clear boundaries and content guidelines.,Shortest prompt.,Maximum freedom.,B,easy
-GenAI Prompt Arena,12,How do you get consistent formatting?,Hope for consistency.,Provide explicit format template with examples.,Use vague instructions.,Never specify format.,B,easy
-GenAI Prompt Arena,13,Which prompt is better for summarization?,Summarize this.,"Summarize this article in 3 bullet points, focusing on key findings.",Make it shorter.,Condense.,B,easy
-GenAI Prompt Arena,14,You want factual accuracy. What helps?,Encourage imagination.,Request citations or references for claims.,Use creative prompts.,Avoid specifics.,B,hard
-GenAI Prompt Arena,15,How do you handle multi-step tasks?,One vague prompt.,Number steps clearly and specify output for each step.,Shortest prompt.,Combine everything.,B,easy
-GenAI Prompt Arena,16,Which prompt technique reduces bias?,Ignore bias.,Explicitly request balanced perspectives and diverse viewpoints.,Use shortest prompt.,Avoid mentioning bias.,B,hard
-GenAI Prompt Arena,17,You want specific tone. What helps?,Don't mention tone.,Specify desired tone: 'professional' or 'casual' or 'technical'.,Hope for best.,Use emojis.,B,easy
-GenAI Prompt Arena,18,How do you improve prompt clarity?,Add more ambiguity.,Use precise language and define key terms.,Make it shorter.,Remove context.,B,easy
-GenAI Prompt Arena,19,Which prompt is better for analysis?,Analyze this.,"Analyze this data for trends, outliers, and correlations. Provide 3 key insights.",Look at this.,Check this.,B,easy
-GenAI Prompt Arena,20,You want structured output. What helps?,No structure needed.,Provide clear structure template with headers/sections.,Vague instructions.,Shortest prompt.,B,easy
-GenAI Prompt Arena,21,How do you handle edge cases?,Ignore them.,Explicitly mention edge cases to consider.,Use simple prompts.,Avoid complexity.,B,hard
-GenAI Prompt Arena,22,Which prompt technique improves accuracy?,Encourage guessing.,Provide relevant context and examples.,Use shortest prompt.,Remove details.,B,easy
-GenAI Prompt Arena,23,You want concise output. What helps?,Don't specify length.,Specify word/sentence limit: 'in 50 words or less'.,Hope for brevity.,Use long prompt.,B,easy
-GenAI Prompt Arena,24,How do you get better code quality?,Just ask for code.,Specify requirements: error handling/comments/tests.,Shortest prompt.,Avoid details.,B,easy
-GenAI Prompt Arena,25,Which prompt is better for comparison?,Compare these.,"Compare A and B across these dimensions: cost, speed, accuracy. Use table format.",Look at both.,Check differences.,B,easy
-GenAI Prompt Arena,26,You want actionable advice. What helps?,Ask vaguely.,Request specific actionable steps with priorities.,Shortest prompt.,Avoid specifics.,B,easy
-GenAI Prompt Arena,27,How do you handle technical topics?,Use simple language only.,Specify technical level: 'explain for senior engineers'.,Avoid jargon.,Shortest prompt.,B,easy
-GenAI Prompt Arena,28,Which prompt technique reduces errors?,Encourage speed.,Request verification and double-checking of facts.,Shortest prompt.,Avoid details.,B,hard
-GenAI Prompt Arena,29,You want examples in output. What helps?,Don't ask for examples.,Explicitly request: 'provide 3 examples for each point'.,Hope for examples.,Shortest prompt.,B,easy
-GenAI Prompt Arena,30,How do you improve prompt specificity?,Stay vague.,Add specific constraints and success criteria.,Make shorter.,Remove context.,B,easy
-GenAI Prompt Arena,31,Which prompt is better for debugging?,Fix this code.,"Debug this Python code. Identify the error, explain why it occurs, and provide corrected version.",Make it work.,Check this.,B,easy
-GenAI Prompt Arena,32,You want balanced perspective. What helps?,Take one side.,Request pros and cons or multiple viewpoints.,Shortest prompt.,Avoid balance.,B,easy
-GenAI Prompt Arena,33,How do you handle sensitive topics?,Ignore sensitivity.,Provide ethical guidelines and request respectful approach.,Shortest prompt.,Avoid guidelines.,B,hard
-GenAI Prompt Arena,34,Which prompt technique improves relevance?,Stay general.,Provide specific context and constraints.,Shortest prompt.,Remove details.,B,easy
-GenAI Prompt Arena,35,You want prioritized output. What helps?,No prioritization.,Request ranking or prioritization: 'list in order of importance'.,Hope for order.,Shortest prompt.,B,easy
-GenAI Prompt Arena,36,How do you get better explanations?,Just ask why.,Request: 'explain like I'm 5' or 'explain with analogies'.,Shortest prompt.,Avoid details.,B,easy
-GenAI Prompt Arena,37,Which prompt is better for translation?,Translate this.,"Translate this English text to Spanish, maintaining formal tone and technical accuracy.",Convert to Spanish.,Change language.,B,easy
-GenAI Prompt Arena,38,You want iterative refinement. What helps?,One shot only.,Build on previous responses with follow-up prompts.,Start over each time.,Ignore context.,B,easy
-GenAI Prompt Arena,39,How do you handle ambiguous requirements?,Leave ambiguous.,Ask clarifying questions or make assumptions explicit.,Shortest prompt.,Guess intent.,B,hard
+GenAI Prompt Arena,8,You want the model to act as an expert. What helps?,Provide role context: 'You are a senior data scientist...',No context needed.,Use simple prompts.,Avoid details.,A,easy
+GenAI Prompt Arena,9,How do you handle ambiguous prompts?,Make them shorter.,Add constraints and clarify expected output format.,Remove details.,Leave them ambiguous.,B,easy
+GenAI Prompt Arena,10,Which prompt technique improves reasoning?,Ask for immediate answer.,Use one word prompts.,Ask model to 'think step by step' before answering.,Avoid explanations.,C,hard
+GenAI Prompt Arena,11,You want creative but safe outputs. What helps?,Provide clear boundaries and content guidelines.,Shortest prompt.,No guidelines.,Maximum freedom.,A,easy
+GenAI Prompt Arena,12,How do you get consistent formatting?,Never specify format.,Hope for consistency.,Use vague instructions.,Provide explicit format template with examples.,D,easy
+GenAI Prompt Arena,13,Which prompt is better for summarization?,Condense.,Summarize this.,"Summarize this article in 3 bullet points, focusing on key findings.",Make it shorter.,C,easy
+GenAI Prompt Arena,14,You want factual accuracy. What helps?,Use creative prompts.,Request citations or references for claims.,Encourage imagination.,Avoid specifics.,B,hard
+GenAI Prompt Arena,15,How do you handle multi-step tasks?,Combine everything.,Number steps clearly and specify output for each step.,Shortest prompt.,One vague prompt.,B,easy
+GenAI Prompt Arena,16,Which prompt technique reduces bias?,Use shortest prompt.,Ignore bias.,Avoid mentioning bias.,Explicitly request balanced perspectives and diverse viewpoints.,D,hard
+GenAI Prompt Arena,17,You want specific tone. What helps?,Specify desired tone: 'professional' or 'casual' or 'technical'.,Don't mention tone.,Hope for best.,Use emojis.,A,easy
+GenAI Prompt Arena,18,How do you improve prompt clarity?,Make it shorter.,Use precise language and define key terms.,Add more ambiguity.,Remove context.,B,easy
+GenAI Prompt Arena,19,Which prompt is better for analysis?,Check this.,"Analyze this data for trends, outliers, and correlations. Provide 3 key insights.",Look at this.,Analyze this.,B,easy
+GenAI Prompt Arena,20,You want structured output. What helps?,Shortest prompt.,No structure needed.,Vague instructions.,Provide clear structure template with headers/sections.,D,easy
+GenAI Prompt Arena,21,How do you handle edge cases?,Use simple prompts.,Explicitly mention edge cases to consider.,Ignore them.,Avoid complexity.,B,hard
+GenAI Prompt Arena,22,Which prompt technique improves accuracy?,Encourage guessing.,Remove details.,Provide relevant context and examples.,Use shortest prompt.,C,easy
+GenAI Prompt Arena,23,You want concise output. What helps?,Hope for brevity.,Specify word/sentence limit: 'in 50 words or less'.,Don't specify length.,Use long prompt.,B,easy
+GenAI Prompt Arena,24,How do you get better code quality?,Avoid details.,Just ask for code.,Specify requirements: error handling/comments/tests.,Shortest prompt.,C,easy
+GenAI Prompt Arena,25,Which prompt is better for comparison?,Look at both.,"Compare A and B across these dimensions: cost, speed, accuracy. Use table format.",Compare these.,Check differences.,B,easy
+GenAI Prompt Arena,26,You want actionable advice. What helps?,Avoid specifics.,Request specific actionable steps with priorities.,Ask vaguely.,Shortest prompt.,B,easy
+GenAI Prompt Arena,27,How do you handle technical topics?,Use simple language only.,Avoid jargon.,Specify technical level: 'explain for senior engineers'.,Shortest prompt.,C,easy
+GenAI Prompt Arena,28,Which prompt technique reduces errors?,Encourage speed.,Shortest prompt.,Avoid details.,Request verification and double-checking of facts.,D,hard
+GenAI Prompt Arena,29,You want examples in output. What helps?,Shortest prompt.,Hope for examples.,Explicitly request: 'provide 3 examples for each point'.,Don't ask for examples.,C,easy
+GenAI Prompt Arena,30,How do you improve prompt specificity?,Stay vague.,Add specific constraints and success criteria.,Remove context.,Make shorter.,B,easy
+GenAI Prompt Arena,31,Which prompt is better for debugging?,Fix this code.,Check this.,"Debug this Python code. Identify the error, explain why it occurs, and provide corrected version.",Make it work.,C,easy
+GenAI Prompt Arena,32,You want balanced perspective. What helps?,Take one side.,Avoid balance.,Request pros and cons or multiple viewpoints.,Shortest prompt.,C,easy
+GenAI Prompt Arena,33,How do you handle sensitive topics?,Ignore sensitivity.,Shortest prompt.,Provide ethical guidelines and request respectful approach.,Avoid guidelines.,C,hard
+GenAI Prompt Arena,34,Which prompt technique improves relevance?,Stay general.,Provide specific context and constraints.,Remove details.,Shortest prompt.,B,easy
+GenAI Prompt Arena,35,You want prioritized output. What helps?,No prioritization.,Hope for order.,Shortest prompt.,Request ranking or prioritization: 'list in order of importance'.,D,easy
+GenAI Prompt Arena,36,How do you get better explanations?,Just ask why.,Shortest prompt.,Avoid details.,Request: 'explain like I'm 5' or 'explain with analogies'.,D,easy
+GenAI Prompt Arena,37,Which prompt is better for translation?,Change language.,Convert to Spanish.,Translate this.,"Translate this English text to Spanish, maintaining formal tone and technical accuracy.",D,easy
+GenAI Prompt Arena,38,You want iterative refinement. What helps?,Start over each time.,Ignore context.,Build on previous responses with follow-up prompts.,One shot only.,C,easy
+GenAI Prompt Arena,39,How do you handle ambiguous requirements?,Guess intent.,Shortest prompt.,Ask clarifying questions or make assumptions explicit.,Leave ambiguous.,C,hard
 GenAI Prompt Arena,40,Which prompt technique improves completeness?,Stay brief.,Request comprehensive coverage: 'cover all aspects'.,Shortest prompt.,Avoid details.,B,easy
-GenAI Prompt Arena,41,You want specific format (markdown/JSON). What helps?,Don't specify.,Explicitly state: 'respond in markdown format' or 'JSON only'.,Hope for format.,Shortest prompt.,B,easy
-GenAI Prompt Arena,42,How do you reduce verbosity?,Accept any length.,Specify: 'be concise' or 'maximum 100 words'.,Longest prompt.,Add more details.,B,easy
-GenAI Prompt Arena,43,Which prompt is better for brainstorming?,Think of ideas.,"Generate 10 creative ideas for X, considering Y constraints.",Give suggestions.,Be creative.,B,easy
-GenAI Prompt Arena,44,You want evidence-based output. What helps?,Accept opinions.,Request: 'support claims with data or research'.,Shortest prompt.,Avoid evidence.,B,hard
-GenAI Prompt Arena,45,How do you improve prompt consistency?,Change prompts randomly.,Use templates and consistent structure across similar tasks.,Vary everything.,No patterns.,B,easy
-GenAI Prompt Arena,46,Which prompt technique reduces hallucination?,Encourage creativity.,Ground in provided documents: 'only use information from attached text'.,Shortest prompt.,Maximum freedom.,B,hard
-GenAI Prompt Arena,47,You want step-by-step guide. What helps?,Ask for guide.,Request: 'provide step-by-step guide with numbered steps'.,Shortest prompt.,Avoid structure.,B,easy
-GenAI Prompt Arena,48,How do you handle multiple outputs?,Ask once.,Request: 'provide 3 alternative approaches' or 'generate 5 variations'.,Shortest prompt.,Single output only.,B,easy
-GenAI Prompt Arena,49,Which prompt is better for evaluation?,Evaluate this.,"Evaluate this solution against criteria: efficiency, readability, scalability. Rate each 1-10.",Judge this.,Rate this.,B,easy
-GenAI Prompt Arena,50,You want model to show reasoning. What helps?,Just ask for answer.,Request: 'show your work' or 'explain reasoning step-by-step'.,Shortest prompt.,Hide reasoning.,B,hard
-Blockchain Hash Hunt,1,You see a block whose hash doesn't match the recomputed hash from its contents. What does that indicate?,The block was tampered with or corrupted.,The consensus algorithm changed.,The network is offline.,Hashes are supposed to change randomly all the time.,A,easy
-Blockchain Hash Hunt,2,Which consensus mechanism is energy-efficient and common in modern chains?,Proof of Work (PoW),Proof of Stake (PoS),Proof of Burn,Proof of Noise,B,hard
-Blockchain Hash Hunt,3,What happens if you change one character in a block's data?,Nothing changes.,"The hash changes completely, breaking the chain.",Only that block is affected.,The blockchain auto-repairs itself.,B,easy
-Blockchain Hash Hunt,4,What is a blockchain?,A single database.,A distributed ledger of linked blocks containing transactions.,A type of cryptocurrency.,A mining algorithm.,B,easy
-Blockchain Hash Hunt,5,What is the purpose of mining in Proof of Work?,To create new coins only.,To validate transactions and add blocks by solving cryptographic puzzles.,To delete old blocks.,To speed up transactions.,B,easy
-Blockchain Hash Hunt,6,What is a smart contract?,A legal document.,Self-executing code on blockchain that runs when conditions are met.,A mining algorithm.,A type of cryptocurrency.,B,easy
-Blockchain Hash Hunt,7,What is a 51% attack?,Owning 51% of coins.,Controlling majority of network hash power to manipulate blockchain.,A type of consensus.,A mining reward.,B,hard
-Blockchain Hash Hunt,8,What is the purpose of a nonce in mining?,To store data.,A number miners change to find valid hash meeting difficulty target.,To encrypt data.,To sign transactions.,B,hard
-Blockchain Hash Hunt,9,What is a merkle tree used for?,To plant trees.,To efficiently verify transaction integrity in a block.,To mine blocks.,To create wallets.,B,hard
+GenAI Prompt Arena,41,You want specific format (markdown/JSON). What helps?,Explicitly state: 'respond in markdown format' or 'JSON only'.,Don't specify.,Hope for format.,Shortest prompt.,A,easy
+GenAI Prompt Arena,42,How do you reduce verbosity?,Add more details.,Specify: 'be concise' or 'maximum 100 words'.,Accept any length.,Longest prompt.,B,easy
+GenAI Prompt Arena,43,Which prompt is better for brainstorming?,Be creative.,Give suggestions.,Think of ideas.,"Generate 10 creative ideas for X, considering Y constraints.",D,easy
+GenAI Prompt Arena,44,You want evidence-based output. What helps?,Request: 'support claims with data or research'.,Accept opinions.,Shortest prompt.,Avoid evidence.,A,hard
+GenAI Prompt Arena,45,How do you improve prompt consistency?,Vary everything.,Change prompts randomly.,Use templates and consistent structure across similar tasks.,No patterns.,C,easy
+GenAI Prompt Arena,46,Which prompt technique reduces hallucination?,Encourage creativity.,Shortest prompt.,Ground in provided documents: 'only use information from attached text'.,Maximum freedom.,C,hard
+GenAI Prompt Arena,47,You want step-by-step guide. What helps?,Shortest prompt.,Avoid structure.,Request: 'provide step-by-step guide with numbered steps'.,Ask for guide.,C,easy
+GenAI Prompt Arena,48,How do you handle multiple outputs?,Request: 'provide 3 alternative approaches' or 'generate 5 variations'.,Ask once.,Single output only.,Shortest prompt.,A,easy
+GenAI Prompt Arena,49,Which prompt is better for evaluation?,Judge this.,"Evaluate this solution against criteria: efficiency, readability, scalability. Rate each 1-10.",Evaluate this.,Rate this.,B,easy
+GenAI Prompt Arena,50,You want model to show reasoning. What helps?,Request: 'show your work' or 'explain reasoning step-by-step'.,Shortest prompt.,Hide reasoning.,Just ask for answer.,A,hard
+Blockchain Hash Hunt,1,You see a block whose hash doesn't match the recomputed hash from its contents. What does that indicate?,Hashes are supposed to change randomly all the time.,The network is offline.,The consensus algorithm changed.,The block was tampered with or corrupted.,D,easy
+Blockchain Hash Hunt,2,Which consensus mechanism is energy-efficient and common in modern chains?,Proof of Work (PoW),Proof of Noise,Proof of Burn,Proof of Stake (PoS),D,hard
+Blockchain Hash Hunt,3,What happens if you change one character in a block's data?,Only that block is affected.,"The hash changes completely, breaking the chain.",The blockchain auto-repairs itself.,Nothing changes.,B,easy
+Blockchain Hash Hunt,4,What is a blockchain?,A distributed ledger of linked blocks containing transactions.,A type of cryptocurrency.,A mining algorithm.,A single database.,A,easy
+Blockchain Hash Hunt,5,What is the purpose of mining in Proof of Work?,To validate transactions and add blocks by solving cryptographic puzzles.,To speed up transactions.,To create new coins only.,To delete old blocks.,A,easy
+Blockchain Hash Hunt,6,What is a smart contract?,A mining algorithm.,A legal document.,Self-executing code on blockchain that runs when conditions are met.,A type of cryptocurrency.,C,easy
+Blockchain Hash Hunt,7,What is a 51% attack?,A type of consensus.,Controlling majority of network hash power to manipulate blockchain.,Owning 51% of coins.,A mining reward.,B,hard
+Blockchain Hash Hunt,8,What is the purpose of a nonce in mining?,To encrypt data.,To sign transactions.,A number miners change to find valid hash meeting difficulty target.,To store data.,C,hard
+Blockchain Hash Hunt,9,What is a merkle tree used for?,To mine blocks.,To create wallets.,To plant trees.,To efficiently verify transaction integrity in a block.,D,hard
 Blockchain Hash Hunt,10,What is the difference between public and private blockchain?,No difference.,Public is permissionless; private is permissioned with restricted access.,Public is faster.,Private is more secure always.,B,easy
-Blockchain Hash Hunt,11,What is a fork in blockchain?,A utensil.,A split in blockchain creating two separate chains.,A mining tool.,A wallet type.,B,easy
-Blockchain Hash Hunt,12,What is the purpose of block height?,To measure physical height.,To indicate block's position in the chain (number of blocks before it).,To measure block size.,To count transactions.,B,easy
-Blockchain Hash Hunt,13,What is gas in Ethereum?,Fuel for cars.,Fee required to execute transactions or smart contracts.,A type of coin.,A mining algorithm.,B,easy
-Blockchain Hash Hunt,14,What is immutability in blockchain?,Blocks can be easily changed.,Once added; blocks are extremely difficult to alter or delete.,Blocks change randomly.,Blocks are temporary.,B,easy
-Blockchain Hash Hunt,15,What is a genesis block?,The last block.,The first block in a blockchain.,A special mining block.,A deleted block.,B,easy
-Blockchain Hash Hunt,16,What is double-spending?,Spending twice as much.,Spending the same cryptocurrency twice by manipulating the network.,A reward system.,A mining technique.,B,hard
-Blockchain Hash Hunt,17,What is a wallet in cryptocurrency?,A physical wallet.,Software/hardware storing private keys to access cryptocurrency.,A mining device.,A blockchain node.,B,easy
-Blockchain Hash Hunt,18,What is the purpose of a private key?,To unlock doors.,To sign transactions and prove ownership of cryptocurrency.,To mine blocks.,To create blocks.,B,easy
-Blockchain Hash Hunt,19,What is the purpose of a public key?,To open locks.,To receive cryptocurrency (like an account number).,To mine blocks.,To delete transactions.,B,easy
-Blockchain Hash Hunt,20,What is a node in blockchain?,A knot.,A computer participating in the blockchain network.,A mining algorithm.,A wallet type.,B,easy
-Blockchain Hash Hunt,21,What is consensus in blockchain?,Agreement on rules.,Mechanism for network to agree on blockchain state.,A mining reward.,A transaction type.,B,easy
-Blockchain Hash Hunt,22,What is block time?,Time to create a block.,Average time between adding new blocks to chain.,Time to mine.,Time to transact.,B,easy
-Blockchain Hash Hunt,23,What is a transaction fee?,Free transactions.,Fee paid to miners/validators for processing transactions.,A mining reward.,A block reward.,B,easy
-Blockchain Hash Hunt,24,What is decentralization in blockchain?,One central authority.,No single point of control; distributed across network.,Faster processing.,Cheaper transactions.,B,easy
-Blockchain Hash Hunt,25,What is a hard fork?,A physical fork.,Permanent divergence in blockchain; non-backward compatible.,A soft change.,A temporary split.,B,hard
-Blockchain Hash Hunt,26,What is a soft fork?,A gentle fork.,Backward-compatible blockchain upgrade.,A permanent split.,A hard change.,B,hard
-Blockchain Hash Hunt,27,What is proof of stake?,Proving ownership of stakes.,Validators chosen based on cryptocurrency holdings to create blocks.,A mining algorithm.,A transaction type.,B,easy
-Blockchain Hash Hunt,28,What is proof of work?,Proving you worked.,Miners solve computational puzzles to validate blocks.,A staking mechanism.,A wallet type.,B,easy
-Blockchain Hash Hunt,29,What is a distributed ledger?,A single ledger.,A database replicated across multiple nodes in network.,A mining tool.,A wallet type.,B,easy
-Blockchain Hash Hunt,30,What is transparency in blockchain?,Hidden transactions.,All transactions are visible to network participants.,Private data.,Encrypted everything.,B,easy
-Blockchain Hash Hunt,31,What is a cryptocurrency?,Paper money.,Digital currency using cryptography on blockchain.,A mining tool.,A consensus algorithm.,B,easy
-Blockchain Hash Hunt,32,What is Bitcoin?,A physical coin.,The first and most well-known cryptocurrency.,A blockchain platform.,A mining algorithm.,B,easy
-Blockchain Hash Hunt,33,What is Ethereum?,A type of Bitcoin.,A blockchain platform supporting smart contracts and dApps.,A mining algorithm.,A wallet type.,B,easy
-Blockchain Hash Hunt,34,What is a dApp?,A phone app.,Decentralized application running on blockchain.,A mining tool.,A wallet type.,B,easy
-Blockchain Hash Hunt,35,What is tokenization?,Creating physical tokens.,Representing real-world assets as digital tokens on blockchain.,A mining process.,A consensus mechanism.,B,easy
-Blockchain Hash Hunt,36,What is an altcoin?,Alternative coin.,Any cryptocurrency other than Bitcoin.,A mining algorithm.,A wallet type.,B,easy
-Blockchain Hash Hunt,37,What is a blockchain explorer?,A person exploring.,A tool to view and search blockchain transactions and blocks.,A mining tool.,A wallet type.,B,easy
-Blockchain Hash Hunt,38,What is finality in blockchain?,The end of blockchain.,Assurance that transaction cannot be reversed or altered.,A mining reward.,A consensus type.,B,hard
-Blockchain Hash Hunt,39,What is sharding?,Breaking glass.,Splitting blockchain into smaller pieces for scalability.,A mining technique.,A wallet type.,B,hard
-Blockchain Hash Hunt,40,What is a sidechain?,A chain on the side.,A separate blockchain connected to main chain for specific purposes.,A mining algorithm.,A wallet type.,B,hard
-Blockchain Hash Hunt,41,What is cross-chain?,Angry chain.,Technology enabling interaction between different blockchains.,A mining tool.,A consensus type.,B,hard
-Blockchain Hash Hunt,42,What is a validator?,A person who validates.,A node that verifies transactions in Proof of Stake.,A miner.,A wallet.,B,easy
-Blockchain Hash Hunt,43,What is slashing in PoS?,Cutting prices.,Penalty for validators who act maliciously or fail duties.,A reward system.,A mining technique.,B,hard
-Blockchain Hash Hunt,44,What is staking?,Placing stakes.,Locking cryptocurrency to support network and earn rewards.,A mining process.,A transaction type.,B,easy
-Blockchain Hash Hunt,45,What is a block reward?,A physical reward.,Cryptocurrency given to miner/validator for adding block.,A transaction fee.,A penalty.,B,easy
+Blockchain Hash Hunt,11,What is a fork in blockchain?,A mining tool.,A wallet type.,A split in blockchain creating two separate chains.,A utensil.,C,easy
+Blockchain Hash Hunt,12,What is the purpose of block height?,To measure block size.,To measure physical height.,To indicate block's position in the chain (number of blocks before it).,To count transactions.,C,easy
+Blockchain Hash Hunt,13,What is gas in Ethereum?,A mining algorithm.,A type of coin.,Fuel for cars.,Fee required to execute transactions or smart contracts.,D,easy
+Blockchain Hash Hunt,14,What is immutability in blockchain?,Blocks are temporary.,Blocks can be easily changed.,Once added; blocks are extremely difficult to alter or delete.,Blocks change randomly.,C,easy
+Blockchain Hash Hunt,15,What is a genesis block?,The first block in a blockchain.,The last block.,A special mining block.,A deleted block.,A,easy
+Blockchain Hash Hunt,16,What is double-spending?,A mining technique.,Spending the same cryptocurrency twice by manipulating the network.,Spending twice as much.,A reward system.,B,hard
+Blockchain Hash Hunt,17,What is a wallet in cryptocurrency?,Software/hardware storing private keys to access cryptocurrency.,A mining device.,A physical wallet.,A blockchain node.,A,easy
+Blockchain Hash Hunt,18,What is the purpose of a private key?,To sign transactions and prove ownership of cryptocurrency.,To create blocks.,To unlock doors.,To mine blocks.,A,easy
+Blockchain Hash Hunt,19,What is the purpose of a public key?,To delete transactions.,To open locks.,To receive cryptocurrency (like an account number).,To mine blocks.,C,easy
+Blockchain Hash Hunt,20,What is a node in blockchain?,A knot.,A mining algorithm.,A computer participating in the blockchain network.,A wallet type.,C,easy
+Blockchain Hash Hunt,21,What is consensus in blockchain?,Agreement on rules.,A mining reward.,A transaction type.,Mechanism for network to agree on blockchain state.,D,easy
+Blockchain Hash Hunt,22,What is block time?,Time to transact.,Time to mine.,Average time between adding new blocks to chain.,Time to create a block.,C,easy
+Blockchain Hash Hunt,23,What is a transaction fee?,A mining reward.,Free transactions.,Fee paid to miners/validators for processing transactions.,A block reward.,C,easy
+Blockchain Hash Hunt,24,What is decentralization in blockchain?,No single point of control; distributed across network.,Cheaper transactions.,One central authority.,Faster processing.,A,easy
+Blockchain Hash Hunt,25,What is a hard fork?,A temporary split.,A physical fork.,A soft change.,Permanent divergence in blockchain; non-backward compatible.,D,hard
+Blockchain Hash Hunt,26,What is a soft fork?,A permanent split.,Backward-compatible blockchain upgrade.,A hard change.,A gentle fork.,B,hard
+Blockchain Hash Hunt,27,What is proof of stake?,A transaction type.,Proving ownership of stakes.,A mining algorithm.,Validators chosen based on cryptocurrency holdings to create blocks.,D,easy
+Blockchain Hash Hunt,28,What is proof of work?,A staking mechanism.,A wallet type.,Proving you worked.,Miners solve computational puzzles to validate blocks.,D,easy
+Blockchain Hash Hunt,29,What is a distributed ledger?,A mining tool.,A wallet type.,A single ledger.,A database replicated across multiple nodes in network.,D,easy
+Blockchain Hash Hunt,30,What is transparency in blockchain?,All transactions are visible to network participants.,Private data.,Encrypted everything.,Hidden transactions.,A,easy
+Blockchain Hash Hunt,31,What is a cryptocurrency?,Paper money.,A consensus algorithm.,A mining tool.,Digital currency using cryptography on blockchain.,D,easy
+Blockchain Hash Hunt,32,What is Bitcoin?,A blockchain platform.,A mining algorithm.,The first and most well-known cryptocurrency.,A physical coin.,C,easy
+Blockchain Hash Hunt,33,What is Ethereum?,A blockchain platform supporting smart contracts and dApps.,A wallet type.,A mining algorithm.,A type of Bitcoin.,A,easy
+Blockchain Hash Hunt,34,What is a dApp?,A mining tool.,A wallet type.,A phone app.,Decentralized application running on blockchain.,D,easy
+Blockchain Hash Hunt,35,What is tokenization?,A consensus mechanism.,Representing real-world assets as digital tokens on blockchain.,A mining process.,Creating physical tokens.,B,easy
+Blockchain Hash Hunt,36,What is an altcoin?,A mining algorithm.,Any cryptocurrency other than Bitcoin.,A wallet type.,Alternative coin.,B,easy
+Blockchain Hash Hunt,37,What is a blockchain explorer?,A tool to view and search blockchain transactions and blocks.,A person exploring.,A mining tool.,A wallet type.,A,easy
+Blockchain Hash Hunt,38,What is finality in blockchain?,A mining reward.,The end of blockchain.,A consensus type.,Assurance that transaction cannot be reversed or altered.,D,hard
+Blockchain Hash Hunt,39,What is sharding?,A wallet type.,Splitting blockchain into smaller pieces for scalability.,A mining technique.,Breaking glass.,B,hard
+Blockchain Hash Hunt,40,What is a sidechain?,A mining algorithm.,A separate blockchain connected to main chain for specific purposes.,A chain on the side.,A wallet type.,B,hard
+Blockchain Hash Hunt,41,What is cross-chain?,A mining tool.,Angry chain.,Technology enabling interaction between different blockchains.,A consensus type.,C,hard
+Blockchain Hash Hunt,42,What is a validator?,A person who validates.,A miner.,A node that verifies transactions in Proof of Stake.,A wallet.,C,easy
+Blockchain Hash Hunt,43,What is slashing in PoS?,A mining technique.,Cutting prices.,Penalty for validators who act maliciously or fail duties.,A reward system.,C,hard
+Blockchain Hash Hunt,44,What is staking?,A mining process.,Placing stakes.,Locking cryptocurrency to support network and earn rewards.,A transaction type.,C,easy
+Blockchain Hash Hunt,45,What is a block reward?,A physical reward.,A transaction fee.,A penalty.,Cryptocurrency given to miner/validator for adding block.,D,easy
 Blockchain Hash Hunt,46,What is halving?,Cutting in half.,Reduction of block reward by 50% at intervals (Bitcoin).,A fork type.,A consensus change.,B,hard
-Blockchain Hash Hunt,47,What is difficulty adjustment?,Making things difficult.,Automatic adjustment of mining difficulty to maintain block time.,A reward change.,A fork type.,B,hard
-Blockchain Hash Hunt,48,What is a mempool?,A swimming pool.,Waiting area for unconfirmed transactions.,A mining pool.,A wallet type.,B,easy
-Blockchain Hash Hunt,49,What is a mining pool?,A water pool.,Group of miners combining resources to increase chances.,A single miner.,A wallet type.,B,easy
-Blockchain Hash Hunt,50,What is Byzantine Fault Tolerance?,Tolerance for faults.,System's ability to reach consensus despite malicious actors.,A mining algorithm.,A wallet type.,B,hard
-Data Cleaning Ninja,1,You see two rows with identical user_id; email; and signup_date.,Keep both rows.,Drop one as a duplicate record.,Randomly modify one of the emails.,Delete the entire table.,B,easy
-Data Cleaning Ninja,2,"Dates are in mixed formats: 2025-01-10, 10/01/2025, Jan 10 2025.",Leave them as-is.,"Convert all into a single canonical format (e.g., ISO 8601).",Store them as free text forever.,Replace with current timestamp.,B,hard
-Data Cleaning Ninja,3,"You find 'N/A', 'null', 'NULL', and empty strings all meaning missing data.",Leave them for variety.,"Standardize all to a single representation (e.g., NULL).",Delete the entire dataset.,Convert all to zero.,B,easy
-Data Cleaning Ninja,4,A numeric column has values like '$1;234.56' with currency symbols.,Leave as-is.,Remove currency symbols and convert to numeric type.,Delete the column.,Convert to text.,B,easy
-Data Cleaning Ninja,5,You find email addresses with leading/trailing spaces.,Keep the spaces.,Trim whitespace from all string fields.,Delete the emails.,Add more spaces.,B,easy
-Data Cleaning Ninja,6,Phone numbers are in different formats: (123)456-7890 vs 1234567890.,Keep all formats.,Standardize to one format.,Delete phone numbers.,Randomize formats.,B,easy
-Data Cleaning Ninja,7,You find outliers: ages of 0; 150; and 999.,Keep all values.,Investigate and handle based on context (cap/remove/impute).,Delete all ages.,Set all to average.,B,easy
-Data Cleaning Ninja,8,Column names have spaces and special characters.,Keep them.,Rename to snake_case or camelCase without special chars.,Delete columns.,Add more special characters.,B,easy
-Data Cleaning Ninja,9,You find duplicate column names.,Keep duplicates.,Rename to make unique.,Delete all duplicates.,Merge columns.,B,easy
-Data Cleaning Ninja,10,Text fields have inconsistent casing: 'USA' vs 'usa' vs 'Usa'.,Keep variety.,Standardize casing (all upper or all lower).,Delete the field.,Randomize casing.,B,easy
-Data Cleaning Ninja,11,You find negative values in a 'quantity sold' column.,Keep negatives.,Investigate; may indicate returns or data errors.,Delete all negatives.,Convert to positive.,B,easy
-Data Cleaning Ninja,12,Categorical field has typos: 'Californa' vs 'California'.,Keep typos.,Fix typos and standardize categories.,Delete the field.,Add more typos.,B,easy
-Data Cleaning Ninja,13,You find future dates in historical data.,Keep them.,Flag as errors and investigate source.,Delete all dates.,Change to past dates.,B,hard
-Data Cleaning Ninja,14,Numeric IDs are stored as strings.,Keep as strings.,Convert to appropriate numeric type.,Delete IDs.,Add letters to IDs.,B,easy
+Blockchain Hash Hunt,47,What is difficulty adjustment?,A reward change.,Making things difficult.,Automatic adjustment of mining difficulty to maintain block time.,A fork type.,C,hard
+Blockchain Hash Hunt,48,What is a mempool?,Waiting area for unconfirmed transactions.,A wallet type.,A mining pool.,A swimming pool.,A,easy
+Blockchain Hash Hunt,49,What is a mining pool?,A wallet type.,A water pool.,Group of miners combining resources to increase chances.,A single miner.,C,easy
+Blockchain Hash Hunt,50,What is Byzantine Fault Tolerance?,A mining algorithm.,A wallet type.,System's ability to reach consensus despite malicious actors.,Tolerance for faults.,C,hard
+Data Cleaning Ninja,1,You see two rows with identical user_id; email; and signup_date.,Keep both rows.,Randomly modify one of the emails.,Delete the entire table.,Drop one as a duplicate record.,D,easy
+Data Cleaning Ninja,2,"Dates are in mixed formats: 2025-01-10, 10/01/2025, Jan 10 2025.",Store them as free text forever.,Leave them as-is.,Replace with current timestamp.,"Convert all into a single canonical format (e.g., ISO 8601).",D,hard
+Data Cleaning Ninja,3,"You find 'N/A', 'null', 'NULL', and empty strings all meaning missing data.",Delete the entire dataset.,Leave them for variety.,Convert all to zero.,"Standardize all to a single representation (e.g., NULL).",D,easy
+Data Cleaning Ninja,4,A numeric column has values like '$1;234.56' with currency symbols.,Remove currency symbols and convert to numeric type.,Delete the column.,Leave as-is.,Convert to text.,A,easy
+Data Cleaning Ninja,5,You find email addresses with leading/trailing spaces.,Keep the spaces.,Delete the emails.,Trim whitespace from all string fields.,Add more spaces.,C,easy
+Data Cleaning Ninja,6,Phone numbers are in different formats: (123)456-7890 vs 1234567890.,Standardize to one format.,Keep all formats.,Randomize formats.,Delete phone numbers.,A,easy
+Data Cleaning Ninja,7,You find outliers: ages of 0; 150; and 999.,Keep all values.,Delete all ages.,Set all to average.,Investigate and handle based on context (cap/remove/impute).,D,easy
+Data Cleaning Ninja,8,Column names have spaces and special characters.,Keep them.,Delete columns.,Add more special characters.,Rename to snake_case or camelCase without special chars.,D,easy
+Data Cleaning Ninja,9,You find duplicate column names.,Keep duplicates.,Merge columns.,Delete all duplicates.,Rename to make unique.,D,easy
+Data Cleaning Ninja,10,Text fields have inconsistent casing: 'USA' vs 'usa' vs 'Usa'.,Delete the field.,Randomize casing.,Keep variety.,Standardize casing (all upper or all lower).,D,easy
+Data Cleaning Ninja,11,You find negative values in a 'quantity sold' column.,Delete all negatives.,Keep negatives.,Convert to positive.,Investigate; may indicate returns or data errors.,D,easy
+Data Cleaning Ninja,12,Categorical field has typos: 'Californa' vs 'California'.,Fix typos and standardize categories.,Delete the field.,Keep typos.,Add more typos.,A,easy
+Data Cleaning Ninja,13,You find future dates in historical data.,Keep them.,Change to past dates.,Delete all dates.,Flag as errors and investigate source.,D,hard
+Data Cleaning Ninja,14,Numeric IDs are stored as strings.,Keep as strings.,Delete IDs.,Convert to appropriate numeric type.,Add letters to IDs.,C,easy
 Data Cleaning Ninja,15,You find records with all fields empty except ID.,Keep empty records.,Remove records with insufficient data.,Fill with random data.,Duplicate other records.,B,easy
-Data Cleaning Ninja,16,Boolean field has values: true; false; 1; 0; yes; no; Y; N.,Keep variety.,Standardize to consistent boolean representation.,Delete the field.,Add more variations.,B,easy
-Data Cleaning Ninja,17,You find impossible combinations: Male + Pregnant = Yes.,Keep the data.,Flag as data quality issue and investigate.,Delete all records.,Ignore the issue.,B,hard
-Data Cleaning Ninja,18,Timestamps are in different timezones.,Keep mixed timezones.,Convert all to UTC or single timezone.,Delete timestamps.,Randomize timezones.,B,easy
-Data Cleaning Ninja,19,You find special characters in numeric fields: '1;234' or '1 234'.,Keep them.,Remove separators and convert to numeric.,Delete the field.,Add more characters.,B,easy
-Data Cleaning Ninja,20,Column has 95% missing values.,Keep the column.,Consider dropping column or investigating why data is missing.,Fill with zeros.,Duplicate other columns.,B,hard
-Data Cleaning Ninja,21,You find encoded values without documentation: A; B; C.,Keep as-is.,Document or decode values; or flag for clarification.,Delete the column.,Add more codes.,B,hard
-Data Cleaning Ninja,22,Text fields have HTML tags: <b>text</b>.,Keep HTML.,Strip HTML tags to get clean text.,Delete the field.,Add more HTML.,B,easy
-Data Cleaning Ninja,23,You find negative ages or ages over 120.,Keep all ages.,Cap at reasonable range or flag as errors.,Delete all ages.,Set to average.,B,easy
-Data Cleaning Ninja,24,Decimal values have inconsistent precision: 1.2 vs 1.234567.,Keep variety.,Standardize to consistent decimal places.,Delete the field.,Randomize precision.,B,easy
-Data Cleaning Ninja,25,You find placeholder values: 'TBD'; 'N/A'; 'Unknown'.,Keep placeholders.,Convert to NULL or standard missing value indicator.,Delete records.,Add more placeholders.,B,easy
-Data Cleaning Ninja,26,Column has mixed data types: numbers and text.,Keep mixed.,Separate into appropriate columns or standardize type.,Delete the column.,Add more variety.,B,hard
-Data Cleaning Ninja,27,You find leading zeros in numeric codes: 00123.,Keep leading zeros.,Preserve as string if meaningful; else convert to number.,Delete the field.,Remove all zeros.,B,hard
-Data Cleaning Ninja,28,Text has multiple spaces between words.,Keep spaces.,Normalize to single space between words.,Delete the text.,Add more spaces.,B,easy
-Data Cleaning Ninja,29,You find records from year 1900 in recent data.,Keep old dates.,Investigate if data error or legitimate historical data.,Delete all old dates.,Change to current year.,B,hard
-Data Cleaning Ninja,30,Column has percentage values: some with % symbol; some without.,Keep variety.,Standardize format and convert to decimal.,Delete the column.,Add % to all.,B,easy
-Data Cleaning Ninja,31,You find non-ASCII characters in text fields.,Keep them.,Decide to keep/remove based on requirements; handle encoding.,Delete all text.,Convert to ASCII only.,B,easy
-Data Cleaning Ninja,32,Numeric field has comma as decimal separator: 1;234.,Keep as-is.,Convert to standard decimal point notation.,Delete the field.,Add more commas.,B,easy
-Data Cleaning Ninja,33,You find records with creation_date after last_modified_date.,Keep them.,Flag as logical inconsistency and investigate.,Delete records.,Swap the dates.,B,hard
-Data Cleaning Ninja,34,Column has mixed units: some in kg; some in lbs.,Keep mixed units.,Convert all to single unit system.,Delete the column.,Add more units.,B,hard
-Data Cleaning Ninja,35,You find exact duplicate rows (all fields identical).,Keep duplicates.,Remove duplicate rows; keep one.,Delete all.,Modify one field.,B,easy
-Data Cleaning Ninja,36,Text fields have line breaks and tabs.,Keep them.,Normalize whitespace or preserve based on requirements.,Delete the text.,Add more breaks.,B,easy
-Data Cleaning Ninja,37,You find negative prices in sales data.,Keep negatives.,Investigate; may indicate refunds or errors.,Delete all prices.,Convert to positive.,B,easy
-Data Cleaning Ninja,38,Column has scientific notation: 1.23E+05.,Keep notation.,Convert to standard decimal format if needed.,Delete the column.,Add more notation.,B,easy
-Data Cleaning Ninja,39,You find inconsistent abbreviations: 'St' vs 'Street' vs 'st'.,Keep variety.,Standardize abbreviations.,Delete addresses.,Add more variations.,B,easy
-Data Cleaning Ninja,40,Categorical field has too many unique values (high cardinality).,Keep all values.,Group into broader categories or use encoding techniques.,Delete the field.,Add more values.,B,hard
-Data Cleaning Ninja,41,You find records with end_date before start_date.,Keep them.,Flag as logical error and investigate.,Delete records.,Swap the dates.,B,hard
+Data Cleaning Ninja,16,Boolean field has values: true; false; 1; 0; yes; no; Y; N.,Delete the field.,Add more variations.,Standardize to consistent boolean representation.,Keep variety.,C,easy
+Data Cleaning Ninja,17,You find impossible combinations: Male + Pregnant = Yes.,Delete all records.,Flag as data quality issue and investigate.,Keep the data.,Ignore the issue.,B,hard
+Data Cleaning Ninja,18,Timestamps are in different timezones.,Delete timestamps.,Randomize timezones.,Keep mixed timezones.,Convert all to UTC or single timezone.,D,easy
+Data Cleaning Ninja,19,You find special characters in numeric fields: '1;234' or '1 234'.,Add more characters.,Delete the field.,Remove separators and convert to numeric.,Keep them.,C,easy
+Data Cleaning Ninja,20,Column has 95% missing values.,Fill with zeros.,Consider dropping column or investigating why data is missing.,Duplicate other columns.,Keep the column.,B,hard
+Data Cleaning Ninja,21,You find encoded values without documentation: A; B; C.,Delete the column.,Document or decode values; or flag for clarification.,Add more codes.,Keep as-is.,B,hard
+Data Cleaning Ninja,22,Text fields have HTML tags: <b>text</b>.,Delete the field.,Keep HTML.,Strip HTML tags to get clean text.,Add more HTML.,C,easy
+Data Cleaning Ninja,23,You find negative ages or ages over 120.,Cap at reasonable range or flag as errors.,Keep all ages.,Set to average.,Delete all ages.,A,easy
+Data Cleaning Ninja,24,Decimal values have inconsistent precision: 1.2 vs 1.234567.,Standardize to consistent decimal places.,Delete the field.,Keep variety.,Randomize precision.,A,easy
+Data Cleaning Ninja,25,You find placeholder values: 'TBD'; 'N/A'; 'Unknown'.,Convert to NULL or standard missing value indicator.,Delete records.,Add more placeholders.,Keep placeholders.,A,easy
+Data Cleaning Ninja,26,Column has mixed data types: numbers and text.,Delete the column.,Add more variety.,Keep mixed.,Separate into appropriate columns or standardize type.,D,hard
+Data Cleaning Ninja,27,You find leading zeros in numeric codes: 00123.,Delete the field.,Remove all zeros.,Preserve as string if meaningful; else convert to number.,Keep leading zeros.,C,hard
+Data Cleaning Ninja,28,Text has multiple spaces between words.,Normalize to single space between words.,Keep spaces.,Add more spaces.,Delete the text.,A,easy
+Data Cleaning Ninja,29,You find records from year 1900 in recent data.,Delete all old dates.,Investigate if data error or legitimate historical data.,Change to current year.,Keep old dates.,B,hard
+Data Cleaning Ninja,30,Column has percentage values: some with % symbol; some without.,Delete the column.,Add % to all.,Standardize format and convert to decimal.,Keep variety.,C,easy
+Data Cleaning Ninja,31,You find non-ASCII characters in text fields.,Keep them.,Convert to ASCII only.,Delete all text.,Decide to keep/remove based on requirements; handle encoding.,D,easy
+Data Cleaning Ninja,32,Numeric field has comma as decimal separator: 1;234.,Add more commas.,Convert to standard decimal point notation.,Delete the field.,Keep as-is.,B,easy
+Data Cleaning Ninja,33,You find records with creation_date after last_modified_date.,Swap the dates.,Flag as logical inconsistency and investigate.,Keep them.,Delete records.,B,hard
+Data Cleaning Ninja,34,Column has mixed units: some in kg; some in lbs.,Add more units.,Convert all to single unit system.,Delete the column.,Keep mixed units.,B,hard
+Data Cleaning Ninja,35,You find exact duplicate rows (all fields identical).,Modify one field.,Keep duplicates.,Remove duplicate rows; keep one.,Delete all.,C,easy
+Data Cleaning Ninja,36,Text fields have line breaks and tabs.,Delete the text.,Add more breaks.,Normalize whitespace or preserve based on requirements.,Keep them.,C,easy
+Data Cleaning Ninja,37,You find negative prices in sales data.,Keep negatives.,Delete all prices.,Convert to positive.,Investigate; may indicate refunds or errors.,D,easy
+Data Cleaning Ninja,38,Column has scientific notation: 1.23E+05.,Convert to standard decimal format if needed.,Add more notation.,Keep notation.,Delete the column.,A,easy
+Data Cleaning Ninja,39,You find inconsistent abbreviations: 'St' vs 'Street' vs 'st'.,Standardize abbreviations.,Keep variety.,Delete addresses.,Add more variations.,A,easy
+Data Cleaning Ninja,40,Categorical field has too many unique values (high cardinality).,Group into broader categories or use encoding techniques.,Keep all values.,Delete the field.,Add more values.,A,hard
+Data Cleaning Ninja,41,You find records with end_date before start_date.,Keep them.,Flag as logical error and investigate.,Swap the dates.,Delete records.,B,hard
 Data Cleaning Ninja,42,Column has mixed case in codes: 'ABC123' vs 'abc123'.,Keep mixed case.,Standardize to upper or lower case.,Delete the column.,Randomize case.,B,easy
-Data Cleaning Ninja,43,You find ZIP codes with and without leading zeros: 01234 vs 1234.,Keep variety.,Preserve as string with leading zeros.,Delete ZIP codes.,Remove all zeros.,B,hard
-Data Cleaning Ninja,44,Text has URLs and email addresses mixed with content.,Keep mixed.,Extract URLs/emails to separate fields or remove.,Delete all text.,Add more URLs.,B,easy
-Data Cleaning Ninja,45,You find records with impossible dates: Feb 30.,Keep them.,Flag as invalid and investigate source.,Delete all dates.,Change to valid date.,B,hard
-Data Cleaning Ninja,46,Column has values in different languages.,Keep mixed languages.,Standardize to one language or separate by language.,Delete the column.,Add more languages.,B,hard
-Data Cleaning Ninja,47,You find negative durations or time values.,Keep negatives.,Investigate and correct based on context.,Delete all times.,Convert to positive.,B,easy
-Data Cleaning Ninja,48,Numeric field has values like 'N/A' mixed with numbers.,Keep mixed.,Separate text and numeric; convert N/A to NULL.,Delete the field.,Convert N/A to zero.,B,easy
-Data Cleaning Ninja,49,You find records with all caps text: 'JOHN SMITH'.,Keep all caps.,Convert to proper case based on requirements.,Delete the text.,Add more caps.,B,easy
-Data Cleaning Ninja,50,Column has inconsistent null representations across rows.,Keep variety.,Standardize all null representations to single format.,Delete the column.,Add more variations.,B,easy
-Schema Validator Lab,1,"Schema requires user_id (INT, NOT NULL, PK). You see rows with NULL user_id. What's the issue?","No issue, PKs can be NULL.",Violation of PK and NOT NULL constraint.,Just a formatting concern.,Only a performance warning.,B,easy
-Schema Validator Lab,2,"Your app reads column created_at, but the DB schema changed it to created_timestamp. What is this called?",Schema drift / breaking change.,Data cleaning.,Index optimization.,Query normalization.,A,hard
-Schema Validator Lab,3,A foreign key references a non-existent primary key. What's the issue?,"No issue, foreign keys are optional.",Referential integrity violation - data inconsistency.,Just a warning; not an error.,The database will auto-create the missing key.,B,hard
-Schema Validator Lab,4,Column defined as VARCHAR(10) receives 50-character string. What happens?,Stored completely.,Truncated or error depending on database settings.,Automatically expands.,Converts to number.,B,easy
-Schema Validator Lab,5,Schema expects NOT NULL but application sends NULL. What's the issue?,No problem.,Constraint violation - insert/update will fail.,Just a warning.,Database fills with default.,B,easy
-Schema Validator Lab,6,You add a new required column without default value. What happens to existing rows?,No issue.,Existing rows violate NOT NULL; migration fails or needs default.,Automatically filled.,Rows deleted.,B,hard
-Schema Validator Lab,7,Schema has UNIQUE constraint but duplicate values inserted. What happens?,Both stored.,Constraint violation - second insert fails.,First one deleted.,Both merged.,B,easy
-Schema Validator Lab,8,Column type changed from INT to VARCHAR. What's the risk?,No risk.,Data type mismatch; queries may break; performance impact.,Faster queries.,Better storage.,B,hard
-Schema Validator Lab,9,Schema has CHECK constraint (age > 0) but negative value inserted. What happens?,Value stored.,Constraint violation - insert fails.,Value converted to positive.,Constraint ignored.,B,easy
+Data Cleaning Ninja,43,You find ZIP codes with and without leading zeros: 01234 vs 1234.,Preserve as string with leading zeros.,Delete ZIP codes.,Remove all zeros.,Keep variety.,A,hard
+Data Cleaning Ninja,44,Text has URLs and email addresses mixed with content.,Extract URLs/emails to separate fields or remove.,Keep mixed.,Delete all text.,Add more URLs.,A,easy
+Data Cleaning Ninja,45,You find records with impossible dates: Feb 30.,Delete all dates.,Keep them.,Flag as invalid and investigate source.,Change to valid date.,C,hard
+Data Cleaning Ninja,46,Column has values in different languages.,Delete the column.,Keep mixed languages.,Standardize to one language or separate by language.,Add more languages.,C,hard
+Data Cleaning Ninja,47,You find negative durations or time values.,Investigate and correct based on context.,Keep negatives.,Convert to positive.,Delete all times.,A,easy
+Data Cleaning Ninja,48,Numeric field has values like 'N/A' mixed with numbers.,Convert N/A to zero.,Delete the field.,Keep mixed.,Separate text and numeric; convert N/A to NULL.,D,easy
+Data Cleaning Ninja,49,You find records with all caps text: 'JOHN SMITH'.,Convert to proper case based on requirements.,Add more caps.,Keep all caps.,Delete the text.,A,easy
+Data Cleaning Ninja,50,Column has inconsistent null representations across rows.,Keep variety.,Delete the column.,Add more variations.,Standardize all null representations to single format.,D,easy
+Schema Validator Lab,1,"Schema requires user_id (INT, NOT NULL, PK). You see rows with NULL user_id. What's the issue?","No issue, PKs can be NULL.",Violation of PK and NOT NULL constraint.,Only a performance warning.,Just a formatting concern.,B,easy
+Schema Validator Lab,2,"Your app reads column created_at, but the DB schema changed it to created_timestamp. What is this called?",Query normalization.,Data cleaning.,Schema drift / breaking change.,Index optimization.,C,hard
+Schema Validator Lab,3,A foreign key references a non-existent primary key. What's the issue?,Just a warning; not an error.,"No issue, foreign keys are optional.",Referential integrity violation - data inconsistency.,The database will auto-create the missing key.,C,hard
+Schema Validator Lab,4,Column defined as VARCHAR(10) receives 50-character string. What happens?,Automatically expands.,Truncated or error depending on database settings.,Converts to number.,Stored completely.,B,easy
+Schema Validator Lab,5,Schema expects NOT NULL but application sends NULL. What's the issue?,Database fills with default.,No problem.,Constraint violation - insert/update will fail.,Just a warning.,C,easy
+Schema Validator Lab,6,You add a new required column without default value. What happens to existing rows?,Rows deleted.,Automatically filled.,Existing rows violate NOT NULL; migration fails or needs default.,No issue.,C,hard
+Schema Validator Lab,7,Schema has UNIQUE constraint but duplicate values inserted. What happens?,Constraint violation - second insert fails.,Both merged.,First one deleted.,Both stored.,A,easy
+Schema Validator Lab,8,Column type changed from INT to VARCHAR. What's the risk?,No risk.,Better storage.,Faster queries.,Data type mismatch; queries may break; performance impact.,D,hard
+Schema Validator Lab,9,Schema has CHECK constraint (age > 0) but negative value inserted. What happens?,Value stored.,Constraint ignored.,Constraint violation - insert fails.,Value converted to positive.,C,easy
 Schema Validator Lab,10,You drop a column that application code still references. What happens?,No issue.,Runtime errors when code tries to access missing column.,Column recreated.,Code auto-updates.,B,easy
-Schema Validator Lab,11,Schema has index on column but queries don't use it. What's the issue?,Index is broken.,Query not optimized; may need query rewrite or different index.,Index is perfect.,No issue.,B,hard
-Schema Validator Lab,12,Two tables have circular foreign key dependencies. What's the risk?,No risk.,Complex to maintain; can cause insertion/deletion issues.,Faster queries.,Better integrity.,B,hard
-Schema Validator Lab,13,Schema allows NULL in foreign key column. Is this valid?,Never valid.,Valid; NULL means no relationship.,Always invalid.,Depends on moon phase.,B,easy
-Schema Validator Lab,14,Column has DEFAULT value but application always provides value. What happens?,Error occurs.,Default never used; no issue but redundant.,Default overrides application.,Database crashes.,B,easy
-Schema Validator Lab,15,Schema has composite primary key but application treats single column as PK. What's the risk?,No risk.,Data integrity issues; duplicates possible.,Faster queries.,Better performance.,B,hard
-Schema Validator Lab,16,You rename a table without updating application code. What happens?,No issue.,Application errors when trying to access old table name.,Table auto-renames back.,Code auto-updates.,B,easy
-Schema Validator Lab,17,Schema has ON DELETE CASCADE but application expects manual deletion. What's the risk?,No risk.,Unexpected data deletion when parent record deleted.,Faster deletions.,Better integrity.,B,hard
-Schema Validator Lab,18,Column precision changed from DECIMAL(10;2) to DECIMAL(10;4). What's the impact?,No impact.,More precision stored; existing data unchanged; queries may need update.,Data corrupted.,Performance worse.,B,easy
-Schema Validator Lab,19,Schema has trigger but application doesn't account for it. What's the risk?,No risk.,Unexpected side effects; data changes application doesn't expect.,Faster operations.,Better data.,B,hard
-Schema Validator Lab,20,You add index on large text column. What's the consideration?,Always good.,May impact write performance; consider partial index.,Always bad.,No impact.,B,hard
-Schema Validator Lab,21,Schema has ENUM type but application sends value not in list. What happens?,Value stored.,Insert fails with constraint violation.,Value converted.,ENUM expands.,B,easy
-Schema Validator Lab,22,Two schemas (dev and prod) are out of sync. What's the risk?,No risk.,Code works in dev but fails in prod; deployment issues.,Faster development.,Better testing.,B,hard
-Schema Validator Lab,23,Schema has auto-increment PK but application manually sets values. What's the risk?,No risk.,Sequence conflicts; duplicate key errors possible.,Faster inserts.,Better control.,B,hard
-Schema Validator Lab,24,Column has index but low cardinality (few unique values). What's the impact?,Always beneficial.,Index may not be used; limited benefit.,Always harmful.,No impact.,B,hard
-Schema Validator Lab,25,Schema allows very long VARCHAR but typical data is short. What's the consideration?,Perfect design.,May waste space; consider appropriate length.,Always wrong.,No impact.,B,easy
-Schema Validator Lab,26,You change column from NULL to NOT NULL without data migration. What happens?,No issue.,Existing NULL rows cause constraint violation.,NULLs auto-convert.,Column unchanged.,B,easy
-Schema Validator Lab,27,Schema has many-to-many relationship without junction table. What's the issue?,No issue.,Cannot properly model relationship; data integrity problems.,Faster queries.,Simpler design.,B,easy
-Schema Validator Lab,28,Column stores JSON but schema doesn't validate structure. What's the risk?,No risk.,Invalid JSON stored; application errors when parsing.,Faster storage.,Better flexibility.,B,hard
-Schema Validator Lab,29,Schema has timestamp without timezone info. What's the risk?,No risk.,Ambiguity in multi-timezone applications; data interpretation issues.,Faster queries.,Smaller storage.,B,hard
-Schema Validator Lab,30,You add column with same name as reserved keyword. What happens?,No issue.,May require quoting in queries; potential syntax errors.,Auto-renamed.,Database crashes.,B,easy
+Schema Validator Lab,11,Schema has index on column but queries don't use it. What's the issue?,Index is perfect.,No issue.,Query not optimized; may need query rewrite or different index.,Index is broken.,C,hard
+Schema Validator Lab,12,Two tables have circular foreign key dependencies. What's the risk?,Faster queries.,Better integrity.,No risk.,Complex to maintain; can cause insertion/deletion issues.,D,hard
+Schema Validator Lab,13,Schema allows NULL in foreign key column. Is this valid?,Valid; NULL means no relationship.,Never valid.,Depends on moon phase.,Always invalid.,A,easy
+Schema Validator Lab,14,Column has DEFAULT value but application always provides value. What happens?,Default never used; no issue but redundant.,Default overrides application.,Database crashes.,Error occurs.,A,easy
+Schema Validator Lab,15,Schema has composite primary key but application treats single column as PK. What's the risk?,Faster queries.,Data integrity issues; duplicates possible.,Better performance.,No risk.,B,hard
+Schema Validator Lab,16,You rename a table without updating application code. What happens?,Application errors when trying to access old table name.,No issue.,Code auto-updates.,Table auto-renames back.,A,easy
+Schema Validator Lab,17,Schema has ON DELETE CASCADE but application expects manual deletion. What's the risk?,Unexpected data deletion when parent record deleted.,No risk.,Faster deletions.,Better integrity.,A,hard
+Schema Validator Lab,18,Column precision changed from DECIMAL(10;2) to DECIMAL(10;4). What's the impact?,More precision stored; existing data unchanged; queries may need update.,Performance worse.,No impact.,Data corrupted.,A,easy
+Schema Validator Lab,19,Schema has trigger but application doesn't account for it. What's the risk?,Better data.,Faster operations.,No risk.,Unexpected side effects; data changes application doesn't expect.,D,hard
+Schema Validator Lab,20,You add index on large text column. What's the consideration?,May impact write performance; consider partial index.,No impact.,Always good.,Always bad.,A,hard
+Schema Validator Lab,21,Schema has ENUM type but application sends value not in list. What happens?,Insert fails with constraint violation.,Value stored.,Value converted.,ENUM expands.,A,easy
+Schema Validator Lab,22,Two schemas (dev and prod) are out of sync. What's the risk?,No risk.,Better testing.,Faster development.,Code works in dev but fails in prod; deployment issues.,D,hard
+Schema Validator Lab,23,Schema has auto-increment PK but application manually sets values. What's the risk?,Faster inserts.,Sequence conflicts; duplicate key errors possible.,Better control.,No risk.,B,hard
+Schema Validator Lab,24,Column has index but low cardinality (few unique values). What's the impact?,Index may not be used; limited benefit.,No impact.,Always beneficial.,Always harmful.,A,hard
+Schema Validator Lab,25,Schema allows very long VARCHAR but typical data is short. What's the consideration?,Always wrong.,May waste space; consider appropriate length.,Perfect design.,No impact.,B,easy
+Schema Validator Lab,26,You change column from NULL to NOT NULL without data migration. What happens?,Existing NULL rows cause constraint violation.,NULLs auto-convert.,Column unchanged.,No issue.,A,easy
+Schema Validator Lab,27,Schema has many-to-many relationship without junction table. What's the issue?,Cannot properly model relationship; data integrity problems.,Simpler design.,No issue.,Faster queries.,A,easy
+Schema Validator Lab,28,Column stores JSON but schema doesn't validate structure. What's the risk?,Invalid JSON stored; application errors when parsing.,Faster storage.,Better flexibility.,No risk.,A,hard
+Schema Validator Lab,29,Schema has timestamp without timezone info. What's the risk?,Ambiguity in multi-timezone applications; data interpretation issues.,Faster queries.,No risk.,Smaller storage.,A,hard
+Schema Validator Lab,30,You add column with same name as reserved keyword. What happens?,May require quoting in queries; potential syntax errors.,Auto-renamed.,Database crashes.,No issue.,A,easy
 Schema Validator Lab,31,Schema has no primary key on table. What's the issue?,Perfectly fine.,Cannot uniquely identify rows; update/delete ambiguity.,Faster inserts.,Smaller storage.,B,easy
-Schema Validator Lab,32,Column stores currency but uses FLOAT type. What's the risk?,Perfect choice.,Precision errors in calculations; use DECIMAL instead.,Faster calculations.,Smaller storage.,B,hard
-Schema Validator Lab,33,Schema has redundant data (denormalization) without update strategy. What's the risk?,No risk.,Data inconsistency when updates miss some copies.,Faster queries always.,Simpler design.,B,hard
-Schema Validator Lab,34,You change column order in schema. Does it affect application?,Always breaks application.,Usually no impact unless using SELECT * or positional access.,Never affects anything.,Always improves performance.,B,easy
-Schema Validator Lab,35,Schema has view but underlying table structure changed. What happens?,View auto-updates.,View may break or return incorrect results.,No impact.,View deleted.,B,hard
-Schema Validator Lab,36,Column has CHECK constraint but database doesn't enforce it. What's the risk?,No risk.,Invalid data can be inserted; data integrity compromised.,Faster inserts.,Better performance.,B,hard
-Schema Validator Lab,37,Schema uses CHAR instead of VARCHAR for variable-length data. What's the impact?,Perfect choice.,Wasted space with padding; consider VARCHAR.,Always better.,No difference.,B,easy
-Schema Validator Lab,38,You add NOT NULL constraint to column with existing NULLs. What happens?,Constraint added successfully.,Constraint addition fails; must handle NULLs first.,NULLs auto-convert.,Column deleted.,B,easy
-Schema Validator Lab,39,Schema has cascading foreign keys creating circular dependency. What's the risk?,No risk.,Deletion/update operations may fail or cause unexpected cascades.,Faster operations.,Better integrity.,B,hard
-Schema Validator Lab,40,Column stores dates as strings (YYYY-MM-DD). What's the issue?,Perfect design.,Cannot use date functions; sorting issues; use DATE type.,Faster storage.,More flexible.,B,easy
-Schema Validator Lab,41,Schema has index on every column. What's the impact?,Always beneficial.,Slower writes; wasted space; only index what's needed.,Always harmful.,No impact.,B,easy
-Schema Validator Lab,42,You change column from UNIQUE to non-unique. What's the impact on existing data?,Data deleted.,No impact on existing data; future duplicates allowed.,Data duplicated.,Constraint remains.,B,easy
-Schema Validator Lab,43,Schema has no foreign key constraints but application assumes relationships. What's the risk?,No risk.,Orphaned records; referential integrity not enforced.,Faster operations.,Simpler design.,B,hard
-Schema Validator Lab,44,Column defined as BOOLEAN but stores 0/1/NULL. Is this valid?,Invalid always.,Valid in most databases; NULL means unknown.,Valid only with NULL.,Never valid.,B,easy
-Schema Validator Lab,45,Schema has materialized view but refresh strategy undefined. What's the risk?,No risk.,Stale data; queries return outdated results.,Faster queries always.,Better performance.,B,hard
-Schema Validator Lab,46,You add column with default value. Do existing rows get the default?,Yes always.,Depends on database; usually only new rows.,No never.,Rows deleted.,B,hard
-Schema Validator Lab,47,Schema has TEXT column with index. What's the consideration?,Always good.,May need prefix index; full-text index for search.,Always bad.,No impact.,B,hard
-Schema Validator Lab,48,Column stores boolean as VARCHAR ('true'/'false'). What's the issue?,Perfect design.,Inefficient storage; use BOOLEAN type; validation issues.,Faster queries.,More flexible.,B,easy
-Schema Validator Lab,49,Schema has multiple nullable columns in composite key. What's the consideration?,No issue.,NULL handling in keys is complex; consider design.,Always invalid.,Always valid.,B,hard
-Schema Validator Lab,50,You change column collation. What's the impact?,No impact.,Affects sorting and comparison; may break queries/indexes.,Always breaks everything.,Always improves performance.,B,hard
-Query Optimizer Race,1,"Table orders has an index on customer_id. Which query is likely faster?",SELECT * FROM orders WHERE customer_id = 42;,SELECT * FROM orders WHERE amount + 10 > 1000;,A,A,easy
-Query Optimizer Race,2,"You're joining large orders with small customers. Which join order is typically better?",SELECT * FROM orders o JOIN customers c ON o.customer_id = c.id;,SELECT * FROM customers c JOIN orders o ON o.customer_id = c.id;,A,A,hard
-Query Optimizer Race,3,Which query avoids full table scan?,SELECT * FROM users WHERE UPPER(email) = 'TEST@EXAMPLE.COM';,SELECT * FROM users WHERE email = 'test@example.com';,B,B,easy
-Query Optimizer Race,4,Which query is more efficient for counting?,SELECT COUNT(*) FROM orders;,SELECT COUNT(order_id) FROM orders;,A,A,easy
-Query Optimizer Race,5,Which query benefits from index on status?,SELECT * FROM orders WHERE status = 'pending';,SELECT * FROM orders WHERE status LIKE '%pending%';,A,A,easy
-Query Optimizer Race,6,Which query is faster for pagination?,SELECT * FROM products LIMIT 10 OFFSET 1000000;,SELECT * FROM products WHERE id > last_seen_id LIMIT 10;,B,B,hard
-Query Optimizer Race,7,Which query avoids sorting?,SELECT * FROM orders ORDER BY created_at;,SELECT * FROM orders;,B,B,easy
-Query Optimizer Race,8,Which query is more efficient?,SELECT * FROM orders WHERE order_date >= '2024-01-01' AND order_date < '2024-02-01';,SELECT * FROM orders WHERE MONTH(order_date) = 1 AND YEAR(order_date) = 2024;,A,A,hard
-Query Optimizer Race,9,Which query uses index better?,SELECT * FROM products WHERE price BETWEEN 10 AND 20;,SELECT * FROM products WHERE price >= 10 AND price <= 20;,A,A,easy
-Query Optimizer Race,10,Which JOIN type is typically fastest?,INNER JOIN,CROSS JOIN,A,A,easy
-Query Optimizer Race,11,Which query avoids filesort?,SELECT * FROM orders WHERE status = 'pending' ORDER BY id;,SELECT * FROM orders WHERE status = 'pending' ORDER BY created_at;,A,A,hard
-Query Optimizer Race,12,Which query is more efficient for EXISTS check?,SELECT * FROM orders WHERE customer_id IN (SELECT id FROM customers);,SELECT * FROM orders WHERE EXISTS (SELECT 1 FROM customers WHERE id = orders.customer_id);,B,B,hard
-Query Optimizer Race,13,Which query benefits from covering index?,SELECT id; name FROM products WHERE category = 'electronics';,SELECT * FROM products WHERE category = 'electronics';,A,A,hard
-Query Optimizer Race,14,Which query is faster for distinct values?,SELECT DISTINCT category FROM products;,SELECT category FROM products GROUP BY category;,A,A,easy
-Query Optimizer Race,15,Which query avoids table scan?,SELECT * FROM orders WHERE id = 123;,SELECT * FROM orders WHERE id != 123;,A,A,easy
-Query Optimizer Race,16,Which query is more efficient?,SELECT COUNT(*) FROM orders WHERE status = 'pending';,SELECT SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) FROM orders;,A,A,easy
-Query Optimizer Race,17,Which query uses index on composite key (last_name; first_name)?,SELECT * FROM users WHERE last_name = 'Smith';,SELECT * FROM users WHERE first_name = 'John';,A,A,hard
-Query Optimizer Race,18,Which query is faster for NULL checks?,SELECT * FROM orders WHERE customer_id IS NULL;,SELECT * FROM orders WHERE customer_id = NULL;,A,A,easy
-Query Optimizer Race,19,Which query avoids implicit conversion?,SELECT * FROM orders WHERE order_id = 123;,SELECT * FROM orders WHERE order_id = '123';,A,A,hard
-Query Optimizer Race,20,Which query is more efficient for range?,SELECT * FROM orders WHERE created_at > '2024-01-01';,SELECT * FROM orders WHERE created_at >= '2024-01-01 00:00:01';,A,A,easy
-Query Optimizer Race,21,Which query benefits from index?,SELECT * FROM products WHERE price > 100 ORDER BY price;,SELECT * FROM products WHERE price > 100 ORDER BY name;,A,A,hard
-Query Optimizer Race,22,Which query is faster?,SELECT * FROM orders LIMIT 10;,SELECT TOP 10 * FROM orders;,A,A,easy
-Query Optimizer Race,23,Which query avoids subquery?,SELECT * FROM orders WHERE customer_id = (SELECT id FROM customers WHERE email = 'test@example.com');,SELECT o.* FROM orders o JOIN customers c ON o.customer_id = c.id WHERE c.email = 'test@example.com';,B,B,hard
-Query Optimizer Race,24,Which query is more efficient?,SELECT * FROM orders WHERE status IN ('pending'; 'processing');,SELECT * FROM orders WHERE status = 'pending' OR status = 'processing';,A,A,easy
-Query Optimizer Race,25,Which query uses index better?,SELECT * FROM products WHERE name LIKE 'Apple%';,SELECT * FROM products WHERE name LIKE '%Apple%';,A,A,easy
-Query Optimizer Race,26,Which query is faster for aggregation?,SELECT customer_id; COUNT(*) FROM orders GROUP BY customer_id;,SELECT customer_id; (SELECT COUNT(*) FROM orders o2 WHERE o2.customer_id = o1.customer_id) FROM orders o1;,A,A,easy
-Query Optimizer Race,27,Which query avoids full scan?,SELECT * FROM orders WHERE created_at = '2024-01-01';,SELECT * FROM orders WHERE DATE(created_at) = '2024-01-01';,A,A,hard
-Query Optimizer Race,28,Which query is more efficient?,SELECT * FROM orders WHERE customer_id IS NOT NULL;,SELECT * FROM orders WHERE customer_id <> NULL;,A,A,easy
-Query Optimizer Race,29,Which query benefits from index?,SELECT * FROM products WHERE category = 'electronics' AND price > 100;,SELECT * FROM products WHERE price > 100 OR category = 'electronics';,A,A,hard
-Query Optimizer Race,30,Which query is faster?,SELECT * FROM orders WHERE id IN (1; 2; 3);,SELECT * FROM orders WHERE id = 1 OR id = 2 OR id = 3;,A,A,easy
-Query Optimizer Race,31,Which query avoids sorting?,SELECT * FROM orders WHERE status = 'pending' ORDER BY id DESC;,SELECT * FROM orders WHERE status = 'pending' ORDER BY created_at DESC;,A,A,hard
-Query Optimizer Race,32,Which query is more efficient?,SELECT * FROM orders o WHERE o.total > (SELECT AVG(total) FROM orders);,WITH avg_total AS (SELECT AVG(total) as avg FROM orders) SELECT * FROM orders; avg_total WHERE total > avg;,B,B,hard
-Query Optimizer Race,33,Which query uses index better?,SELECT * FROM products WHERE price = 99.99;,SELECT * FROM products WHERE ABS(price - 99.99) < 0.01;,A,A,hard
-Query Optimizer Race,34,Which query is faster?,SELECT * FROM orders WHERE customer_id = 123 AND status = 'pending';,SELECT * FROM orders WHERE status = 'pending' AND customer_id = 123;,A,A,easy
-Query Optimizer Race,35,Which query avoids filesort?,SELECT * FROM orders WHERE status = 'pending' ORDER BY id LIMIT 10;,SELECT * FROM orders ORDER BY created_at LIMIT 10;,A,A,hard
-Query Optimizer Race,36,Which query is more efficient?,SELECT DISTINCT customer_id FROM orders;,SELECT customer_id FROM orders GROUP BY customer_id;,A,A,easy
-Query Optimizer Race,37,Which query benefits from index?,SELECT COUNT(*) FROM orders WHERE created_at > '2024-01-01';,SELECT COUNT(*) FROM orders WHERE YEAR(created_at) = 2024;,A,A,hard
-Query Optimizer Race,38,Which query is faster?,SELECT * FROM orders WHERE status = 'pending' LIMIT 100;,SELECT * FROM orders LIMIT 100;,B,B,easy
-Query Optimizer Race,39,Which query avoids table scan?,SELECT * FROM orders WHERE customer_id IN (SELECT id FROM customers WHERE active = 1);,SELECT o.* FROM orders o WHERE EXISTS (SELECT 1 FROM customers c WHERE c.id = o.customer_id AND c.active = 1);,B,B,hard
-Query Optimizer Race,40,Which query is more efficient?,SELECT * FROM orders WHERE total BETWEEN 100 AND 200;,SELECT * FROM orders WHERE total >= 100 AND total <= 200;,A,A,easy
-Query Optimizer Race,41,Which query uses index better?,SELECT * FROM products WHERE category = 'electronics' ORDER BY price;,SELECT * FROM products ORDER BY price WHERE category = 'electronics';,A,A,hard
-Query Optimizer Race,42,Which query is faster?,SELECT * FROM orders WHERE customer_id = 123;,SELECT * FROM orders WHERE customer_id LIKE '123';,A,A,easy
-Query Optimizer Race,43,Which query avoids implicit conversion?,SELECT * FROM orders WHERE created_at = '2024-01-01';,SELECT * FROM orders WHERE created_at = 20240101;,A,A,hard
-Query Optimizer Race,44,Which query is more efficient?,SELECT * FROM orders WHERE status != 'cancelled';,SELECT * FROM orders WHERE status IN ('pending'; 'processing'; 'completed');,B,B,hard
-Query Optimizer Race,45,Which query benefits from index?,SELECT * FROM products WHERE name = 'iPhone';,SELECT * FROM products WHERE LOWER(name) = 'iphone';,A,A,easy
-Query Optimizer Race,46,Which query is faster?,SELECT * FROM orders o JOIN customers c ON o.customer_id = c.id WHERE c.country = 'USA';,SELECT * FROM orders WHERE customer_id IN (SELECT id FROM customers WHERE country = 'USA');,A,A,hard
-Query Optimizer Race,47,Which query avoids full scan?,SELECT * FROM orders WHERE id > 1000 AND id < 2000;,SELECT * FROM orders WHERE id BETWEEN 1000 AND 2000;,B,B,easy
-Query Optimizer Race,48,Which query is more efficient?,SELECT * FROM orders WHERE customer_id IS NOT NULL AND status = 'pending';,SELECT * FROM orders WHERE status = 'pending' AND customer_id IS NOT NULL;,A,A,easy
-Query Optimizer Race,49,Which query uses index better?,SELECT * FROM products WHERE price > 100 AND category = 'electronics';,SELECT * FROM products WHERE category = 'electronics' AND price > 100;,B,B,hard
-Query Optimizer Race,50,Which query is faster?,SELECT * FROM orders WHERE created_at >= CURRENT_DATE;,SELECT * FROM orders WHERE DATE(created_at) = CURRENT_DATE;,A,A,hard
+Schema Validator Lab,32,Column stores currency but uses FLOAT type. What's the risk?,Precision errors in calculations; use DECIMAL instead.,Perfect choice.,Smaller storage.,Faster calculations.,A,hard
+Schema Validator Lab,33,Schema has redundant data (denormalization) without update strategy. What's the risk?,Faster queries always.,Simpler design.,Data inconsistency when updates miss some copies.,No risk.,C,hard
+Schema Validator Lab,34,You change column order in schema. Does it affect application?,Always improves performance.,Always breaks application.,Never affects anything.,Usually no impact unless using SELECT * or positional access.,D,easy
+Schema Validator Lab,35,Schema has view but underlying table structure changed. What happens?,View may break or return incorrect results.,View auto-updates.,No impact.,View deleted.,A,hard
+Schema Validator Lab,36,Column has CHECK constraint but database doesn't enforce it. What's the risk?,Invalid data can be inserted; data integrity compromised.,Better performance.,Faster inserts.,No risk.,A,hard
+Schema Validator Lab,37,Schema uses CHAR instead of VARCHAR for variable-length data. What's the impact?,No difference.,Perfect choice.,Always better.,Wasted space with padding; consider VARCHAR.,D,easy
+Schema Validator Lab,38,You add NOT NULL constraint to column with existing NULLs. What happens?,Constraint added successfully.,NULLs auto-convert.,Constraint addition fails; must handle NULLs first.,Column deleted.,C,easy
+Schema Validator Lab,39,Schema has cascading foreign keys creating circular dependency. What's the risk?,Better integrity.,No risk.,Deletion/update operations may fail or cause unexpected cascades.,Faster operations.,C,hard
+Schema Validator Lab,40,Column stores dates as strings (YYYY-MM-DD). What's the issue?,Faster storage.,Cannot use date functions; sorting issues; use DATE type.,Perfect design.,More flexible.,B,easy
+Schema Validator Lab,41,Schema has index on every column. What's the impact?,Always beneficial.,No impact.,Always harmful.,Slower writes; wasted space; only index what's needed.,D,easy
+Schema Validator Lab,42,You change column from UNIQUE to non-unique. What's the impact on existing data?,No impact on existing data; future duplicates allowed.,Data duplicated.,Constraint remains.,Data deleted.,A,easy
+Schema Validator Lab,43,Schema has no foreign key constraints but application assumes relationships. What's the risk?,No risk.,Orphaned records; referential integrity not enforced.,Simpler design.,Faster operations.,B,hard
+Schema Validator Lab,44,Column defined as BOOLEAN but stores 0/1/NULL. Is this valid?,Valid in most databases; NULL means unknown.,Never valid.,Invalid always.,Valid only with NULL.,A,easy
+Schema Validator Lab,45,Schema has materialized view but refresh strategy undefined. What's the risk?,Stale data; queries return outdated results.,Faster queries always.,No risk.,Better performance.,A,hard
+Schema Validator Lab,46,You add column with default value. Do existing rows get the default?,Rows deleted.,Depends on database; usually only new rows.,Yes always.,No never.,B,hard
+Schema Validator Lab,47,Schema has TEXT column with index. What's the consideration?,Always bad.,No impact.,May need prefix index; full-text index for search.,Always good.,C,hard
+Schema Validator Lab,48,Column stores boolean as VARCHAR ('true'/'false'). What's the issue?,More flexible.,Perfect design.,Faster queries.,Inefficient storage; use BOOLEAN type; validation issues.,D,easy
+Schema Validator Lab,49,Schema has multiple nullable columns in composite key. What's the consideration?,Always invalid.,No issue.,NULL handling in keys is complex; consider design.,Always valid.,C,hard
+Schema Validator Lab,50,You change column collation. What's the impact?,Affects sorting and comparison; may break queries/indexes.,No impact.,Always improves performance.,Always breaks everything.,A,hard
+Crypto-for-Data Puzzle,1,Which key should remain secret in a standard public-key encryption scheme?,Public key,Both keys must be public,Neither; keys are irrelevant,Private key,D,easy
+Crypto-for-Data Puzzle,2,You compute SHA-256 over a file. What property are you primarily using?,Random number generation,Reversibility,Collision resistance and integrity checking,Encryption,C,hard
+Crypto-for-Data Puzzle,3,What's the main difference between encryption and hashing?,Encryption is reversible; hashing is one-way.,Encryption only works on text.,They're the same thing.,Hashing is faster but less secure.,A,easy
+Crypto-for-Data Puzzle,4,What is symmetric encryption?,Using no keys.,Using different keys for encryption and decryption.,Using three keys.,Using the same key for both encryption and decryption.,D,easy
+Crypto-for-Data Puzzle,5,What is asymmetric encryption?,Using no encryption.,Using symmetric keys.,Using public and private key pair.,Using same key for both operations.,C,easy
+Crypto-for-Data Puzzle,6,What is a digital signature used for?,To verify authenticity and integrity of digital messages.,To sign documents physically.,To encrypt data.,To compress files.,A,easy
+Crypto-for-Data Puzzle,7,What is a salt in password hashing?,A seasoning.,A hash function.,A type of encryption.,Random data added to password before hashing to prevent rainbow table attacks.,D,hard
+Crypto-for-Data Puzzle,8,What is the purpose of a nonce in cryptography?,To make sense.,A number used once to prevent replay attacks.,A type of key.,An encryption algorithm.,B,hard
+Crypto-for-Data Puzzle,9,What is AES?,A hash function.,Advanced Encryption Standard - symmetric encryption algorithm.,A car brand.,An asymmetric algorithm.,B,easy
+Crypto-for-Data Puzzle,10,What is RSA?,A symmetric algorithm.,Asymmetric encryption algorithm using public/private keys.,A government agency.,A hash function.,B,easy
+Crypto-for-Data Puzzle,11,What is a hash collision?,Two different inputs producing the same hash output.,A key exchange method.,Two hashes colliding physically.,A type of encryption.,A,hard
+Crypto-for-Data Puzzle,12,What is the purpose of HTTPS?,To cache pages.,To encrypt communication between browser and server.,To make websites faster.,To compress data.,B,easy
+Crypto-for-Data Puzzle,13,What is a certificate authority (CA)?,A government office.,An encryption algorithm.,Trusted entity that issues digital certificates.,A hash function.,C,easy
+Crypto-for-Data Puzzle,14,What is end-to-end encryption?,Encryption at endpoints only.,Encryption where only communicating parties can read messages.,Partial encryption.,No encryption.,B,easy
+Crypto-for-Data Puzzle,15,What is a rainbow table?,A colorful table.,An encryption method.,Precomputed table of hash values for password cracking.,A key storage system.,C,hard
+Crypto-for-Data Puzzle,16,What is key exchange?,Exchanging physical keys.,A hash function.,A type of encryption.,Process of securely sharing encryption keys between parties.,D,easy
+Crypto-for-Data Puzzle,17,What is Diffie-Hellman?,A hash function.,An encryption algorithm.,Key exchange protocol for secure key sharing.,A person's name only.,C,hard
+Crypto-for-Data Puzzle,18,What is a cipher?,A hash function.,A secret code.,Algorithm for encryption and decryption.,A key type.,C,easy
+Crypto-for-Data Puzzle,19,What is plaintext?,Compressed data.,Plain text format.,Encrypted data.,Unencrypted readable data.,D,easy
+Crypto-for-Data Puzzle,20,What is ciphertext?,Text about ciphers.,Encrypted data that appears random.,Unencrypted data.,Compressed data.,B,easy
+Crypto-for-Data Puzzle,21,What is a brute force attack?,A hash function.,Trying all possible keys/passwords until finding the right one.,A type of encryption.,Physical force.,B,easy
+Crypto-for-Data Puzzle,22,What is key length's impact on security?,Length doesn't matter.,Shorter is better.,Longer keys generally provide stronger security.,No impact.,C,easy
+Crypto-for-Data Puzzle,23,What is a man-in-the-middle attack?,Attacker intercepts communication between two parties.,A type of encryption.,A hash function.,A person standing in middle.,A,easy
+Crypto-for-Data Puzzle,24,What is perfect forward secrecy?,An encryption standard.,A type of hash.,Perfect encryption.,Session keys not compromised even if long-term keys are.,D,hard
+Crypto-for-Data Puzzle,25,What is a block cipher?,Encrypts streams.,A hash function.,Blocking ciphers.,Encrypts data in fixed-size blocks.,D,easy
+Crypto-for-Data Puzzle,26,What is a stream cipher?,A hash function.,Encrypts data one bit/byte at a time.,Streaming video.,Encrypts blocks.,B,easy
+Crypto-for-Data Puzzle,27,What is initialization vector (IV)?,A hash function.,Random value used with encryption to ensure uniqueness.,A type of key.,A starting vector.,B,hard
+Crypto-for-Data Puzzle,28,What is padding in encryption?,Adding cushions.,Compressing data.,Adding extra data to reach required block size.,Removing data.,C,easy
+Crypto-for-Data Puzzle,29,What is a cryptographic hash function?,One-way function producing fixed-size output from any input.,A function that hashes.,A two-way function.,An encryption method.,A,easy
+Crypto-for-Data Puzzle,30,What is MD5?,An encryption algorithm.,A key type.,Hash function (now considered weak for security).,A vitamin.,C,easy
+Crypto-for-Data Puzzle,31,What is SHA?,A key exchange.,An encryption method.,A sound.,Secure Hash Algorithm family.,D,easy
+Crypto-for-Data Puzzle,32,What is a key derivation function (KDF)?,Deriving keys from locks.,An encryption algorithm.,A hash function.,Function to derive cryptographic keys from passwords.,D,hard
+Crypto-for-Data Puzzle,33,What is PBKDF2?,A robot name.,An encryption algorithm.,A hash function.,Password-Based Key Derivation Function 2.,D,hard
+Crypto-for-Data Puzzle,34,What is bcrypt?,Password hashing function designed to be slow.,A key exchange.,A currency.,An encryption algorithm.,A,hard
+Crypto-for-Data Puzzle,35,What is a timing attack?,Exploiting time differences in operations to extract secrets.,Attacking at specific time.,A hash function.,A type of encryption.,A,hard
+Crypto-for-Data Puzzle,36,What is authenticated encryption?,Encryption that also verifies data integrity and authenticity.,No authentication.,Encryption with authentication.,Simple encryption.,A,hard
+Crypto-for-Data Puzzle,37,What is GCM mode?,A key type.,A hash function.,Galois/Counter Mode - authenticated encryption mode.,A car mode.,C,hard
+Crypto-for-Data Puzzle,38,What is a key management system?,An encryption algorithm.,Managing physical keys.,System for securely generating/storing/distributing cryptographic keys.,A hash function.,C,easy
+Crypto-for-Data Puzzle,39,What is key rotation?,Regularly changing encryption keys for security.,Rotating keys physically.,A hash function.,A type of encryption.,A,easy
+Crypto-for-Data Puzzle,40,What is a hardware security module (HSM)?,Software only.,A computer module.,Physical device for managing and storing cryptographic keys.,A hash function.,C,hard
+Crypto-for-Data Puzzle,41,What is quantum-resistant cryptography?,Cryptography designed to withstand quantum computer attacks.,Resisting quantum physics.,A hash function.,Current encryption.,A,hard
+Crypto-for-Data Puzzle,42,What is a side-channel attack?,A hash function.,A type of encryption.,Exploiting physical implementation (power/timing/EM) to extract secrets.,Attacking from the side.,C,hard
+Crypto-for-Data Puzzle,43,What is homomorphic encryption?,Similar encryption.,Standard encryption.,Encryption allowing computation on encrypted data without decrypting.,A hash function.,C,hard
+Crypto-for-Data Puzzle,44,What is zero-knowledge proof?,Proving nothing.,A hash function.,Proving knowledge of secret without revealing the secret itself.,Revealing everything.,C,hard
+Crypto-for-Data Puzzle,45,What is a cryptographic protocol?,An encryption algorithm.,A hash function.,Set of rules for secure communication using cryptography.,A medical protocol.,C,easy
+Crypto-for-Data Puzzle,46,What is TLS?,A hash function.,A disease.,Transport Layer Security - protocol for secure communication.,An encryption algorithm.,C,easy
+Crypto-for-Data Puzzle,47,What is a replay attack?,A hash function.,Reusing captured valid data transmission maliciously.,A type of encryption.,Replaying videos.,B,easy
+Crypto-for-Data Puzzle,48,What is key escrow?,Storing encryption keys with third party for recovery.,Escrow service.,A type of encryption.,A hash function.,A,hard
+Crypto-for-Data Puzzle,49,What is steganography?,Hiding messages within other non-secret data.,A hash function.,Encryption method.,Study of dinosaurs.,A,hard
+Crypto-for-Data Puzzle,50,What is a cryptographic primitive?,Basic cryptographic algorithm used as building block.,A complete protocol.,An advanced system.,A primitive tool.,A,hard
+Query Optimizer Race,1,Table orders has an index on customer_id. Which query is likely faster?,SELECT * FROM orders WHERE customer_id = 42;,SELECT * FROM orders WHERE amount + 10 > 1000;,Both are equally fast.,Neither will work.,A,easy
+Query Optimizer Race,2,You're joining large orders with small customers. Which approach is typically better?,Start with the larger table and use index on join column.,Start with the smaller table always.,Join order doesn't matter.,Avoid joins entirely.,A,hard
+Query Optimizer Race,3,Which SQL operation is generally most expensive?,SELECT with indexed WHERE clause,Full table scan with complex JOIN and no indexes,Simple INSERT statement,SELECT COUNT(*) with index,B,easy
+Query Optimizer Race,4,What does EXPLAIN or EXPLAIN ANALYZE do?,Deletes the query plan.,Shows the execution plan and how the database will run the query.,Speeds up the query.,Creates an index.,B,easy
+Query Optimizer Race,5,When should you use an index?,On columns frequently used in WHERE clauses and JOINs.,On every column.,Never use indexes.,Only on primary keys.,A,easy
+Query Optimizer Race,6,What is a covering index?,An index that includes all columns needed by a query.,An index that covers the entire table.,A backup index.,An index on the primary key only.,A,hard
+Query Optimizer Race,7,Which is faster for finding one row by primary key?,Index seek,Full table scan,Hash join,Nested loop without index,A,easy
+Query Optimizer Race,8,What causes index fragmentation?,Frequent inserts/updates/deletes causing scattered data.,Too many SELECT queries.,Using too few indexes.,Reading data too fast.,A,hard
+Query Optimizer Race,9,When might a full table scan be faster than an index scan?,When selecting most rows from a small table.,Never.,When the table has many indexes.,When using primary key.,A,hard
+Query Optimizer Race,10,What is query plan caching?,Storing execution plans for reuse to avoid re-optimization.,Caching query results.,Storing queries in memory.,Deleting old queries.,A,easy
+Query Optimizer Race,11,Which JOIN type typically performs best with proper indexes?,INNER JOIN with indexed columns.,CROSS JOIN.,Cartesian product.,Subquery in SELECT.,A,easy
+Query Optimizer Race,12,What is the N+1 query problem?,Executing N additional queries for N rows instead of one efficient query.,Having N+1 tables.,Using N+1 indexes.,Running queries N+1 times.,A,hard
+Query Optimizer Race,13,How can you optimize SELECT * queries?,Select only needed columns instead of *.,Always use SELECT *.,Add more indexes.,Use DISTINCT.,A,easy
+Query Optimizer Race,14,What is query parallelization?,Splitting query execution across multiple CPU cores.,Running queries one at a time.,Duplicating queries.,Slowing down queries.,A,hard
+Query Optimizer Race,15,Which is more efficient for large result sets?,Pagination with LIMIT/OFFSET or keyset pagination.,Fetching all rows at once.,Using SELECT *.,Avoiding WHERE clauses.,A,easy
+Query Optimizer Race,16,What is index selectivity?,How well an index narrows down results (high = better).,The number of indexes.,Index size.,Index creation time.,A,hard
+Query Optimizer Race,17,When should you use EXISTS vs IN?,EXISTS for large subqueries; IN for small lists.,Always use IN.,Always use EXISTS.,They're identical.,A,hard
+Query Optimizer Race,18,What is a composite index?,An index on multiple columns.,An index made of other indexes.,A temporary index.,An index on one column.,A,easy
+Query Optimizer Race,19,How does ORDER BY affect performance?,Can be slow without index on sort column; may require filesort.,ORDER BY is always fast.,ORDER BY doesn't affect performance.,ORDER BY creates indexes.,A,easy
+Query Optimizer Race,20,What is query rewriting?,Optimizer transforming query to more efficient form.,Manually editing queries.,Deleting queries.,Copying queries.,A,hard
+Query Optimizer Race,21,Which aggregation is typically fastest?,COUNT(*) with proper index.,AVG() on unindexed column.,SUM() with GROUP BY on large table.,Complex nested aggregations.,A,easy
+Query Optimizer Race,22,What is a hash join?,Join using hash table for matching rows; good for large unsorted data.,Join using nested loops.,Join using indexes only.,Join using sorting.,A,hard
+Query Optimizer Race,23,When is UNION ALL faster than UNION?,When you don't need to remove duplicates.,Never.,When there are duplicates.,When tables are small.,A,easy
+Query Optimizer Race,24,What is predicate pushdown?,Moving filter conditions closer to data source for early filtering.,Pushing queries to another server.,Delaying filter execution.,Removing predicates.,A,hard
+Query Optimizer Race,25,How can subqueries affect performance?,Correlated subqueries can be slow; consider JOINs or CTEs.,Subqueries are always fast.,Subqueries don't affect performance.,Always use subqueries.,A,hard
+Query Optimizer Race,26,What is the benefit of prepared statements for performance?,Query plan can be cached and reused.,No performance benefit.,Slower than regular queries.,Only for security.,A,easy
+Query Optimizer Race,27,Which is faster for checking existence?,EXISTS (stops at first match).,COUNT(*) > 0.,SELECT * and check rows.,DISTINCT query.,A,easy
+Query Optimizer Race,28,What is partition pruning?,Optimizer skipping irrelevant partitions based on query conditions.,Deleting partitions.,Creating new partitions.,Merging partitions.,A,hard
+Query Optimizer Race,29,How does DISTINCT affect performance?,Can be slow; requires sorting or hashing to remove duplicates.,DISTINCT is always fast.,No performance impact.,DISTINCT speeds up queries.,A,easy
+Query Optimizer Race,30,What is a materialized view?,Pre-computed query results stored for fast access.,A regular view.,A temporary table.,An index type.,A,hard
+Query Optimizer Race,31,When should you denormalize data?,When read performance is critical and joins are expensive.,Always denormalize.,Never denormalize.,Only for small tables.,A,hard
+Query Optimizer Race,32,What is connection pooling?,Reusing database connections to avoid connection overhead.,Creating new connections each time.,Pooling queries.,Caching results.,A,easy
+Query Optimizer Race,33,Which is more efficient for bulk inserts?,Batch INSERT with multiple rows.,Individual INSERT for each row.,Using SELECT INTO.,Using UPDATE.,A,easy
+Query Optimizer Race,34,What is query timeout?,Maximum time allowed for query execution before cancellation.,Time to write query.,Time to create index.,Connection time.,A,easy
+Query Optimizer Race,35,How can you optimize GROUP BY?,Ensure columns are indexed; consider pre-aggregation.,GROUP BY is always fast.,Avoid GROUP BY entirely.,Use GROUP BY on all columns.,A,easy
+Query Optimizer Race,36,What is a query hint?,Directive to optimizer to use specific execution strategy.,A comment in query.,Query documentation.,Error message.,A,hard
+Query Optimizer Race,37,When is LIKE with leading wildcard slow?,Always slow because it can't use index effectively.,Never slow.,Only on small tables.,Only with trailing wildcard.,A,easy
+Query Optimizer Race,38,What is cardinality in query optimization?,Number of unique values in a column; affects index effectiveness.,Number of rows.,Number of columns.,Number of tables.,A,hard
+Query Optimizer Race,39,How does NULL affect index usage?,NULLs may not be indexed; IS NULL queries might not use index.,NULLs are always indexed.,NULLs speed up queries.,NULLs have no effect.,A,hard
+Query Optimizer Race,40,What is the benefit of query batching?,Reduces round trips to database; improves throughput.,No benefit.,Slows down queries.,Only for SELECT.,A,easy
+Query Optimizer Race,41,Which is faster for large deletes?,DELETE in batches or TRUNCATE if deleting all.,DELETE all at once.,DROP and recreate table.,UPDATE to NULL.,A,hard
+Query Optimizer Race,42,What is index-only scan?,Query satisfied entirely from index without accessing table.,Scanning only one index.,Ignoring indexes.,Full table scan.,A,hard
+Query Optimizer Race,43,How can you optimize HAVING clause?,Move conditions to WHERE when possible; HAVING is post-aggregation.,HAVING is always fast.,Always use HAVING.,Avoid HAVING.,A,hard
+Query Optimizer Race,44,What is query cost estimation?,Optimizer's prediction of resources needed to execute query.,Actual query execution time.,Database licensing cost.,Storage cost.,A,easy
+Query Optimizer Race,45,When should you use temporary tables?,For complex queries with intermediate results used multiple times.,Never use temp tables.,Always use temp tables.,Only for small data.,A,hard
+Query Optimizer Race,46,What is a nested loop join?,Join that iterates through one table for each row of another.,Join using hash table.,Join using merge sort.,Join using index only.,A,easy
+Query Optimizer Race,47,How does data type mismatch affect queries?,Can prevent index usage and cause implicit conversions.,No effect.,Speeds up queries.,Only affects INSERT.,A,hard
+Query Optimizer Race,48,What is query plan stability?,Consistent execution plans across runs; important for predictable performance.,Plans changing randomly.,No plan at all.,Plan deletion.,A,hard
+Query Optimizer Race,49,When is sorting expensive?,On large datasets without index on sort column.,Sorting is always cheap.,Only on small datasets.,Never expensive.,A,easy
+Query Optimizer Race,50,What is the optimizer's goal?,Find the most efficient execution plan for a query.,Make queries slower.,Use all indexes.,Avoid using indexes.,A,easy
