@@ -929,6 +929,53 @@
         opacity: 1;
       }
     }
+
+    /* SCORE POPUP NOTIFICATION */
+    .score-popup {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) scale(0);
+      z-index: 1000;
+      padding: 24px 32px;
+      border-radius: 20px;
+      font-size: clamp(24px, 2vw, 36px);
+      font-weight: 800;
+      text-align: center;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+      pointer-events: none;
+      opacity: 0;
+      transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    }
+
+    .score-popup.show {
+      transform: translate(-50%, -50%) scale(1);
+      opacity: 1;
+    }
+
+    .score-popup.positive {
+      background: linear-gradient(135deg, rgba(34, 197, 94, 0.95), rgba(22, 163, 74, 0.95));
+      color: #fff;
+      border: 3px solid #bbf7d0;
+    }
+
+    .score-popup.negative {
+      background: linear-gradient(135deg, rgba(239, 68, 68, 0.95), rgba(220, 38, 38, 0.95));
+      color: #fff;
+      border: 3px solid #fecaca;
+    }
+
+    .score-popup-value {
+      display: block;
+      font-size: clamp(32px, 3vw, 48px);
+      margin-top: 8px;
+    }
+
+    .option-btn.disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      pointer-events: none;
+    }
   </style>
 </head>
 <body>
@@ -990,6 +1037,12 @@
   </main>
 </div>
 
+<!-- SCORE POPUP NOTIFICATION -->
+<div id="score-popup" class="score-popup">
+  <div id="score-popup-text"></div>
+  <span id="score-popup-value" class="score-popup-value"></span>
+</div>
+
 <!-- WIN MODAL – FIRES AFTER ANY 3 WORLDS CLEARED -->
 <div id="win-modal" class="win-modal">
   <div class="win-modal-backdrop"></div>
@@ -998,6 +1051,7 @@
     <div class="win-title">🎉 Mission Accomplished!</div>
     <div class="win-body">
       You’ve successfully cleared 3 rooms.<br/>
+      Final Score: <span id="final-score-display">0</span><br/>
       The system will reset with fresh questions for the next player.
     </div>
     <button id="win-reset-btn" class="primary-btn">Start New Session</button>
@@ -1146,9 +1200,40 @@
       "World " + (index + 1) + " of 8";
   }
 
+function showScorePopup(points, isPositive) {
+  const popup = document.getElementById("score-popup");
+  const text = document.getElementById("score-popup-text");
+  const value = document.getElementById("score-popup-value");
+  
+  if (!popup || !text || !value) return;
+  
+  // Aesthetic copy
+  text.textContent = isPositive ? "Score boosted" : "Score reduced";
+  const absPoints = Math.abs(points);
+  value.textContent = (isPositive ? "+" : "−") + absPoints + " pts";
+  
+  // Set style
+  popup.className = "score-popup " + (isPositive ? "positive" : "negative");
+  
+  // Show popup
+  setTimeout(() => popup.classList.add("show"), 10);
+  
+  // Hide after 1.5 seconds
+  setTimeout(() => {
+    popup.classList.remove("show");
+  }, 1500);
+}
+
   function showWinModal() {
     const modal = document.getElementById("win-modal");
+    const finalScoreDisplay = document.getElementById("final-score-display");
     if (!modal) return;
+    
+    // Update final score
+    if (finalScoreDisplay) {
+      finalScoreDisplay.textContent = appState.score;
+    }
+    
     modal.classList.add("active");
   }
 
@@ -1936,7 +2021,20 @@
       correctIndex: 2,
       difficulty: "hard",
     },
-    // Add more prompt engineering scenarios up to 50
+    {
+      type: "mcq",
+      title: "Prompt Clarity",
+      question:
+        "You need an LLM to generate a JSON response. Which prompt structure is most effective?",
+      options: [
+        '"Give me some JSON data."',
+        '"Return a JSON object with keys: name (string), age (number), active (boolean). Example: {\\"name\\":\\"John\\",\\"age\\":30,\\"active\\":true}"',
+        '"JSON please."',
+        '"Make it look like JSON but don\'t worry about the format."',
+      ],
+      correctIndex: 1,
+      difficulty: "easy",
+    },
   ];
 
   /*********** 4. BLOCKCHAIN HASH HUNT ***********/
@@ -1964,7 +2062,17 @@
       correctIndex: 1,
       difficulty: "hard",
     },
-    // Extend with additional blockchain items up to 50
+    {
+      question: "What is a blockchain nonce?",
+      options: [
+        "A random number used once in mining to find a valid hash.",
+        "The network name.",
+        "A type of cryptocurrency wallet.",
+        "The block size limit.",
+      ],
+      correctIndex: 0,
+      difficulty: "easy",
+    },
   ];
 
   /*********** 5. DATA CLEANING NINJA ***********/
@@ -1991,7 +2099,17 @@
       correctIndex: 1,
       difficulty: "hard",
     },
-    // Add more data-cleaning questions up to 50
+    {
+      question: "You find email addresses with leading/trailing spaces in your dataset.",
+      options: [
+        "Leave them as-is for authenticity.",
+        "Trim whitespace from all email fields.",
+        "Delete all email records.",
+        "Add more spaces to make them equal length.",
+      ],
+      correctIndex: 1,
+      difficulty: "easy",
+    },
   ];
 
   /*********** 6. SCHEMA VALIDATOR LAB ***********/
@@ -2020,7 +2138,18 @@
       correctIndex: 0,
       difficulty: "hard",
     },
-    // Extend up to 50
+    {
+      question:
+        "A foreign key constraint fails when inserting data. What's the most likely cause?",
+      options: [
+        "The referenced record doesn't exist in the parent table.",
+        "The table is too large.",
+        "The database is offline.",
+        "The column name is misspelled in the application.",
+      ],
+      correctIndex: 0,
+      difficulty: "easy",
+    },
   ];
 
   /*********** 7. QUERY OPTIMIZER RACE ***********/
@@ -2047,7 +2176,17 @@
       labels: ["Drive with big table and leverage index", "Not inherently better"],
       difficulty: "hard",
     },
-    // Extend up to 50
+    {
+      question:
+        "Which SQL operation is generally most expensive?",
+      options: [
+        "SELECT with indexed WHERE clause",
+        "Full table scan with complex JOIN and no indexes",
+      ],
+      correctIndex: 1,
+      labels: ["Fast with index", "Slow without optimization"],
+      difficulty: "easy",
+    },
   ];
 
   /*********** 8. CRYPTO-FOR-DATA PUZZLE ***********/
@@ -2076,7 +2215,18 @@
       correctIndex: 1,
       difficulty: "hard",
     },
-    // Extend up to 50
+    {
+      question:
+        "What is the main purpose of a digital signature?",
+      options: [
+        "To encrypt data so no one can read it.",
+        "To verify authenticity and integrity of a message.",
+        "To compress files.",
+        "To generate random passwords.",
+      ],
+      correctIndex: 1,
+      difficulty: "easy",
+    },
   ];
 
   const questionBanks = {
@@ -2094,14 +2244,21 @@
     // Try CSV questions first
     let all = appState.csvQuestions[worldId] || questionBanks[worldId] || [];
     
+    // Always shuffle the entire pool first for maximum randomness
+    const shuffledAll = shuffle([...all]);
+    
     const difficulty = getDifficultyLevel();
-    let pool = all.filter(q => q.difficulty === difficulty);
+    let pool = shuffledAll.filter(q => q.difficulty === difficulty);
+    
+    // If we don't have enough questions of the target difficulty, add more
     if (pool.length < 3) {
-      const extras = all.filter(q => !pool.includes(q));
+      const extras = shuffledAll.filter(q => !pool.includes(q));
       pool = pool.concat(extras);
     }
-    const shuffled = shuffle(pool.slice());
-    return shuffled.slice(0, Math.min(3, shuffled.length));
+    
+    // Shuffle again and take exactly 3 questions
+    const finalShuffled = shuffle([...pool]);
+    return finalShuffled.slice(0, 3);
   }
 
   /****************************************************
@@ -2114,6 +2271,7 @@
     locksCleared: 0,
     totalLocks: 3,
     feedback: "",
+    answered: false,
   };
 
   let mlState = {
@@ -2121,42 +2279,49 @@
     currentIndex: 0,
     failure: false,
     feedback: "",
+    answered: false,
   };
 
   let promptState = {
     sessionQuestions: [],
     currentIndex: 0,
     feedback: "",
+    answered: false,
   };
 
   let chainState = {
     sessionQuestions: [],
     currentIndex: 0,
     feedback: "",
+    answered: false,
   };
 
   let cleanState = {
     sessionQuestions: [],
     currentIndex: 0,
     feedback: "",
+    answered: false,
   };
 
   let schemaState = {
     sessionQuestions: [],
     currentIndex: 0,
     feedback: "",
+    answered: false,
   };
 
   let queryState = {
     sessionQuestions: [],
     currentIndex: 0,
     feedback: "",
+    answered: false,
   };
 
   let cryptoState = {
     sessionQuestions: [],
     currentIndex: 0,
     feedback: "",
+    answered: false,
   };
 
   /****************************************************
@@ -2179,9 +2344,14 @@
   }
 
   function handleEscapeAnswer(optionIndex) {
-    if (appState.gameWon) return;
+    if (appState.gameWon || appState.worlds.escape.completed) return;
     const currentQuestion = escapeState.sessionQuestions[escapeState.currentIndex];
     if (!currentQuestion) return;
+    
+    // Prevent multiple clicks on the same question
+    if (escapeState.answered) return;
+    escapeState.answered = true;
+    
     const isCorrect = optionIndex === currentQuestion.correctIndex;
 
     const targetLocks = Math.min(
@@ -2193,8 +2363,10 @@
       playSound('correct');
       escapeState.locksCleared += 1;
       appState.score += 10;
+      showScorePopup(10, true);
       escapeState.feedback = "✅ Lock released. Door segment unlocked.";
       escapeState.currentIndex += 1;
+      escapeState.answered = false; // Reset for next question
 
       if (escapeState.locksCleared >= targetLocks) {
         playSound('win');
@@ -2210,9 +2382,13 @@
     } else {
       playSound('wrong');
       escapeState.feedback = "❌ Incorrect sequence. The door re-locks slightly.";
-      appState.score = Math.max(0, appState.score - 3);
+      const penalty = 3;
+      appState.score = Math.max(0, appState.score - penalty);
+      showScorePopup(-penalty, false);
+      escapeState.answered = false; // Allow retry on wrong answer
     }
     updateGlobalHUD();
+    buildWorldButtons();
     renderEscapeWorld();
   }
 
@@ -2221,8 +2397,10 @@
     escapeState.currentIndex = 0;
     escapeState.locksCleared = 0;
     escapeState.feedback = "";
+    escapeState.answered = false;
     appState.worlds.escape.completed = false;
     if (!skipRender) {
+      buildWorldButtons();
       renderEscapeWorld();
       startEscapeTimer();
     }
@@ -2276,20 +2454,22 @@
       ? `<span class="timer">⏱ ${String(timerState.secondsLeft).padStart(2, "0")}s</span>`
       : `<span class="timer">⏱ Paused</span>`;
 
+    const isCompleted = appState.worlds.escape.completed || appState.gameWon;
     const optionsHtml = q
       ? q.options
           .map(
             (opt, idx) => `
-              <button class="option-btn" data-option-index="${idx}">
+              <button class="option-btn ${isCompleted ? 'disabled' : ''}" data-option-index="${idx}">
                 <div><span class="option-label">${String.fromCharCode(
                   65 + idx
                 )}.</span> ${opt}</div>
-                <span class="pill-small">+10 pts on correct</span>
               </button>
             `
           )
           .join("")
       : "<div class='small-label'>No questions available.</div>";
+
+
 
     container.innerHTML = `
       <div class="card">
@@ -2342,8 +2522,12 @@
    * ML MODEL BUILDER – 3-QUESTION SESSION
    ****************************************************/
   function handleMLDecision(optionIndex) {
-    if (appState.gameWon) return;
+    if (appState.gameWon || appState.worlds.mlbuilder.completed) return;
     if (!mlState.sessionQuestions || mlState.sessionQuestions.length === 0) return;
+
+    // Prevent multiple clicks on the same question
+    if (mlState.answered) return;
+    mlState.answered = true;
 
     const step = mlState.sessionQuestions[
       Math.min(mlState.currentIndex, mlState.sessionQuestions.length - 1)
@@ -2352,9 +2536,11 @@
     if (isCorrect) {
       playSound('correct');
       appState.score += 15;
+      showScorePopup(15, true);
       mlState.failure = false;
       mlState.feedback = "✅ " + step.positive;
       mlState.currentIndex += 1;
+      mlState.answered = false; // Reset for next question
       if (mlState.currentIndex >= mlState.sessionQuestions.length) {
         playSound('win');
         appState.worlds.mlbuilder.completed = true;
@@ -2365,9 +2551,13 @@
       playSound('wrong');
       mlState.failure = true;
       mlState.feedback = "❌ " + step.negative;
-      appState.score = Math.max(0, appState.score - 5);
+      const penalty = 5;
+      appState.score = Math.max(0, appState.score - penalty);
+      showScorePopup(-penalty, false);
+      mlState.answered = false; // Allow retry on wrong answer
     }
     updateGlobalHUD();
+    buildWorldButtons();
     renderMLWorld();
   }
 
@@ -2376,8 +2566,12 @@
     mlState.currentIndex = 0;
     mlState.failure = false;
     mlState.feedback = "";
+    mlState.answered = false;
     appState.worlds.mlbuilder.completed = false;
-    if (!skipRender) renderMLWorld();
+    if (!skipRender) {
+      buildWorldButtons();
+      renderMLWorld();
+    }
   }
 
   function renderMLWorld() {
@@ -2415,17 +2609,16 @@
         }</div>`
       : "";
 
+    const isCompleted = appState.worlds.mlbuilder.completed;
     const optionsHtml = step
       ? step.options
           .map(
             (opt, idx) => `
-              <button class="option-btn" data-option-index="${idx}">
+              <button class="option-btn ${isCompleted ? 'disabled' : ''}" data-option-index="${idx}">
                 <div><span class="option-label">${String.fromCharCode(
                   65 + idx
                 )}.</span> ${opt}</div>
-                <span class="pill-small">${
-                  idx === step.correctIndex ? "+15 pts" : "Risk: -5 pts"
-                }</span>
+                
               </button>
             `
           )
@@ -2488,7 +2681,11 @@
    * PROMPT ARENA – 3-QUESTION SESSION
    ****************************************************/
   function handlePromptAnswer(optionIndex) {
-    if (appState.gameWon) return;
+    if (appState.gameWon || appState.worlds.prompt.completed) return;
+    
+    // Prevent multiple clicks on the same question
+    if (promptState.answered) return;
+    promptState.answered = true;
     if (!promptState.sessionQuestions || promptState.sessionQuestions.length === 0)
       return;
 
@@ -2503,6 +2700,7 @@
     if (isCorrect) {
       playSound('correct');
       appState.score += 10;
+      showScorePopup(10, true);
       promptState.feedback = "✅ Prompt upgraded. Model output quality improves.";
       promptState.currentIndex += 1;
       if (promptState.currentIndex >= promptState.sessionQuestions.length) {
@@ -2511,10 +2709,15 @@
         checkGlobalWin();
       }
     } else {
-      appState.score = Math.max(0, appState.score - 4);
-      promptState.feedback = "Ambiguous prompt. Output quality degrades.";
+      playSound('wrong');
+      const penalty = 4;
+      appState.score = Math.max(0, appState.score - penalty);
+      showScorePopup(-penalty, false);
+      promptState.feedback = "❌ Ambiguous prompt. Output quality degrades.";
+      promptState.answered = false; // Allow retry on wrong answer
     }
     updateGlobalHUD();
+    buildWorldButtons();
     renderPromptWorld();
   }
 
@@ -2522,8 +2725,12 @@
     promptState.sessionQuestions = [];
     promptState.currentIndex = 0;
     promptState.feedback = "";
+    promptState.answered = false;
     appState.worlds.prompt.completed = false;
-    if (!skipRender) renderPromptWorld();
+    if (!skipRender) {
+      buildWorldButtons();
+      renderPromptWorld();
+    }
   }
 
   function renderPromptWorld() {
@@ -2557,15 +2764,16 @@
         }">${promptState.feedback}</div>`
       : "";
 
+    const isCompleted = appState.worlds.prompt.completed || appState.gameWon;
     const optionsHtml = q
       ? q.options
           .map(
             (opt, idx) => `
-              <button class="option-btn" data-option-index="${idx}">
+              <button class="option-btn ${isCompleted ? 'disabled' : ''}" data-option-index="${idx}">
                 <div><span class="option-label">${String.fromCharCode(
                   65 + idx
                 )}.</span> ${opt}</div>
-                <span class="pill-small">Score impact</span>
+                
               </button>
             `
           )
@@ -2609,21 +2817,28 @@
    * BLOCKCHAIN HASH HUNT – 3-QUESTION SESSION
    ****************************************************/
   function handleChainAnswer(optionIndex) {
-    if (appState.gameWon) return;
+    if (appState.gameWon || appState.worlds.chain.completed) return;
+    
+    // Prevent multiple clicks on the same question
+    if (chainState.answered) return;
+    chainState.answered = true;
+    
     if (!chainState.sessionQuestions || chainState.sessionQuestions.length === 0)
       return;
 
     const q =
       chainState.sessionQuestions[
-        Math.min(chainState.index, Math.max(chainState.sessionQuestions.length - 1, 0))
+        Math.min(chainState.currentIndex, Math.max(chainState.sessionQuestions.length - 1, 0))
       ];
     const isCorrect = optionIndex === q.correctIndex;
     if (isCorrect) {
       playSound('correct');
       appState.score += 10;
+      showScorePopup(10, true);
       chainState.feedback = "✅ Hash validated. Chain segment secured.";
-      chainState.index += 1;
-      if (chainState.index >= chainState.sessionQuestions.length) {
+      chainState.currentIndex += 1;
+      chainState.answered = false; // Reset for next question
+      if (chainState.currentIndex >= chainState.sessionQuestions.length) {
         playSound('win');
         appState.worlds.chain.completed = true;
         chainState.feedback = "🎉 All blocks verified. Ledger is stable.";
@@ -2631,19 +2846,27 @@
       }
     } else {
       playSound('wrong');
-      appState.score = Math.max(0, appState.score - 4);
+      const penalty = 4;
+      appState.score = Math.max(0, appState.score - penalty);
+      showScorePopup(-penalty, false);
       chainState.feedback = "❌ Invalid choice. Integrity alarm triggered.";
+      chainState.answered = false; // Allow retry on wrong answer
     }
     updateGlobalHUD();
+    buildWorldButtons();
     renderChainWorld();
   }
 
   function resetChainWorld(skipRender) {
     chainState.sessionQuestions = [];
-    chainState.index = 0;
+    chainState.currentIndex = 0;
     chainState.feedback = "";
+    chainState.answered = false;
     appState.worlds.chain.completed = false;
-    if (!skipRender) renderChainWorld();
+    if (!skipRender) {
+      buildWorldButtons();
+      renderChainWorld();
+    }
   }
 
   function renderChainWorld() {
@@ -2651,14 +2874,14 @@
 
     if (!chainState.sessionQuestions || chainState.sessionQuestions.length === 0) {
       chainState.sessionQuestions = generateSessionQuestions("chain");
-      chainState.index = 0;
+      chainState.currentIndex = 0;
       chainState.feedback = "";
     }
 
     const qCount = chainState.sessionQuestions.length;
     const q =
       chainState.sessionQuestions[
-        Math.min(chainState.index, Math.max(qCount - 1, 0))
+        Math.min(chainState.currentIndex, Math.max(qCount - 1, 0))
       ];
 
     document.getElementById("world-title").textContent = "Blockchain Hash Hunt";
@@ -2680,15 +2903,16 @@
     const sampleHash =
       "000000ab94c3f2b38174f5086e22e7b9fb305f615e7a483920c7aa12f";
 
+    const isCompleted = appState.worlds.chain.completed || appState.gameWon;
     const optionsHtml = q
       ? q.options
           .map(
             (opt, idx) => `
-              <button class="option-btn" data-option-index="${idx}">
+              <button class="option-btn ${isCompleted ? 'disabled' : ''}" data-option-index="${idx}">
                 <div><span class="option-label">${String.fromCharCode(
                   65 + idx
                 )}.</span> ${opt}</div>
-                <span class="pill-small">Chain integrity</span>
+                
               </button>
             `
           )
@@ -2703,7 +2927,7 @@
             <div class="card-sub">Spot invalid segments and lock the ledger.</div>
           </div>
           <span class="pill-small">Question ${
-            Math.min(chainState.index + 1, qCount)
+            Math.min(chainState.currentIndex + 1, qCount)
           } of ${qCount}</span>
         </div>
         <div class="divider"></div>
@@ -2731,27 +2955,30 @@
    * DATA CLEANING NINJA – 3-QUESTION SESSION
    ****************************************************/
   function handleCleanAnswer(optionIndex) {
-    if (appState.gameWon) return;
+    if (appState.gameWon || appState.worlds.clean.completed) return;
     if (!cleanState.sessionQuestions || cleanState.sessionQuestions.length === 0)
       return;
 
     const q =
       cleanState.sessionQuestions[
-        Math.min(cleanState.index, Math.max(cleanState.sessionQuestions.length - 1, 0))
+        Math.min(cleanState.currentIndex, Math.max(cleanState.sessionQuestions.length - 1, 0))
       ];
     const isCorrect = optionIndex === q.correctIndex;
     if (isCorrect) {
       playSound('correct');
       appState.score += 10;
+      showScorePopup(10, true);
       cleanState.feedback = "✅ Dataset quality improved. Downstream models thank you.";
-      cleanState.index += 1;
-      if (cleanState.index >= cleanState.sessionQuestions.length) {
+      cleanState.currentIndex += 1;
+      if (cleanState.currentIndex >= cleanState.sessionQuestions.length) {
         appState.worlds.clean.completed = true;
         cleanState.feedback = "All key issues resolved. Dataset is production-grade.";
         checkGlobalWin();
       }
     } else {
       appState.score = Math.max(0, appState.score - 3);
+      playSound('wrong');
+      showScorePopup(-3, false);
       cleanState.feedback = "Dirty data flows downstream. You’ve created debt.";
     }
     updateGlobalHUD();
@@ -2760,10 +2987,14 @@
 
   function resetCleanWorld(skipRender) {
     cleanState.sessionQuestions = [];
-    cleanState.index = 0;
+    cleanState.currentIndex = 0;
     cleanState.feedback = "";
+    cleanState.answered = false;
     appState.worlds.clean.completed = false;
-    if (!skipRender) renderCleanWorld();
+    if (!skipRender) {
+      buildWorldButtons();
+      renderCleanWorld();
+    }
   }
 
   function renderCleanWorld() {
@@ -2771,14 +3002,14 @@
 
     if (!cleanState.sessionQuestions || cleanState.sessionQuestions.length === 0) {
       cleanState.sessionQuestions = generateSessionQuestions("clean");
-      cleanState.index = 0;
+      cleanState.currentIndex = 0;
       cleanState.feedback = "";
     }
 
     const qCount = cleanState.sessionQuestions.length;
     const q =
       cleanState.sessionQuestions[
-        Math.min(cleanState.index, Math.max(qCount - 1, 0))
+        Math.min(cleanState.currentIndex, Math.max(qCount - 1, 0))
       ];
 
     document.getElementById("world-title").textContent = "Data Cleaning Ninja";
@@ -2797,15 +3028,16 @@
         }">${cleanState.feedback}</div>`
       : "";
 
+    const isCompleted = appState.worlds.clean.completed || appState.gameWon;
     const optionsHtml = q
       ? q.options
           .map(
             (opt, idx) => `
-              <button class="option-btn" data-option-index="${idx}">
+              <button class="option-btn ${isCompleted ? 'disabled' : ''}" data-option-index="${idx}">
                 <div><span class="option-label">${String.fromCharCode(
                   65 + idx
                 )}.</span> ${opt}</div>
-                <span class="pill-small">Data hygiene</span>
+                
               </button>
             `
           )
@@ -2820,7 +3052,7 @@
             <div class="card-sub">Pick the right action on a messy dataset.</div>
           </div>
           <span class="pill-small">Question ${
-            Math.min(cleanState.index + 1, qCount)
+            Math.min(cleanState.currentIndex + 1, qCount)
           } of ${qCount}</span>
         </div>
         <div class="divider"></div>
@@ -2847,22 +3079,29 @@
    * SCHEMA VALIDATOR LAB – 3-QUESTION SESSION
    ****************************************************/
   function handleSchemaAnswer(optionIndex) {
-    if (appState.gameWon) return;
+    if (appState.gameWon || appState.worlds.schema.completed) return;
+    
+    // Prevent multiple clicks on the same question
+    if (schemaState.answered) return;
+    schemaState.answered = true;
+    
     if (!schemaState.sessionQuestions || schemaState.sessionQuestions.length === 0)
       return;
 
     const q =
       schemaState.sessionQuestions[
-        Math.min(schemaState.index, Math.max(schemaState.sessionQuestions.length - 1, 0))
+        Math.min(schemaState.currentIndex, Math.max(schemaState.sessionQuestions.length - 1, 0))
       ];
     const isCorrect = optionIndex === q.correctIndex;
     if (isCorrect) {
       playSound('correct');
       appState.score += 10;
+      showScorePopup(10, true);
       schemaState.feedback =
         "✅ Schema check passes. Application-layer errors drop immediately.";
-      schemaState.index += 1;
-      if (schemaState.index >= schemaState.sessionQuestions.length) {
+      schemaState.currentIndex += 1;
+      schemaState.answered = false; // Reset for next question
+      if (schemaState.currentIndex >= schemaState.sessionQuestions.length) {
         playSound('win');
         appState.worlds.schema.completed = true;
         schemaState.feedback = "🎉 All constraints aligned. Schema lab stabilized.";
@@ -2871,19 +3110,25 @@
     } else {
       playSound('wrong');
       appState.score = Math.max(0, appState.score - 3);
+      showScorePopup(-3, false);
       schemaState.feedback =
         "❌ Hidden schema drift introduced. Production incidents spike.";
+      schemaState.answered = false; // Allow retry on wrong answer
     }
     updateGlobalHUD();
+    buildWorldButtons();
     renderSchemaWorld();
   }
 
   function resetSchemaWorld(skipRender) {
     schemaState.sessionQuestions = [];
-    schemaState.index = 0;
+    schemaState.currentIndex = 0;
     schemaState.feedback = "";
     appState.worlds.schema.completed = false;
-    if (!skipRender) renderSchemaWorld();
+    if (!skipRender) {
+      buildWorldButtons();
+      renderSchemaWorld();
+    }
   }
 
   function renderSchemaWorld() {
@@ -2891,14 +3136,14 @@
 
     if (!schemaState.sessionQuestions || schemaState.sessionQuestions.length === 0) {
       schemaState.sessionQuestions = generateSessionQuestions("schema");
-      schemaState.index = 0;
+      schemaState.currentIndex = 0;
       schemaState.feedback = "";
     }
 
     const qCount = schemaState.sessionQuestions.length;
     const q =
       schemaState.sessionQuestions[
-        Math.min(schemaState.index, Math.max(qCount - 1, 0))
+        Math.min(schemaState.currentIndex, Math.max(qCount - 1, 0))
       ];
 
     document.getElementById("world-title").textContent = "Schema Validator Lab";
@@ -2917,15 +3162,16 @@
         }">${schemaState.feedback}</div>`
       : "";
 
+    const isCompleted = appState.worlds.schema.completed || appState.gameWon;
     const optionsHtml = q
       ? q.options
           .map(
             (opt, idx) => `
-              <button class="option-btn" data-option-index="${idx}">
+              <button class="option-btn ${isCompleted ? 'disabled' : ''}" data-option-index="${idx}">
                 <div><span class="option-label">${String.fromCharCode(
                   65 + idx
                 )}.</span> ${opt}</div>
-                <span class="pill-small">Contract health</span>
+                
               </button>
             `
           )
@@ -2940,7 +3186,7 @@
             <div class="card-sub">Identify the constraint that is being violated.</div>
           </div>
           <span class="pill-small">Question ${
-            Math.min(schemaState.index + 1, qCount)
+            Math.min(schemaState.currentIndex + 1, qCount)
           } of ${qCount}</span>
         </div>
         <div class="divider"></div>
@@ -2966,29 +3212,28 @@
   /****************************************************
    * QUERY OPTIMIZER RACE – 3-QUESTION SESSION
    ****************************************************/
-  function handleQueryAnswer(optionIndex) {
-    if (appState.gameWon) return;
+  function handleQueryAnswer(optionIndex) {    if (appState.gameWon || appState.worlds.query.completed) return;
     if (!queryState.sessionQuestions || queryState.sessionQuestions.length === 0)
       return;
 
     const q =
       queryState.sessionQuestions[
-        Math.min(queryState.index, Math.max(queryState.sessionQuestions.length - 1, 0))
+        Math.min(queryState.currentIndex, Math.max(queryState.sessionQuestions.length - 1, 0))
       ];
     const isCorrect = optionIndex === q.correctIndex;
     if (isCorrect) {
       playSound('correct');
       appState.score += 12;
+      showScorePopup(12, true);
       queryState.feedback = "✅ Boost! Execution plan streamlined.";
-      queryState.index += 1;
-      if (queryState.index >= queryState.sessionQuestions.length) {
+      queryState.currentIndex += 1;
+      if (queryState.currentIndex >= queryState.sessionQuestions.length) {
         appState.worlds.query.completed = true;
         queryState.feedback = "Race won. Query fleet fully optimized.";
         checkGlobalWin();
       }
     } else {
-      appState.score = Math.max(0, appState.score - 5);
-      queryState.feedback = "Engine stalls. The optimizer can’t rescue a bad pattern.";
+      appState.score = Math.max(0, appState.score - 5);     showScorePopup(-5, false);     queryState.feedback = "Engine stalls. The optimizer can’t rescue a bad pattern.";
     }
     updateGlobalHUD();
     renderQueryWorld();
@@ -2996,10 +3241,14 @@
 
   function resetQueryWorld(skipRender) {
     queryState.sessionQuestions = [];
-    queryState.index = 0;
+    queryState.currentIndex = 0;
     queryState.feedback = "";
+    queryState.answered = false;
     appState.worlds.query.completed = false;
-    if (!skipRender) renderQueryWorld();
+    if (!skipRender) {
+      buildWorldButtons();
+      renderQueryWorld();
+    }
   }
 
   function renderQueryWorld() {
@@ -3007,14 +3256,14 @@
 
     if (!queryState.sessionQuestions || queryState.sessionQuestions.length === 0) {
       queryState.sessionQuestions = generateSessionQuestions("query");
-      queryState.index = 0;
+      queryState.currentIndex = 0;
       queryState.feedback = "";
     }
 
     const qCount = queryState.sessionQuestions.length;
     const q =
       queryState.sessionQuestions[
-        Math.min(queryState.index, Math.max(qCount - 1, 0))
+        Math.min(queryState.currentIndex, Math.max(qCount - 1, 0))
       ];
 
     document.getElementById("world-title").textContent = "Query Optimizer Race";
@@ -3033,23 +3282,21 @@
         }">${queryState.feedback}</div>`
       : "";
 
-    const optionsHtml = q
-      ? q.options
-          .map(
-            (opt, idx) => `
-              <button class="option-btn" data-option-index="${idx}">
-                <div>
-                  <div><span class="option-label">Q${idx + 1}.</span> ${opt}</div>
-                  <div class="small-label">${q.labels && q.labels[idx] ? q.labels[idx] : ""}</div>
-                </div>
-                <span class="pill-small">${
-                  idx === q.correctIndex ? "Boost +12" : "Penalty -5"
-                }</span>
-              </button>
-            `
-          )
-          .join("")
-      : "<div class='small-label'>No query questions configured.</div>";
+      const isCompleted = appState.worlds.query.completed || appState.gameWon;
+      const optionsHtml = q
+        ? q.options
+            .map(
+              (opt, idx) => `
+                <button class="option-btn ${isCompleted ? 'disabled' : ''}" data-option-index="${idx}">
+                  <div>
+                    <div><span class="option-label">Q${idx + 1}.</span> ${opt}</div>
+                    <div class="small-label">${q.labels && q.labels[idx] ? q.labels[idx] : ""}</div>
+                  </div>
+                </button>
+              `
+            )
+            .join("")
+        : "<div class='small-label'>No query questions configured.</div>";
 
     container.innerHTML = `
       <div class="card">
@@ -3059,7 +3306,7 @@
             <div class="card-sub">Two queries. One leaderboard.</div>
           </div>
           <span class="pill-small">Question ${
-            Math.min(queryState.index + 1, qCount)
+            Math.min(queryState.currentIndex + 1, qCount)
           } of ${qCount}</span>
         </div>
         <div class="divider"></div>
@@ -3086,21 +3333,28 @@
    * CRYPTO-FOR-DATA PUZZLE – 3-QUESTION SESSION
    ****************************************************/
   function handleCryptoAnswer(optionIndex) {
-    if (appState.gameWon) return;
+    if (appState.gameWon || appState.worlds.crypto.completed) return;
+    
+    // Prevent multiple clicks on the same question
+    if (cryptoState.answered) return;
+    cryptoState.answered = true;
+    
     if (!cryptoState.sessionQuestions || cryptoState.sessionQuestions.length === 0)
       return;
 
     const q =
       cryptoState.sessionQuestions[
-        Math.min(cryptoState.index, Math.max(cryptoState.sessionQuestions.length - 1, 0))
+        Math.min(cryptoState.currentIndex, Math.max(cryptoState.sessionQuestions.length - 1, 0))
       ];
     const isCorrect = optionIndex === q.correctIndex;
     if (isCorrect) {
       playSound('correct');
       appState.score += 10;
+      showScorePopup(10, true);
       cryptoState.feedback = "✅ Cipher cracked. Message integrity restored.";
-      cryptoState.index += 1;
-      if (cryptoState.index >= cryptoState.sessionQuestions.length) {
+      cryptoState.currentIndex += 1;
+      cryptoState.answered = false; // Reset for next question
+      if (cryptoState.currentIndex >= cryptoState.sessionQuestions.length) {
         playSound('win');
         appState.worlds.crypto.completed = true;
         cryptoState.feedback = "🎉 All crypto puzzles cleared. Data vault is secure.";
@@ -3109,19 +3363,25 @@
     } else {
       playSound('wrong');
       appState.score = Math.max(0, appState.score - 4);
+      showScorePopup(-4, false);
       cryptoState.feedback =
         "❌ Incorrect. The attacker gains signal on your mental model.";
+      cryptoState.answered = false; // Allow retry on wrong answer
     }
     updateGlobalHUD();
+    buildWorldButtons();
     renderCryptoWorld();
   }
 
   function resetCryptoWorld(skipRender) {
     cryptoState.sessionQuestions = [];
-    cryptoState.index = 0;
+    cryptoState.currentIndex = 0;
     cryptoState.feedback = "";
     appState.worlds.crypto.completed = false;
-    if (!skipRender) renderCryptoWorld();
+    if (!skipRender) {
+      buildWorldButtons();
+      renderCryptoWorld();
+    }
   }
 
   function renderCryptoWorld() {
@@ -3129,14 +3389,14 @@
 
     if (!cryptoState.sessionQuestions || cryptoState.sessionQuestions.length === 0) {
       cryptoState.sessionQuestions = generateSessionQuestions("crypto");
-      cryptoState.index = 0;
+      cryptoState.currentIndex = 0;
       cryptoState.feedback = "";
     }
 
     const qCount = cryptoState.sessionQuestions.length;
     const q =
       cryptoState.sessionQuestions[
-        Math.min(cryptoState.index, Math.max(qCount - 1, 0))
+        Math.min(cryptoState.currentIndex, Math.max(qCount - 1, 0))
       ];
 
     document.getElementById("world-title").textContent = "Crypto-for-Data Puzzle";
@@ -3157,15 +3417,16 @@
 
     const toyCipher = "KHOOR → HELLO (Caesar +3)";
 
+    const isCompleted = appState.worlds.crypto.completed || appState.gameWon;
     const optionsHtml = q
       ? q.options
           .map(
             (opt, idx) => `
-              <button class="option-btn" data-option-index="${idx}">
+              <button class="option-btn ${isCompleted ? 'disabled' : ''}" data-option-index="${idx}">
                 <div><span class="option-label">${String.fromCharCode(
                   65 + idx
                 )}.</span> ${opt}</div>
-                <span class="pill-small">Security posture</span>
+                
               </button>
             `
           )
@@ -3180,7 +3441,7 @@
             <div class="card-sub">Lock in the correct concept.</div>
           </div>
           <span class="pill-small">Question ${
-            Math.min(cryptoState.index + 1, qCount)
+            Math.min(cryptoState.currentIndex + 1, qCount)
           } of ${qCount}</span>
         </div>
         <div class="divider"></div>
@@ -3208,6 +3469,14 @@
    * WORLD ROUTING
    ****************************************************/
   function moveToWorld(worldId) {
+    // Stop escape timer if switching away from escape room
+    if (appState.currentWorldId === "escape" && worldId !== "escape") {
+      if (appState.timers.escape.intervalId) {
+        clearInterval(appState.timers.escape.intervalId);
+        appState.timers.escape.intervalId = null;
+      }
+    }
+    
     appState.currentWorldId = worldId;
     markWorldButtonActive(worldId);
     updateGlobalHUD();
@@ -3215,7 +3484,9 @@
     switch (worldId) {
       case "escape":
         renderEscapeWorld();
-        startEscapeTimer();
+        if (!appState.worlds.escape.completed) {
+          startEscapeTimer();
+        }
         break;
       case "mlbuilder":
         renderMLWorld();
@@ -3240,7 +3511,9 @@
         break;
       default:
         renderEscapeWorld();
-        startEscapeTimer();
+        if (!appState.worlds.escape.completed) {
+          startEscapeTimer();
+        }
     }
   }
 
@@ -3464,3 +3737,14 @@
 </script>
 </body>
 </html>
+
+
+
+
+
+
+
+
+
+
+
