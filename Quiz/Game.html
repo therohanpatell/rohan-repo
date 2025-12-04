@@ -1066,13 +1066,13 @@
   const EMBEDDED_QUESTIONS = [
     {
         "question":  "What is the time/space computational complexity of standard self-attention in transformers with sequence length n?",
-        "correctAnswer":  "C",
+        "correctAnswer":  "A",
         "difficulty":  "hard",
         "questionNumber":  1,
         "options":  [
+                        "O(n^2) in time and O(n^2) in space",
                         "O(n) in time and O(1) in space",
                         "O(n log n) in time and O(n) in space",
-                        "O(n^2) in time and O(n^2) in space",
                         "O(1) in time and O(n) in space"
                     ],
         "world":  "AI Escape Room"
@@ -1105,38 +1105,38 @@
     },
     {
         "question":  "Why does Adam often converge faster than SGD with momentum on deep models?",
-        "correctAnswer":  "B",
+        "correctAnswer":  "D",
         "difficulty":  "hard",
         "questionNumber":  4,
         "options":  [
                         "Because Adam uses second-order Hessian information exactly",
-                        "Because Adam performs adaptive per-parameter learning rates using first and second moment estimates",
                         "Because Adam removes all noise from gradients",
-                        "Because Adam only updates a subset of parameters each step"
+                        "Because Adam only updates a subset of parameters each step",
+                        "Because Adam performs adaptive per-parameter learning rates using first and second moment estimates"
                     ],
         "world":  "AI Escape Room"
     },
     {
         "question":  "What does label smoothing do during classification training?",
-        "correctAnswer":  "B",
+        "correctAnswer":  "C",
         "difficulty":  "hard",
         "questionNumber":  5,
         "options":  [
                         "Transforms hard labels into uniform random labels to regularize training",
-                        "Replaces one-hot targets with a weighted mixture to reduce overconfidence",
                         "Removes labels with low confidence from the loss computation",
+                        "Replaces one-hot targets with a weighted mixture to reduce overconfidence",
                         "Scales the logits by a constant before softmax"
                     ],
         "world":  "AI Escape Room"
     },
     {
         "question":  "Which technique most directly reduces model size at inference while preserving accuracy?",
-        "correctAnswer":  "B",
+        "correctAnswer":  "A",
         "difficulty":  "hard",
         "questionNumber":  6,
         "options":  [
-                        "Increasing batch size at training time",
                         "Quantization of weights and activations",
+                        "Increasing batch size at training time",
                         "Using a larger learning rate",
                         "replacing ReLU with GELU activations"
                     ],
@@ -1170,14 +1170,14 @@
     },
     {
         "question":  "What primary problem does residual connection solve?",
-        "correctAnswer":  "B",
+        "correctAnswer":  "D",
         "difficulty":  "hard",
         "questionNumber":  9,
         "options":  [
                         "Eliminates the need for activation functions",
-                        "Prevents vanishing/exploding gradients by providing identity pathways that ease gradient flow",
                         "Guarantees convexity of the loss surface",
-                        "Replaces the optimizer and removes the need for backpropagation"
+                        "Replaces the optimizer and removes the need for backpropagation",
+                        "Prevents vanishing/exploding gradients by providing identity pathways that ease gradient flow"
                     ],
         "world":  "AI Escape Room"
     },
@@ -1196,25 +1196,25 @@
     },
     {
         "question":  "What is the purpose of cosine learning rate annealing?",
-        "correctAnswer":  "B",
+        "correctAnswer":  "C",
         "difficulty":  "hard",
         "questionNumber":  11,
         "options":  [
                         "Keeps the learning rate constant to avoid oscillation",
-                        "Smoothly reduces learning rate following a cosine curve to improve convergence",
                         "Increases the learning rate mid-training",
+                        "Smoothly reduces learning rate following a cosine curve to improve convergence",
                         "Removes the need for momentum"
                     ],
         "world":  "AI Escape Room"
     },
     {
         "question":  "Which is the accurate explanation of attention head collapse?",
-        "correctAnswer":  "B",
+        "correctAnswer":  "A",
         "difficulty":  "hard",
         "questionNumber":  12,
         "options":  [
-                        "All heads learn orthogonal patterns",
                         "Multiple heads learn similar or redundant patterns reducing model capacity",
+                        "All heads learn orthogonal patterns",
                         "Attention heads stop computing entirely",
                         "Head collapse means weights become zero"
                     ],
@@ -1235,14 +1235,14 @@
     },
     {
         "question":  "What does perplexity measure?",
-        "correctAnswer":  "B",
+        "correctAnswer":  "D",
         "difficulty":  "hard",
         "questionNumber":  14,
         "options":  [
                         "The model\u0027s number of parameters",
-                        "The exponential of average negative log-likelihood per token (uncertainty)",
                         "Model inference FLOPs",
-                        "Average token length in dataset"
+                        "Average token length in dataset",
+                        "The exponential of average negative log-likelihood per token (uncertainty)"
                     ],
         "world":  "AI Escape Room"
     },
@@ -1261,13 +1261,13 @@
     },
     {
         "question":  "Which is true about knowledge distillation?",
-        "correctAnswer":  "B",
+        "correctAnswer":  "C",
         "difficulty":  "hard",
         "questionNumber":  16,
         "options":  [
                         "Student trains on hard labels only",
-                        "A smaller student matches teacher soft logits for generalization",
                         "Distillation increases model size",
+                        "A smaller student matches teacher soft logits for generalization",
                         "It requires reinforcement learning"
                     ],
         "world":  "AI Escape Room"
@@ -1292,9 +1292,9 @@
         "questionNumber":  18,
         "options":  [
                         "To permanently remove layers",
-                        "Structured dropout removing full layers to enable pruning and robustness",
                         "To drop tokens",
-                        "To modify learning rate per layer"
+                        "To modify learning rate per layer",
+                        "Structured dropout removing full layers to enable pruning and robustness"
                     ],
         "world":  "AI Escape Room"
     },
@@ -1326,12 +1326,12 @@
     },
     {
         "question":  "What does LoRA achieve?",
-        "correctAnswer":  "B",
+        "correctAnswer":  "A",
         "difficulty":  "hard",
         "questionNumber":  21,
         "options":  [
-                        "Trains full model faster",
                         "Adapts models by injecting low-rank trainable weights",
+                        "Trains full model faster",
                         "increases model rank",
                         "quantizes embeddings"
                     ],
@@ -1352,27 +1352,27 @@
     },
     {
         "question":  "What is the key difference between dropout and weight decay?",
-        "correctAnswer":  "B",
+        "correctAnswer":  "C",
         "difficulty":  "hard",
         "questionNumber":  23,
         "options":  [
                         "Dropout removes test-time neurons",
-                        "Dropout zeros activations while weight decay penalizes parameter magnitude",
                         "They are identical",
+                        "Dropout zeros activations while weight decay penalizes parameter magnitude",
                         "Weight decay applies only to biases"
                     ],
         "world":  "AI Escape Room"
     },
     {
         "question":  "Which describes teacher forcing?",
-        "correctAnswer":  "B",
+        "correctAnswer":  "D",
         "difficulty":  "hard",
         "questionNumber":  24,
         "options":  [
                         "Feeds model its own predictions",
-                        "Feeds ground truth tokens which can cause exposure bias",
                         "Eliminates beam search",
-                        "Forces teacher to learn faster"
+                        "Forces teacher to learn faster",
+                        "Feeds ground truth tokens which can cause exposure bias"
                     ],
         "world":  "AI Escape Room"
     },
@@ -1391,13 +1391,13 @@
     },
     {
         "question":  "Why is AdamW preferred?",
-        "correctAnswer":  "B",
+        "correctAnswer":  "C",
         "difficulty":  "hard",
         "questionNumber":  26,
         "options":  [
                         "Removes weight decay",
-                        "Decouples weight decay from adaptive update",
                         "Applies decay only to biases",
+                        "Decouples weight decay from adaptive update",
                         "Uses different activation"
                     ],
         "world":  "AI Escape Room"
@@ -1417,27 +1417,27 @@
     },
     {
         "question":  "Contrastive Predictive Coding aims to:",
-        "correctAnswer":  "B",
+        "correctAnswer":  "C",
         "difficulty":  "hard",
         "questionNumber":  28,
         "options":  [
                         "Reconstruct pixels",
-                        "Predict future latent representations and maximize mutual information",
                         "Minimize supervised cross entropy",
+                        "Predict future latent representations and maximize mutual information",
                         "Convert classification into regression"
                     ],
         "world":  "AI Escape Room"
     },
     {
         "question":  "What happens when temperature is increased above 1?",
-        "correctAnswer":  "B",
+        "correctAnswer":  "D",
         "difficulty":  "hard",
         "questionNumber":  29,
         "options":  [
                         "Distribution becomes sharper",
-                        "Distribution becomes flatter increasing randomness",
                         "Logits normalize differently",
-                        "Attention heads disable"
+                        "Attention heads disable",
+                        "Distribution becomes flatter increasing randomness"
                     ],
         "world":  "AI Escape Room"
     },
@@ -1469,14 +1469,14 @@
     },
     {
         "question":  "Why prefer byte-level tokenization?",
-        "correctAnswer":  "B",
+        "correctAnswer":  "D",
         "difficulty":  "hard",
         "questionNumber":  32,
         "options":  [
                         "Requires fixed dictionary",
-                        "Represents any text including rare tokens without unknown tokens",
                         "Always shorter sequences",
-                        "Removes positional encoding"
+                        "Removes positional encoding",
+                        "Represents any text including rare tokens without unknown tokens"
                     ],
         "world":  "AI Escape Room"
     },
@@ -1495,12 +1495,12 @@
     },
     {
         "question":  "What does zero-shot mean?",
-        "correctAnswer":  "B",
+        "correctAnswer":  "A",
         "difficulty":  "hard",
         "questionNumber":  34,
         "options":  [
-                        "No parameters exist",
                         "Model performs unseen tasks via instruction alone",
+                        "No parameters exist",
                         "No training data ever",
                         "Requires labeled datasets"
                     ],
@@ -1638,14 +1638,14 @@
     },
     {
         "question":  "What is the intuition behind SAM?",
-        "correctAnswer":  "B",
+        "correctAnswer":  "D",
         "difficulty":  "hard",
         "questionNumber":  45,
         "options":  [
                         "Find steeper minima",
-                        "Seek flat minima for better generalization",
                         "Remove gradients",
-                        "Reduce batch size"
+                        "Reduce batch size",
+                        "Seek flat minima for better generalization"
                     ],
         "world":  "AI Escape Room"
     },
@@ -1664,14 +1664,14 @@
     },
     {
         "question":  "What is embedding collapse?",
-        "correctAnswer":  "B",
+        "correctAnswer":  "D",
         "difficulty":  "hard",
         "questionNumber":  47,
         "options":  [
                         "Embeddings become uniform useless vectors",
-                        "Embeddings scatter uniformly",
                         "Embeddings become orthogonal",
-                        "Means memory error"
+                        "Means memory error",
+                        "Embeddings scatter uniformly"
                     ],
         "world":  "AI Escape Room"
     },
@@ -1715,12 +1715,12 @@
         "world":  "AI Escape Room"
     },
     {
-        "question":  "When deriving the update rule for AdaGrad",
-        "correctAnswer":  "Eigenvectors of the Hessian",
-        "difficulty":  "B",
+        "question":  "When deriving the update rule for AdaGrad what key mathematical object accumulates the squared gradients?",
+        "correctAnswer":  "B",
+        "difficulty":  "Hard",
         "questionNumber":  1,
         "options":  [
-                        "what key mathematical object accumulates the squared gradients?",
+                        "Eigenvectors of the Hessian",
                         "Leaky ReLU Activations",
                         "Diagonal Matrix of Cumulative Second Moments",
                         "Vector of First Raw Moments"
@@ -1728,12 +1728,12 @@
         "world":  "ML Model Builder"
     },
     {
-        "question":  "In the PAC learning framework",
-        "correctAnswer":  "Asymptotically",
-        "difficulty":  "C",
+        "question":  "In the PAC learning framework what does the \"A\" stand for?",
+        "correctAnswer":  "C",
+        "difficulty":  "Hard",
         "questionNumber":  2,
         "options":  [
-                        "what does the \"A\" stand for?",
+                        "Asymptotically",
                         "Approximately",
                         "Accurately",
                         "Arbitrarily"
@@ -1780,12 +1780,12 @@
         "world":  "ML Model Builder"
     },
     {
-        "question":  "In a Transformer\u0027s self-attention mechanism",
-        "correctAnswer":  "To apply dropout to the attention scores.",
-        "difficulty":  "B",
+        "question":  "In a Transformer\u0027s self-attention mechanism what is the purpose of the scaling factor (sqrt(d_k))?",
+        "correctAnswer":  "B",
+        "difficulty":  "Hard",
         "questionNumber":  6,
         "options":  [
-                        "what is the purpose of the scaling factor (sqrt(d_k))?",
+                        "To apply dropout to the attention scores.",
                         "To prevent the positional encodings from vanishing.",
                         "To ensure the softmax inputs have stable gradients.",
                         "To make the model invariant to sequence length."
@@ -1819,12 +1819,12 @@
         "world":  "ML Model Builder"
     },
     {
-        "question":  "In Bayesian Neural Networks",
-        "correctAnswer":  "An initialization scheme for gradient descent.",
-        "difficulty":  "C",
+        "question":  "In Bayesian Neural Networks what does placing a prior over the weights typically represent?",
+        "correctAnswer":  "C",
+        "difficulty":  "Hard",
         "questionNumber":  9,
         "options":  [
-                        "what does placing a prior over the weights typically represent?",
+                        "An initialization scheme for gradient descent.",
                         "A regularization penalty equivalent to L2.",
                         "A constraint on the weight magnitudes.",
                         "A belief about plausible functions before seeing data."
@@ -1845,12 +1845,12 @@
         "world":  "ML Model Builder"
     },
     {
-        "question":  "When using Newton\u0027s method for optimization",
-        "correctAnswer":  "It causes numerical underflow.",
-        "difficulty":  "B",
+        "question":  "When using Newton\u0027s method for optimization what issue arises if the Hessian is not positive definite?",
+        "correctAnswer":  "B",
+        "difficulty":  "Hard",
         "questionNumber":  11,
         "options":  [
-                        "what issue arises if the Hessian is not positive definite?",
+                        "It causes numerical underflow.",
                         "The learning rate must be set very small.",
                         "The update direction may not be a descent direction.",
                         "It defaults to gradient descent."
@@ -1858,12 +1858,12 @@
         "world":  "ML Model Builder"
     },
     {
-        "question":  "In the context of SGD with momentum",
-        "correctAnswer":  "The parameters are clipped to 90% of their norm.",
-        "difficulty":  "A",
+        "question":  "In the context of SGD with momentum what does a momentum coefficient of 0.9 physically signify?",
+        "correctAnswer":  "A",
+        "difficulty":  "Hard",
         "questionNumber":  12,
         "options":  [
-                        "what does a momentum coefficient of 0.9 physically signify?",
+                        "The parameters are clipped to 90% of their norm.",
                         "90% of the update is from the previous velocity.",
                         "The learning rate is annealed by 10% each epoch.",
                         "The gradient is calculated on 90% of the data."
@@ -1871,12 +1871,12 @@
         "world":  "ML Model Builder"
     },
     {
-        "question":  "For a non-convex loss landscape",
-        "correctAnswer":  "They are incompatible with batch normalization.",
-        "difficulty":  "A",
+        "question":  "For a non-convex loss landscape why might Adam\u0027s per-parameter adaptive learning rates be detrimental?",
+        "correctAnswer":  "A",
+        "difficulty":  "Hard",
         "questionNumber":  13,
         "options":  [
-                        "why might Adam\u0027s per-parameter adaptive learning rates be detrimental?",
+                        "They are incompatible with batch normalization.",
                         "They can prevent convergence by amplifying noise in sparse gradients.",
                         "They violate the Lipschitz continuity condition.",
                         "They require computing the full Hessian."
@@ -6672,8 +6672,33 @@ function showScorePopup(points, isPositive) {
       pool = pool.concat(extras);
     }
     
-    // Take exactly 3 questions
-    const selected = pool.slice(0, 3);
+    // Select questions ensuring consecutive questions don't have the same correct answer
+    const selected = [];
+    let lastAnswer = null;
+    
+    while (selected.length < 3 && pool.length > 0) {
+      // Find a question with a different correct answer than the last one
+      let foundIdx = -1;
+      
+      for (let i = 0; i < pool.length; i++) {
+        const candidateAnswer = pool[i].correctAnswer;
+        if (lastAnswer === null || candidateAnswer !== lastAnswer) {
+          foundIdx = i;
+          break;
+        }
+      }
+      
+      // If no question with different answer found, just take the first available
+      // (fallback to avoid infinite loop when all remaining have same answer)
+      if (foundIdx === -1) {
+        foundIdx = 0;
+      }
+      
+      const question = pool[foundIdx];
+      selected.push(question);
+      lastAnswer = question.correctAnswer;
+      pool.splice(foundIdx, 1); // Remove selected question from pool
+    }
     
     // Mark these questions as used (find their original indices)
     selected.forEach(selectedQ => {
@@ -6690,6 +6715,7 @@ function showScorePopup(points, isPositive) {
     saveUsedQuestionsToStorage();
     
     console.log(`📋 ${worldId}: Selected ${selected.length} questions, ${usedSet.size}/${all.length} total used`);
+    console.log(`📋 Answer pattern: ${selected.map(q => q.correctAnswer).join(' → ')}`);
     
     return selected;
   }
