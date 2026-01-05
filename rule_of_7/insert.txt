@@ -1,0 +1,372 @@
+-- Synthetic Test Data for Headcount Masking
+-- This data covers all test scenarios with realistic hierarchy structures
+
+-- Insert test data covering all scenarios
+INSERT INTO `your-project.your-dataset.your-table` (
+  partition_dt,
+  metric_id,
+  org_level_1,
+  org_level_2,
+  org_level_3,
+  org_level_4,
+  org_level_5,
+  org_level_6,
+  org_level_7,
+  region,
+  gender,
+  headcount,
+  stage_1_masked,
+  stage_2_masked
+)
+VALUES
+
+-- =====================================================================
+-- SCENARIO 1: Basic Stage 1 Only (Multiple low headcounts - no Stage 2)
+-- =====================================================================
+('2024-01-15', 'HC001', 'Sales', 'Americas', 'North America', 'USA', 'Northeast', 'New York', 'NYC-Metro', 'US', 'Male', 5, NULL, NULL),
+('2024-01-15', 'HC001', 'Sales', 'Americas', 'North America', 'USA', 'Northeast', 'New York', 'NYC-Metro', 'US', 'Female', 6, NULL, NULL),
+('2024-01-15', 'HC001', 'Sales', 'Americas', 'North America', 'USA', 'Northeast', 'New York', 'NYC-Metro', 'US', 'Non-Binary', 12, NULL, NULL),
+('2024-01-15', 'HC001', 'Sales', 'Americas', 'North America', 'USA', 'Northeast', 'New York', 'NYC-Metro', 'US', 'Prefer not to say', 20, NULL, NULL),
+
+-- =====================================================================
+-- SCENARIO 2: Stage 1 + Stage 2 (Single low headcount)
+-- =====================================================================
+('2024-01-15', 'HC001', 'Sales', 'Americas', 'North America', 'USA', 'West', 'California', 'LA-Metro', 'US', 'Male', 4, NULL, NULL),
+('2024-01-15', 'HC001', 'Sales', 'Americas', 'North America', 'USA', 'West', 'California', 'LA-Metro', 'US', 'Female', 10, NULL, NULL),
+('2024-01-15', 'HC001', 'Sales', 'Americas', 'North America', 'USA', 'West', 'California', 'LA-Metro', 'US', 'Non-Binary', 15, NULL, NULL),
+('2024-01-15', 'HC001', 'Sales', 'Americas', 'North America', 'USA', 'West', 'California', 'LA-Metro', 'US', 'Prefer not to say', 25, NULL, NULL),
+
+-- =====================================================================
+-- SCENARIO 3: Multiple records with same second-lowest (4 records with HC=10)
+-- =====================================================================
+('2024-01-15', 'HC001', 'Sales', 'Americas', 'North America', 'USA', 'South', 'Texas', 'Dallas-Metro', 'US', 'Male', 5, NULL, NULL),
+('2024-01-15', 'HC001', 'Sales', 'Americas', 'North America', 'USA', 'South', 'Texas', 'Dallas-Metro', 'US', 'Female', 10, NULL, NULL),
+('2024-01-15', 'HC001', 'Sales', 'Americas', 'North America', 'USA', 'South', 'Texas', 'Dallas-Metro', 'EU', 'Male', 10, NULL, NULL),
+('2024-01-15', 'HC001', 'Sales', 'Americas', 'North America', 'USA', 'South', 'Texas', 'Dallas-Metro', 'EU', 'Female', 10, NULL, NULL),
+('2024-01-15', 'HC001', 'Sales', 'Americas', 'North America', 'USA', 'South', 'Texas', 'Dallas-Metro', 'APAC', 'Male', 10, NULL, NULL),
+('2024-01-15', 'HC001', 'Sales', 'Americas', 'North America', 'USA', 'South', 'Texas', 'Dallas-Metro', 'APAC', 'Female', 25, NULL, NULL),
+
+-- =====================================================================
+-- SCENARIO 4: Multiple low headcounts - NO Stage 2
+-- =====================================================================
+('2024-01-15', 'HC001', 'Sales', 'Americas', 'North America', 'USA', 'Midwest', 'Illinois', 'Chicago-Metro', 'US', 'Male', 3, NULL, NULL),
+('2024-01-15', 'HC001', 'Sales', 'Americas', 'North America', 'USA', 'Midwest', 'Illinois', 'Chicago-Metro', 'US', 'Female', 5, NULL, NULL),
+('2024-01-15', 'HC001', 'Sales', 'Americas', 'North America', 'USA', 'Midwest', 'Illinois', 'Chicago-Metro', 'EU', 'Male', 6, NULL, NULL),
+('2024-01-15', 'HC001', 'Sales', 'Americas', 'North America', 'USA', 'Midwest', 'Illinois', 'Chicago-Metro', 'EU', 'Female', 12, NULL, NULL),
+('2024-01-15', 'HC001', 'Sales', 'Americas', 'North America', 'USA', 'Midwest', 'Illinois', 'Chicago-Metro', 'APAC', 'Male', 20, NULL, NULL),
+
+-- =====================================================================
+-- SCENARIO 5: Different org hierarchies (separate groups)
+-- =====================================================================
+-- Group A: Marketing hierarchy
+('2024-01-15', 'HC001', 'Marketing', 'Americas', 'North America', 'USA', 'Northeast', 'Massachusetts', 'Boston-Metro', 'US', 'Male', 4, NULL, NULL),
+('2024-01-15', 'HC001', 'Marketing', 'Americas', 'North America', 'USA', 'Northeast', 'Massachusetts', 'Boston-Metro', 'US', 'Female', 10, NULL, NULL),
+('2024-01-15', 'HC001', 'Marketing', 'Americas', 'North America', 'USA', 'Northeast', 'Massachusetts', 'Boston-Metro', 'EU', 'Male', 18, NULL, NULL),
+
+-- Group B: Engineering hierarchy (different org_level_1)
+('2024-01-15', 'HC001', 'Engineering', 'Americas', 'North America', 'USA', 'West', 'Washington', 'Seattle-Metro', 'US', 'Male', 5, NULL, NULL),
+('2024-01-15', 'HC001', 'Engineering', 'Americas', 'North America', 'USA', 'West', 'Washington', 'Seattle-Metro', 'US', 'Female', 8, NULL, NULL),
+('2024-01-15', 'HC001', 'Engineering', 'Americas', 'North America', 'USA', 'West', 'Washington', 'Seattle-Metro', 'EU', 'Male', 15, NULL, NULL),
+
+-- =====================================================================
+-- SCENARIO 6: All records low headcount (no Stage 2 possible)
+-- =====================================================================
+('2024-01-15', 'HC001', 'Sales', 'Americas', 'South America', 'Brazil', 'Southeast', 'Sao Paulo', 'SP-Metro', 'LATAM', 'Male', 2, NULL, NULL),
+('2024-01-15', 'HC001', 'Sales', 'Americas', 'South America', 'Brazil', 'Southeast', 'Sao Paulo', 'SP-Metro', 'LATAM', 'Female', 4, NULL, NULL),
+('2024-01-15', 'HC001', 'Sales', 'Americas', 'South America', 'Brazil', 'Southeast', 'Sao Paulo', 'SP-Metro', 'LATAM', 'Non-Binary', 6, NULL, NULL),
+
+-- =====================================================================
+-- SCENARIO 7: No low headcount records (no masking)
+-- =====================================================================
+('2024-01-15', 'HC001', 'Sales', 'Europe', 'Western Europe', 'Germany', 'Bavaria', 'Munich', 'Munich-Metro', 'EU', 'Male', 10, NULL, NULL),
+('2024-01-15', 'HC001', 'Sales', 'Europe', 'Western Europe', 'Germany', 'Bavaria', 'Munich', 'Munich-Metro', 'EU', 'Female', 15, NULL, NULL),
+('2024-01-15', 'HC001', 'Sales', 'Europe', 'Western Europe', 'Germany', 'Bavaria', 'Munich', 'Munich-Metro', 'EU', 'Non-Binary', 25, NULL, NULL),
+
+-- =====================================================================
+-- SCENARIO 8: Boundary value (HC exactly = 7)
+-- =====================================================================
+('2024-01-15', 'HC001', 'Sales', 'Europe', 'Western Europe', 'France', 'Ile-de-France', 'Paris', 'Paris-Metro', 'EU', 'Male', 6, NULL, NULL),
+('2024-01-15', 'HC001', 'Sales', 'Europe', 'Western Europe', 'France', 'Ile-de-France', 'Paris', 'Paris-Metro', 'EU', 'Female', 7, NULL, NULL),
+('2024-01-15', 'HC001', 'Sales', 'Europe', 'Western Europe', 'France', 'Ile-de-France', 'Paris', 'Paris-Metro', 'EU', 'Non-Binary', 8, NULL, NULL),
+('2024-01-15', 'HC001', 'Sales', 'Europe', 'Western Europe', 'France', 'Ile-de-France', 'Paris', 'Paris-Metro', 'EU', 'Prefer not to say', 15, NULL, NULL),
+
+-- =====================================================================
+-- SCENARIO 9: Different metric_ids (independent processing)
+-- =====================================================================
+-- Metric HC001
+('2024-01-15', 'HC001', 'Sales', 'Asia-Pacific', 'East Asia', 'Japan', 'Kanto', 'Tokyo', 'Tokyo-Metro', 'APAC', 'Male', 5, NULL, NULL),
+('2024-01-15', 'HC001', 'Sales', 'Asia-Pacific', 'East Asia', 'Japan', 'Kanto', 'Tokyo', 'Tokyo-Metro', 'APAC', 'Female', 12, NULL, NULL),
+
+-- Metric HC002 (same hierarchy, different metric)
+('2024-01-15', 'HC002', 'Sales', 'Asia-Pacific', 'East Asia', 'Japan', 'Kanto', 'Tokyo', 'Tokyo-Metro', 'APAC', 'Male', 4, NULL, NULL),
+('2024-01-15', 'HC002', 'Sales', 'Asia-Pacific', 'East Asia', 'Japan', 'Kanto', 'Tokyo', 'Tokyo-Metro', 'APAC', 'Female', 8, NULL, NULL),
+('2024-01-15', 'HC002', 'Sales', 'Asia-Pacific', 'East Asia', 'Japan', 'Kanto', 'Tokyo', 'Tokyo-Metro', 'APAC', 'Non-Binary', 15, NULL, NULL),
+
+-- =====================================================================
+-- SCENARIO 10: Partition isolation (different dates)
+-- =====================================================================
+-- 2024-01-15 (should be masked)
+('2024-01-15', 'HC001', 'Sales', 'Asia-Pacific', 'Southeast Asia', 'Singapore', 'Central', 'Singapore', 'SG-Central', 'APAC', 'Male', 5, NULL, NULL),
+('2024-01-15', 'HC001', 'Sales', 'Asia-Pacific', 'Southeast Asia', 'Singapore', 'Central', 'Singapore', 'SG-Central', 'APAC', 'Female', 12, NULL, NULL),
+
+-- 2024-01-16 (should NOT be masked when processing 2024-01-15)
+('2024-01-16', 'HC001', 'Sales', 'Asia-Pacific', 'Southeast Asia', 'Singapore', 'Central', 'Singapore', 'SG-Central', 'APAC', 'Male', 4, NULL, NULL),
+('2024-01-16', 'HC001', 'Sales', 'Asia-Pacific', 'Southeast Asia', 'Singapore', 'Central', 'Singapore', 'SG-Central', 'APAC', 'Female', 15, NULL, NULL),
+
+-- =====================================================================
+-- ADDITIONAL COMPLEX SCENARIOS
+-- =====================================================================
+
+-- Complex 1: Large group with mixed headcounts
+('2024-01-15', 'HC001', 'Sales', 'Europe', 'Western Europe', 'UK', 'England', 'London', 'London-Metro', 'EU', 'Male', 3, NULL, NULL),
+('2024-01-15', 'HC001', 'Sales', 'Europe', 'Western Europe', 'UK', 'England', 'London', 'London-Metro', 'EU', 'Female', 9, NULL, NULL),
+('2024-01-15', 'HC001', 'Sales', 'Europe', 'Western Europe', 'UK', 'England', 'London', 'London-Metro', 'EU', 'Non-Binary', 9, NULL, NULL),
+('2024-01-15', 'HC001', 'Sales', 'Europe', 'Western Europe', 'UK', 'England', 'London', 'London-Metro', 'APAC', 'Male', 9, NULL, NULL),
+('2024-01-15', 'HC001', 'Sales', 'Europe', 'Western Europe', 'UK', 'England', 'London', 'London-Metro', 'APAC', 'Female', 20, NULL, NULL),
+('2024-01-15', 'HC001', 'Sales', 'Europe', 'Western Europe', 'UK', 'England', 'London', 'London-Metro', 'US', 'Male', 25, NULL, NULL),
+
+-- Complex 2: Three records with same second-lowest
+('2024-01-15', 'HC001', 'Sales', 'Europe', 'Northern Europe', 'Sweden', 'Stockholm', 'Stockholm City', 'Stockholm-Metro', 'EU', 'Male', 6, NULL, NULL),
+('2024-01-15', 'HC001', 'Sales', 'Europe', 'Northern Europe', 'Sweden', 'Stockholm', 'Stockholm City', 'Stockholm-Metro', 'EU', 'Female', 11, NULL, NULL),
+('2024-01-15', 'HC001', 'Sales', 'Europe', 'Northern Europe', 'Sweden', 'Stockholm', 'Stockholm City', 'Stockholm-Metro', 'APAC', 'Male', 11, NULL, NULL),
+('2024-01-15', 'HC001', 'Sales', 'Europe', 'Northern Europe', 'Sweden', 'Stockholm', 'Stockholm City', 'Stockholm-Metro', 'APAC', 'Female', 11, NULL, NULL),
+('2024-01-15', 'HC001', 'Sales', 'Europe', 'Northern Europe', 'Sweden', 'Stockholm', 'Stockholm City', 'Stockholm-Metro', 'US', 'Male', 30, NULL, NULL),
+
+-- Complex 3: Minimal group (2 records only, 1 low)
+('2024-01-15', 'HC001', 'Sales', 'Americas', 'North America', 'Canada', 'Ontario', 'Toronto', 'Toronto-Metro', 'US', 'Male', 2, NULL, NULL),
+('2024-01-15', 'HC001', 'Sales', 'Americas', 'North America', 'Canada', 'Ontario', 'Toronto', 'Toronto-Metro', 'US', 'Female', 8, NULL, NULL),
+
+-- Complex 4: Multiple metrics with different patterns
+('2024-01-15', 'HC003', 'Engineering', 'Americas', 'North America', 'USA', 'West', 'California', 'SF-Metro', 'US', 'Male', 1, NULL, NULL),
+('2024-01-15', 'HC003', 'Engineering', 'Americas', 'North America', 'USA', 'West', 'California', 'SF-Metro', 'US', 'Female', 2, NULL, NULL),
+('2024-01-15', 'HC003', 'Engineering', 'Americas', 'North America', 'USA', 'West', 'California', 'SF-Metro', 'EU', 'Male', 3, NULL, NULL),
+('2024-01-15', 'HC003', 'Engineering', 'Americas', 'North America', 'USA', 'West', 'California', 'SF-Metro', 'EU', 'Female', 15, NULL, NULL),
+
+-- Complex 5: Records with NULL-like values (using 'Unknown')
+('2024-01-15', 'HC001', 'Sales', 'Asia-Pacific', 'South Asia', 'India', 'Maharashtra', 'Mumbai', 'Mumbai-Metro', 'APAC', 'Prefer not to say', 4, NULL, NULL),
+('2024-01-15', 'HC001', 'Sales', 'Asia-Pacific', 'South Asia', 'India', 'Maharashtra', 'Mumbai', 'Mumbai-Metro', 'APAC', 'Male', 7, NULL, NULL),
+('2024-01-15', 'HC001', 'Sales', 'Asia-Pacific', 'South Asia', 'India', 'Maharashtra', 'Mumbai', 'Mumbai-Metro', 'APAC', 'Female', 7, NULL, NULL),
+('2024-01-15', 'HC001', 'Sales', 'Asia-Pacific', 'South Asia', 'India', 'Maharashtra', 'Mumbai', 'Mumbai-Metro', 'APAC', 'Non-Binary', 20, NULL, NULL),
+
+-- Complex 6: Large headcount spread
+('2024-01-15', 'HC001', 'Marketing', 'Europe', 'Western Europe', 'Spain', 'Madrid', 'Madrid City', 'Madrid-Metro', 'EU', 'Male', 6, NULL, NULL),
+('2024-01-15', 'HC001', 'Marketing', 'Europe', 'Western Europe', 'Spain', 'Madrid', 'Madrid City', 'Madrid-Metro', 'EU', 'Female', 100, NULL, NULL),
+('2024-01-15', 'HC001', 'Marketing', 'Europe', 'Western Europe', 'Spain', 'Madrid', 'Madrid City', 'Madrid-Metro', 'EU', 'Non-Binary', 200, NULL, NULL),
+('2024-01-15', 'HC001', 'Marketing', 'Europe', 'Western Europe', 'Spain', 'Madrid', 'Madrid City', 'Madrid-Metro', 'US', 'Male', 500, NULL, NULL);
+
+-- =====================================================================
+-- SUMMARY OF TEST DATA
+-- =====================================================================
+-- Total scenarios covered:
+-- 1. Basic Stage 1 only (multiple low HC)
+-- 2. Stage 1 + Stage 2 (single low HC)
+-- 3. Multiple records with same second-lowest
+-- 4. Multiple low headcounts (no Stage 2)
+-- 5. Different org hierarchies
+-- 6. All records low headcount
+-- 7. No low headcount records
+-- 8. Boundary value (HC = 7)
+-- 9. Different metric_ids
+-- 10. Partition isolation
+-- 11-16. Additional complex scenarios
+--
+-- Key features:
+-- - Realistic organizational hierarchies (Sales, Marketing, Engineering)
+-- - Geographic diversity (Americas, Europe, Asia-Pacific)
+-- - Multiple regions (US, EU, APAC, LATAM)
+-- - Gender diversity (Male, Female, Non-Binary, Prefer not to say)
+-- - Various headcount patterns (1-500)
+-- - Multiple metrics (HC001, HC002, HC003)
+-- - Different partition dates (2024-01-15, 2024-01-16)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# Prompt for Generating Synthetic Headcount Masking Test Data
+
+## Context
+I need synthetic test data for a headcount masking system that implements a two-stage masking logic based on organizational hierarchy and headcount thresholds.
+
+## Table Schema
+The table has the following columns:
+- **partition_dt** (DATE): Partition date
+- **metric_id** (STRING): Metric identifier (e.g., 'HC001', 'HC002')
+- **metric_name** (STRING): Metric description (e.g., 'Active Headcount', 'Turnover Count')
+- **org_level_1** (STRING): Organizational level 1 (e.g., 'Sales', 'Marketing', 'Engineering')
+- **org_level_2** (STRING): Organizational level 2 (e.g., 'Americas', 'Europe', 'Asia-Pacific')
+- **org_level_3** (STRING): Organizational level 3 (e.g., 'North America', 'Western Europe')
+- **org_level_4** (STRING): Organizational level 4 (e.g., 'USA', 'Germany', 'Japan')
+- **org_level_5** (STRING): Organizational level 5 (e.g., 'Northeast', 'West', 'Bavaria')
+- **org_level_6** (STRING): Organizational level 6 (e.g., 'New York', 'California', 'Munich')
+- **org_level_7** (STRING): Organizational level 7 (e.g., 'NYC-Metro', 'LA-Metro', 'Munich-Metro')
+- **region** (STRING): Geographic region (e.g., 'US', 'EU', 'APAC', 'LATAM')
+- **country** (STRING): Country name
+- **state** (STRING): State/province
+- **city** (STRING): City name
+- **location** (STRING): Specific location/office
+- **department** (STRING): Department name
+- **sub_department** (STRING): Sub-department
+- **team** (STRING): Team name
+- **gender** (STRING): Gender ('Male', 'Female', 'Non-Binary', 'Prefer not to say')
+- **age_group** (STRING): Age band ('18-24', '25-34', '35-44', '45-54', '55+')
+- **tenure_band** (STRING): Tenure range ('0-2 years', '3-5 years', '6-10 years', '10+ years')
+- **employment_type** (STRING): Employment type ('Full-Time', 'Part-Time', 'Contract', 'Intern')
+- **job_level** (STRING): Job level ('Individual Contributor', 'Manager', 'Senior Manager', 'Director', 'VP')
+- **job_family** (STRING): Job family (e.g., 'Sales', 'Engineering', 'Marketing')
+- **headcount** (INTEGER): Headcount value (THIS IS THE KEY FIELD)
+- **fte** (FLOAT): Full-time equivalent
+- **report_date** (DATE): Report date
+- **fiscal_year** (INTEGER): Fiscal year
+- **fiscal_quarter** (STRING): Fiscal quarter ('Q1', 'Q2', 'Q3', 'Q4')
+- **fiscal_month** (STRING): Fiscal month name
+- **snapshot_date** (DATE): Snapshot date
+- **data_source** (STRING): Data source system (e.g., 'HRIS', 'Workday')
+- **record_id** (STRING): Unique record identifier
+- **created_timestamp** (TIMESTAMP): Record creation timestamp
+- **updated_timestamp** (TIMESTAMP): Record update timestamp
+- **stage_1_masked** (STRING): Stage 1 masking indicator (NULL or 'Yes')
+- **stage_2_masked** (STRING): Stage 2 masking indicator (NULL or 'Yes')
+
+## Masking Logic
+
+### Grouping Rules
+- **Groups are defined ONLY by**: `metric_id + org_level_1 + org_level_2 + org_level_3 + org_level_4 + org_level_5 + org_level_6 + org_level_7`
+- **Other fields do NOT create separate groups**: region, country, gender, department, etc. are attributes within a group
+- Multiple records can exist for the same org hierarchy (different regions, genders, teams, etc.)
+
+### Stage 1 Masking Rules
+- **Individual record level**: Mark ALL records where `headcount < 7` with `stage_1_masked = 'Yes'`
+- This applies regardless of group membership
+
+### Stage 2 Masking Rules
+- **Group level logic**: Only applies if the org hierarchy group has **exactly 1** record with `headcount < 7`
+- **If Stage 2 applies**:
+  - Find the minimum `headcount >= 7` within that group (second-lowest overall)
+  - Mark ALL records with that headcount value as `stage_2_masked = 'Yes'`
+  - Even if 3-4 records have the same second-lowest value, mask them ALL
+- **Stage 2 does NOT apply if**:
+  - Group has 0 records with `headcount < 7`
+  - Group has 2+ records with `headcount < 7`
+  - Group has no records with `headcount >= 7`
+
+## Required Test Scenarios
+
+Generate SQL INSERT statements with realistic data covering these scenarios:
+
+### Scenario 1: Basic Stage 1 Only
+- One org hierarchy group with 2+ records having `headcount < 7`
+- Expected: All low headcount records masked at Stage 1, NO Stage 2 masking
+
+### Scenario 2: Stage 1 + Stage 2 Applied
+- One org hierarchy group with exactly 1 record having `headcount < 7`
+- Multiple records with `headcount >= 7`
+- Expected: Low headcount → Stage 1, second-lowest headcount → Stage 2
+
+### Scenario 3: Multiple Records with Same Second-Lowest
+- One org hierarchy group with exactly 1 record having `headcount < 7`
+- 3-4 records all having the same second-lowest headcount (e.g., all have HC=10)
+- Expected: ALL records with HC=10 should be masked at Stage 2
+
+### Scenario 4: Multiple Low Headcounts - No Stage 2
+- One org hierarchy group with 3+ records having `headcount < 7`
+- Expected: All low records → Stage 1, NO Stage 2 masking
+
+### Scenario 5: Different Org Hierarchies
+- Two completely different org hierarchy groups (different org_level values)
+- Each group should have different masking patterns
+- Expected: Each group processed independently
+
+### Scenario 6: All Records Low Headcount
+- One org hierarchy group where ALL records have `headcount < 7`
+- Expected: All → Stage 1, NO Stage 2 (no records >= 7 exist)
+
+### Scenario 7: No Low Headcount Records
+- One org hierarchy group where ALL records have `headcount >= 7`
+- Expected: NO masking at all
+
+### Scenario 8: Boundary Value (HC = 7)
+- One org hierarchy group with 1 record at HC=6 (< 7) and 1 record at HC=7 (>= 7)
+- Expected: HC=6 → Stage 1, HC=7 → Stage 2 (second-lowest)
+
+### Scenario 9: Different Metric IDs
+- Same org hierarchy but different metric_id values
+- Expected: Each metric processed independently
+
+### Scenario 10: Partition Isolation
+- Same data across different partition_dt values
+- Expected: Only specified partition is masked
+
+### Scenario 11: Same Org Hierarchy, Different Attributes
+- Same org_level_1 through org_level_7
+- BUT different region, gender, department, team
+- Expected: All treated as ONE group for masking decisions
+
+### Scenario 12: Large Group with Mixed Headcounts
+- One org hierarchy with 6-8 records
+- 1 record with HC < 7
+- 3 records with same second-lowest (e.g., HC=9)
+- 3 records with higher headcounts
+- Expected: 1 → Stage 1, 3 with HC=9 → Stage 2
+
+## Data Generation Requirements
+
+1. **Use realistic values**:
+   - Real company department names (Sales, Marketing, Engineering, Finance, HR, Operations)
+   - Real geographic locations (USA, Germany, UK, France, Japan, Singapore, Brazil, etc.)
+   - Realistic team names (Team A, Team B, or descriptive names)
+   - Use partition_dt = '2024-01-15' as primary partition
+   - Use partition_dt = '2024-01-16' for partition isolation test
+
+2. **Ensure data diversity**:
+   - Mix of gender values
+   - Various age groups and tenure bands
+   - Different employment types
+   - Multiple job levels
+   - Use metric_id values: 'HC001' (primary), 'HC002', 'HC003'
+
+3. **Generate unique record_ids**: 
+   - Format: 'REC-001', 'REC-002', etc.
+
+4. **Use consistent timestamps**:
+   - created_timestamp and updated_timestamp can use CURRENT_TIMESTAMP()
+
+5. **Initialize masking columns**:
+   - stage_1_masked = NULL
+   - stage_2_masked = NULL
+
+6. **FTE should match headcount**: 
+   - For simplicity, FTE = headcount (both same value)
+
+7. **Date fields should be consistent**:
+   - report_date = snapshot_date = partition_dt
+   - fiscal_year = 2024
+   - fiscal_quarter = 'Q1'
+   - fiscal_month = 'January'
+
+## Output Format
+
+Generate a complete SQL INSERT statement with:
+- All required columns in order
+- At least 60-80 records covering ALL scenarios
+- Comments indicating which scenario each group of records represents
+- Data should be ready to copy-paste and execute in BigQuery
+
+## Example Pattern for Each Scenario
+
+For each scenario, create records like:
+```sql
+-- SCENARIO X: Description
+('2024-01-15', 'HC001', 'Active Headcount', 'Sales', 'Americas', 'North America', 'USA', 'Northeast', 'New York', 'NYC-Metro', 'US', 'United States', 'New York', 'New York', 'NYC Office', 'Sales', 'Enterprise Sales', 'Team A', 'Male', '25-34', '0-2 years', 'Full-Time', 'Individual Contributor', 'Sales', HEADCOUNT_VALUE, FTE_VALUE, '2024-01-15', 2024, 'Q1', 'January', '2024-01-15', 'HRIS', 'REC-XXX', CURRENT_TIMESTAMP(), CURRENT_TIMESTAMP(), NULL, NULL),
+```
+
+Please generate comprehensive synthetic test data following all these requirements.
