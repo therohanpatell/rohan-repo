@@ -3,7 +3,8 @@ Production-Ready Hierarchy-Based Headcount Masking for BigQuery
 Designed to run on Dataproc cluster with Airflow orchestration.
 
 Implements two-stage masking logic based on headcount thresholds and organizational hierarchy.
-Supports partitioned tables and configurable grouping columns.
+Masking is evaluated at org_level_1 through org_level_7 group level.
+Multiple records may exist per org hierarchy (due to region, gender, etc.)
 """
 
 import argparse
@@ -28,16 +29,14 @@ logger = logging.getLogger(__name__)
 class HeadcountMaskingJob:
     """
     Production-ready headcount masking processor for partitioned BigQuery tables.
-    Designed for Dataproc execution with Airflow orchestration.
+    Masking decisions are made at the org_level_1 through org_level_7 group level.
     """
     
-    # Default hierarchy and grouping columns
+    # Default hierarchy columns for grouping
     DEFAULT_HIERARCHY_COLUMNS = [
         'org_level_1', 'org_level_2', 'org_level_3', 'org_level_4',
         'org_level_5', 'org_level_6', 'org_level_7'
     ]
-    
-    DEFAULT_ADDITIONAL_GROUP_COLUMNS = ['region', 'location']
     
     def __init__(
         self,
@@ -45,8 +44,7 @@ class HeadcountMaskingJob:
         dataset_id: str,
         table_id: str,
         partition_column: str = 'partition_dt',
-        hierarchy_columns: Optional[List[str]] = None,
-        additional_group_columns: Optional[List[str]] = None
+        hierarchy_columns: Optional[List[str]] = None
     ):
         """
         Initialize the masking job processor.
@@ -57,7 +55,6 @@ class HeadcountMaskingJob:
             table_id: BigQuery table ID
             partition_column: Name of the partition column (default: 'partition_dt')
             hierarchy_columns: List of hierarchy columns (defaults to org_level_1 through org_level_7)
-            additional_group_columns: Additional columns for grouping (defaults to region, location)
         """
         self.client = bigquery.Client(project=project_id)
         self.project_id = project_id
@@ -66,18 +63,13 @@ class HeadcountMaskingJob:
         self.full_table_id = f"{project_id}.{dataset_id}.{table_id}"
         self.partition_column = partition_column
         
-        # Set hierarchy and grouping columns
+        # Set hierarchy columns (only these are used for grouping)
         self.hierarchy_columns = hierarchy_columns or self.DEFAULT_HIERARCHY_COLUMNS
-        self.additional_group_columns = additional_group_columns or self.DEFAULT_ADDITIONAL_GROUP_COLUMNS
-        
-        # Combined grouping columns (hierarchy + additional)
-        self.all_group_columns = self.hierarchy_columns + self.additional_group_columns
         
         logger.info(f"Initialized HeadcountMaskingJob")
         logger.info(f"Target table: {self.full_table_id}")
         logger.info(f"Partition column: {self.partition_column}")
-        logger.info(f"Hierarchy columns: {self.hierarchy_columns}")
-        logger.info(f"Additional grouping columns: {self.additional_group_columns}")
+        logger.info(f"Hierarchy columns for grouping: {self.hierarchy_columns}")
     
     def execute(
         self,
@@ -222,18 +214,18 @@ class HeadcountMaskingJob:
             raise RuntimeError(f"Failed to verify partition: {str(e)}")
     
     def _build_group_by_clause(self, alias: str = "") -> str:
-        """Build GROUP BY clause with all grouping columns."""
+        """Build GROUP BY clause with hierarchy columns only."""
         prefix = f"{alias}." if alias else ""
-        return ", ".join([f"{prefix}{col}" for col in self.all_group_columns])
+        return ", ".join([f"{prefix}{col}" for col in self.hierarchy_columns])
     
     def _build_join_conditions(self, left_alias: str, right_alias: str, metric_included: bool = True) -> str:
-        """Build JOIN conditions for all grouping columns."""
+        """Build JOIN conditions for hierarchy columns."""
         conditions = []
         
         if metric_included:
             conditions.append(f"{left_alias}.metric_id = {right_alias}.metric_id")
         
-        for col in self.all_group_columns:
+        for col in self.hierarchy_columns:
             conditions.append(f"{left_alias}.{col} = {right_alias}.{col}")
         
         return " AND ".join(conditions)
@@ -295,14 +287,18 @@ class HeadcountMaskingJob:
         headcount_column: str,
         threshold: int
     ) -> int:
-        """Apply Stage 1 masking: Mark all records with headcount < threshold."""
+        """
+        Apply Stage 1 masking: Mark all records with headcount < threshold.
+        
+        This applies to individual records regardless of group membership.
+        """
         query = f"""
         UPDATE `{self.full_table_id}`
-        SET stage_1_masking = "Yes"
+        SET stage_1_masked = "Yes"
         WHERE {self.partition_column} = '{partition_date}'
           AND metric_id IN ({metric_ids_str})
           AND {headcount_column} < {threshold}
-          AND stage_1_masking IS NULL
+          AND stage_1_masked IS NULL
         """
         
         logger.info("Executing Stage 1 masking query...")
@@ -318,14 +314,20 @@ class HeadcountMaskingJob:
         headcount_column: str,
         threshold: int
     ) -> int:
-        """Apply Stage 2 masking: Mark second-lowest headcount in qualifying groups."""
+        """
+        Apply Stage 2 masking: Mark second-lowest headcount in qualifying groups.
+        
+        Groups are defined by metric_id + org_level_1 through org_level_7.
+        Multiple records may exist per group (due to region, gender, etc.) and ALL
+        records with the second-lowest headcount value will be masked.
+        """
         group_by_cols = self._build_group_by_clause()
         group_by_cols_t = self._build_group_by_clause("t")
         join_conditions = self._build_join_conditions("t", "hg")
         join_conditions_sl = self._build_join_conditions("t", "sl")
         
         query = f"""
-        -- Step 1: Identify groups with exactly one low-headcount record
+        -- Step 1: Identify hierarchy groups with exactly one low-headcount record
         WITH hierarchy_groups AS (
           SELECT
             metric_id,
@@ -352,7 +354,8 @@ class HeadcountMaskingJob:
           GROUP BY t.metric_id, {group_by_cols_t}
         ),
         
-        -- Step 3: Identify specific records to mask
+        -- Step 3: Identify ALL records with the target headcount in qualifying groups
+        -- This captures all records even if region/gender differ within same org hierarchy
         records_to_mask AS (
           SELECT
             t.metric_id,
@@ -365,9 +368,9 @@ class HeadcountMaskingJob:
           WHERE t.{self.partition_column} = '{partition_date}'
         )
         
-        -- Step 4: Update the target records
+        -- Step 4: Update ALL records matching the criteria
         UPDATE `{self.full_table_id}` AS target
-        SET stage_2_masking = "Yes"
+        SET stage_2_masked = "Yes"
         WHERE target.{self.partition_column} = '{partition_date}'
           AND EXISTS (
             SELECT 1
@@ -376,7 +379,7 @@ class HeadcountMaskingJob:
               AND target.{headcount_column} = rtm.{headcount_column}
               AND {self._build_join_conditions('target', 'rtm', metric_included=False)}
           )
-          AND target.stage_2_masking IS NULL
+          AND target.stage_2_masked IS NULL
         """
         
         logger.info("Executing Stage 2 masking query...")
@@ -396,13 +399,13 @@ class HeadcountMaskingJob:
         query = f"""
         SELECT
           COUNT(*) AS total_records,
-          COUNTIF(stage_1_masking = "Yes") AS stage1_masked,
-          COUNTIF(stage_2_masking = "Yes") AS stage2_masked,
-          COUNTIF(stage_1_masking = "Yes" AND stage_2_masking = "Yes") AS both_masked,
-          COUNTIF({headcount_column} < {threshold} AND stage_1_masking IS NULL) AS unmasked_low_headcount,
-          COUNTIF({headcount_column} < {threshold} AND stage_2_masking = "Yes") AS invalid_stage2_on_low,
-          COUNTIF(stage_1_masking NOT IN ("Yes") AND stage_1_masking IS NOT NULL) AS invalid_stage1_values,
-          COUNTIF(stage_2_masking NOT IN ("Yes") AND stage_2_masking IS NOT NULL) AS invalid_stage2_values
+          COUNTIF(stage_1_masked = "Yes") AS stage1_masked,
+          COUNTIF(stage_2_masked = "Yes") AS stage2_masked,
+          COUNTIF(stage_1_masked = "Yes" AND stage_2_masked = "Yes") AS both_masked,
+          COUNTIF({headcount_column} < {threshold} AND stage_1_masked IS NULL) AS unmasked_low_headcount,
+          COUNTIF({headcount_column} < {threshold} AND stage_2_masked = "Yes") AS invalid_stage2_on_low,
+          COUNTIF(stage_1_masked NOT IN ("Yes") AND stage_1_masked IS NOT NULL) AS invalid_stage1_values,
+          COUNTIF(stage_2_masked NOT IN ("Yes") AND stage_2_masked IS NOT NULL) AS invalid_stage2_values
         FROM `{self.full_table_id}`
         WHERE {self.partition_column} = '{partition_date}'
           AND metric_id IN ({metric_ids_str})
@@ -439,11 +442,11 @@ class HeadcountMaskingJob:
             has_errors = True
         
         if verification.get('invalid_stage1_values', 0) > 0:
-            logger.error(f"VALIDATION ERROR: {verification['invalid_stage1_values']} records have invalid stage_1_masking values!")
+            logger.error(f"VALIDATION ERROR: {verification['invalid_stage1_values']} records have invalid stage_1_masked values!")
             has_errors = True
         
         if verification.get('invalid_stage2_values', 0) > 0:
-            logger.error(f"VALIDATION ERROR: {verification['invalid_stage2_values']} records have invalid stage_2_masking values!")
+            logger.error(f"VALIDATION ERROR: {verification['invalid_stage2_values']} records have invalid stage_2_masked values!")
             has_errors = True
         
         if verification.get('both_masked', 0) > 0:
@@ -508,11 +511,6 @@ def parse_arguments():
         help='Comma-separated list of hierarchy columns'
     )
     parser.add_argument(
-        '--additional_group_columns',
-        default='region,location',
-        help='Comma-separated list of additional grouping columns'
-    )
-    parser.add_argument(
         '--dry_run',
         action='store_true',
         help='Preview impact without applying changes'
@@ -530,7 +528,6 @@ def main():
         # Parse comma-separated values
         metric_ids = [mid.strip() for mid in args.metric_ids.split(',')]
         hierarchy_columns = [col.strip() for col in args.hierarchy_columns.split(',')]
-        additional_group_columns = [col.strip() for col in args.additional_group_columns.split(',')]
         
         # Initialize job
         job = HeadcountMaskingJob(
@@ -538,8 +535,7 @@ def main():
             dataset_id=args.dataset_id,
             table_id=args.table_id,
             partition_column=args.partition_column,
-            hierarchy_columns=hierarchy_columns,
-            additional_group_columns=additional_group_columns
+            hierarchy_columns=hierarchy_columns
         )
         
         # Execute job
