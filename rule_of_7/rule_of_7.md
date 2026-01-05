@@ -338,4 +338,16 @@ For each test scenario, verify:
    - No records are deleted
    - No records are inserted
    - Only stage_1_masking and stage_2_masking columns are modified
+
    - Values are only "Yes" or NULL (no other values)
+  
+   - python headcount_masking.py \
+  --project_id your-project-id \
+  --dataset_id your_dataset \
+  --table_id your_table \
+  --partition_date 2024-01-15 \
+  --metric_ids metric_001,metric_002 \
+  --partition_column partition_dt \
+  --headcount_column headcount \
+  --low_headcount_threshold 7 \
+  --hierarchy_columns org_level_1,org_level_2,org_level_3,org_level_4,org_level_5,org_level_6,org_level_7
