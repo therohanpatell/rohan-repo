@@ -322,64 +322,96 @@ class HeadcountMaskingJob:
         records with the second-lowest headcount value will be masked.
         """
         group_by_cols = self._build_group_by_clause()
-        group_by_cols_t = self._build_group_by_clause("t")
-        join_conditions = self._build_join_conditions("t", "hg")
-        join_conditions_sl = self._build_join_conditions("t", "sl")
+        join_conditions_hierarchy = self._build_join_conditions("target", "sl", metric_included=False)
         
         query = f"""
-        -- Step 1: Identify hierarchy groups with exactly one low-headcount record
-        WITH hierarchy_groups AS (
-          SELECT
-            metric_id,
-            {group_by_cols},
-            COUNTIF({headcount_column} < {threshold}) AS low_headcount_records
-          FROM `{self.full_table_id}`
-          WHERE {self.partition_column} = '{partition_date}'
-            AND metric_id IN ({metric_ids_str})
-          GROUP BY metric_id, {group_by_cols}
-          HAVING low_headcount_records = 1
-        ),
-        
-        -- Step 2: Find the second-lowest headcount (lowest >= threshold) for qualifying groups
-        second_lowest_headcount AS (
-          SELECT
+        MERGE `{self.full_table_id}` AS target
+        USING (
+          -- Step 1: Identify hierarchy groups with exactly one low-headcount record
+          WITH hierarchy_groups AS (
+            SELECT
+              metric_id,
+              {group_by_cols},
+              COUNTIF({headcount_column} < {threshold}) AS low_headcount_records
+            FROM `{self.full_table_id}`
+            WHERE {self.partition_column} = '{partition_date}'
+              AND metric_id IN ({metric_ids_str})
+            GROUP BY metric_id, {group_by_cols}
+            HAVING low_headcount_records = 1
+          ),
+          
+          -- Step 2: Find the second-lowest headcount (lowest >= threshold) for qualifying groups
+          second_lowest_headcount AS (
+            SELECT
+              t.metric_id,
+              t.org_level_1,
+              t.org_level_2,
+              t.org_level_3,
+              t.org_level_4,
+              t.org_level_5,
+              t.org_level_6,
+              t.org_level_7,
+              MIN(t.{headcount_column}) AS target_headcount
+            FROM `{self.full_table_id}` t
+            INNER JOIN hierarchy_groups hg
+              ON t.metric_id = hg.metric_id
+              AND t.org_level_1 = hg.org_level_1
+              AND t.org_level_2 = hg.org_level_2
+              AND t.org_level_3 = hg.org_level_3
+              AND t.org_level_4 = hg.org_level_4
+              AND t.org_level_5 = hg.org_level_5
+              AND t.org_level_6 = hg.org_level_6
+              AND t.org_level_7 = hg.org_level_7
+            WHERE t.{self.partition_column} = '{partition_date}'
+              AND t.{headcount_column} >= {threshold}
+            GROUP BY 
+              t.metric_id,
+              t.org_level_1,
+              t.org_level_2,
+              t.org_level_3,
+              t.org_level_4,
+              t.org_level_5,
+              t.org_level_6,
+              t.org_level_7
+          )
+          
+          -- Step 3: Return all records that should be masked
+          SELECT DISTINCT
             t.metric_id,
-            {group_by_cols_t},
-            MIN(t.{headcount_column}) AS target_headcount
-          FROM `{self.full_table_id}` t
-          INNER JOIN hierarchy_groups hg
-            ON {join_conditions}
-          WHERE t.{self.partition_column} = '{partition_date}'
-            AND t.{headcount_column} >= {threshold}
-          GROUP BY t.metric_id, {group_by_cols_t}
-        ),
-        
-        -- Step 3: Identify ALL records with the target headcount in qualifying groups
-        -- This captures all records even if region/gender differ within same org hierarchy
-        records_to_mask AS (
-          SELECT
-            t.metric_id,
-            {group_by_cols_t},
-            t.{headcount_column}
+            t.org_level_1,
+            t.org_level_2,
+            t.org_level_3,
+            t.org_level_4,
+            t.org_level_5,
+            t.org_level_6,
+            t.org_level_7,
+            sl.target_headcount
           FROM `{self.full_table_id}` t
           INNER JOIN second_lowest_headcount sl
-            ON {join_conditions_sl}
+            ON t.metric_id = sl.metric_id
+            AND t.org_level_1 = sl.org_level_1
+            AND t.org_level_2 = sl.org_level_2
+            AND t.org_level_3 = sl.org_level_3
+            AND t.org_level_4 = sl.org_level_4
+            AND t.org_level_5 = sl.org_level_5
+            AND t.org_level_6 = sl.org_level_6
+            AND t.org_level_7 = sl.org_level_7
             AND t.{headcount_column} = sl.target_headcount
           WHERE t.{self.partition_column} = '{partition_date}'
-        )
-        
-        -- Step 4: Update ALL records matching the criteria
-        UPDATE `{self.full_table_id}` AS target
-        SET stage_2_masked = "Yes"
-        WHERE target.{self.partition_column} = '{partition_date}'
-          AND EXISTS (
-            SELECT 1
-            FROM records_to_mask rtm
-            WHERE target.metric_id = rtm.metric_id
-              AND target.{headcount_column} = rtm.{headcount_column}
-              AND {self._build_join_conditions('target', 'rtm', metric_included=False)}
-          )
+        ) AS source
+        ON target.{self.partition_column} = '{partition_date}'
+          AND target.metric_id = source.metric_id
+          AND target.org_level_1 = source.org_level_1
+          AND target.org_level_2 = source.org_level_2
+          AND target.org_level_3 = source.org_level_3
+          AND target.org_level_4 = source.org_level_4
+          AND target.org_level_5 = source.org_level_5
+          AND target.org_level_6 = source.org_level_6
+          AND target.org_level_7 = source.org_level_7
+          AND target.{headcount_column} = source.target_headcount
           AND target.stage_2_masked IS NULL
+        WHEN MATCHED THEN
+          UPDATE SET stage_2_masked = "Yes"
         """
         
         logger.info("Executing Stage 2 masking query...")
