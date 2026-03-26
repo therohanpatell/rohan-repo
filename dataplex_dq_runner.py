@@ -20,6 +20,7 @@ from datetime import datetime, timezone
 # ── GCP client libraries ──────────────────────────────────────────────────────
 from google.cloud import dataplex_v1
 from google.cloud import bigquery
+from google.cloud import storage as gcs
 from google.api_core import exceptions as google_exceptions
 
 # ── Logging setup ─────────────────────────────────────────────────────────────
@@ -33,10 +34,22 @@ log = logging.getLogger("dataplex_dq_runner")
 # ═════════════════════════════════════════════════════════════════════════════
 
 def load_config(rules_file: str) -> dict:
-    """Read and return the JSON rules config."""
+    """Read and return the JSON rules config. Supports local and gs:// paths."""
     log.info(f"Loading rules from: {rules_file}")
-    with open(rules_file, "r") as f:
-        config = json.load(f)
+
+    if rules_file.startswith("gs://"):
+        # Strip gs:// prefix and split into bucket + blob path
+        path = rules_file[5:]
+        bucket_name, blob_path = path.split("/", 1)
+        gcs_client = gcs.Client()
+        bucket = gcs_client.bucket(bucket_name)
+        blob = bucket.blob(blob_path)
+        config = json.loads(blob.download_as_text())
+        log.info("  Source: Google Cloud Storage")
+    else:
+        with open(rules_file, "r") as f:
+            config = json.load(f)
+        log.info("  Source: Local filesystem")
 
     # Basic validation
     required_top = ["datascan_config", "data_source", "rules"]
