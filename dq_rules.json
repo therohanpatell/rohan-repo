@@ -1,0 +1,72 @@
+{
+  "datascan_config": {
+    "project_id": "your-gcp-project-id",
+    "location": "us-central1",
+    "datascan_id": "poc-workforce-dq-scan",
+    "display_name": "POC Workforce DQ Scan",
+    "description": "Data quality checks for Workday employee data"
+  },
+  "data_source": {
+    "bigquery_table": "projects/your-gcp-project-id/datasets/your_dataset/tables/your_table"
+  },
+  "sampling_percent": 100.0,
+  "output": {
+    "write_to_bigquery": false,
+    "bq_project_id": "your-gcp-project-id",
+    "bq_dataset_id": "dq_results",
+    "bq_table_id": "dataplex_dq_output"
+  },
+  "rules": [
+    {
+      "rule_id": "rule_01_employee_id_not_null",
+      "description": "Employee ID must never be null",
+      "column": "employee_id",
+      "dimension": "COMPLETENESS",
+      "type": "NON_NULL_EXPECTATION",
+      "threshold": 1.0,
+      "ignore_null": false
+    },
+    {
+      "rule_id": "rule_02_employee_id_unique",
+      "description": "Employee ID must be unique across all rows",
+      "column": "employee_id",
+      "dimension": "UNIQUENESS",
+      "type": "UNIQUENESS_EXPECTATION",
+      "threshold": 1.0,
+      "ignore_null": true
+    },
+    {
+      "rule_id": "rule_03_age_range_check",
+      "description": "Employee age must be between 18 and 70",
+      "column": "age",
+      "dimension": "VALIDITY",
+      "type": "RANGE_EXPECTATION",
+      "min_value": "18",
+      "max_value": "70",
+      "strict_min_enabled": false,
+      "strict_max_enabled": false,
+      "threshold": 0.99,
+      "ignore_null": true
+    },
+    {
+      "rule_id": "rule_04_email_format_check",
+      "description": "Work email must follow standard corporate email format",
+      "column": "work_email",
+      "dimension": "VALIDITY",
+      "type": "REGEX_EXPECTATION",
+      "regex": "^[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}$",
+      "threshold": 0.98,
+      "ignore_null": true
+    },
+    {
+      "rule_id": "rule_05_employment_status_set",
+      "description": "Employment status must be one of the approved values",
+      "column": "employment_status",
+      "dimension": "VALIDITY",
+      "type": "SET_EXPECTATION",
+      "allowed_values": ["Active", "Inactive", "On Leave", "Terminated", "Contract"],
+      "threshold": 1.0,
+      "ignore_null": false
+    }
+  ]
+}
