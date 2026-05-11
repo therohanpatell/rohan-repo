@@ -1,0 +1,1136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dataplex DQ Monitoring Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --navy:      #0D1B2A;
+    --navy2:     #152236;
+    --navy3:     #1E3050;
+    --green:     #00A86B;
+    --green2:    #00C97F;
+    --green-dim: #00A86B22;
+    --red:       #FF4757;
+    --red-dim:   #FF475722;
+    --amber:     #FFA502;
+    --amber-dim: #FFA50222;
+    --blue:      #1E90FF;
+    --blue-dim:  #1E90FF22;
+    --purple:    #A55EEA;
+    --purple-dim:#A55EEA22;
+    --teal:      #00D2D3;
+    --teal-dim:  #00D2D322;
+    --text:      #E8EEF4;
+    --text2:     #8FA3B8;
+    --text3:     #4A6580;
+    --border:    #1E3050;
+    --border2:   #243B55;
+    --card:      #121F2F;
+    --card2:     #0F1C2A;
+    --mono: 'IBM Plex Mono', monospace;
+    --sans: 'IBM Plex Sans', sans-serif;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--navy);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 13px;
+    line-height: 1.5;
+    min-height: 100vh;
+  }
+
+  /* ── SCROLLBAR ── */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--navy2); }
+  ::-webkit-scrollbar-thumb { background: var(--navy3); border-radius: 3px; }
+
+  /* ── TOP NAV ── */
+  .topnav {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 24px; height: 52px;
+    background: var(--card2);
+    border-bottom: 1px solid var(--border);
+    position: sticky; top: 0; z-index: 100;
+  }
+  .topnav-left { display: flex; align-items: center; gap: 16px; }
+  .logo {
+    display: flex; align-items: center; gap: 8px;
+    font-family: var(--mono); font-size: 13px; font-weight: 600;
+    color: var(--text);
+    letter-spacing: 0.05em;
+  }
+  .logo-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); box-shadow: 0 0 8px var(--green); animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+  .nav-tabs { display: flex; gap: 2px; }
+  .nav-tab {
+    padding: 6px 14px; border-radius: 4px; cursor: pointer;
+    font-size: 12px; color: var(--text2); transition: all .2s;
+    border: 1px solid transparent;
+  }
+  .nav-tab:hover { color: var(--text); background: var(--navy3); }
+  .nav-tab.active { color: var(--green); background: var(--green-dim); border-color: var(--green); }
+
+  .topnav-right { display: flex; align-items: center; gap: 12px; }
+  .badge {
+    padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600;
+    font-family: var(--mono);
+  }
+  .badge-green { background: var(--green-dim); color: var(--green); border: 1px solid var(--green); }
+  .badge-red   { background: var(--red-dim);   color: var(--red);   border: 1px solid var(--red); }
+  .badge-amber { background: var(--amber-dim); color: var(--amber); border: 1px solid var(--amber); }
+
+  .refresh-btn {
+    display: flex; align-items: center; gap: 6px;
+    padding: 5px 12px; border-radius: 4px;
+    background: var(--navy3); border: 1px solid var(--border2);
+    color: var(--text2); cursor: pointer; font-size: 12px; font-family: var(--sans);
+    transition: all .2s;
+  }
+  .refresh-btn:hover { color: var(--text); border-color: var(--green); }
+
+  /* ── FILTER BAR ── */
+  .filterbar {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 24px;
+    background: var(--card2); border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+  }
+  .filter-label { font-size: 11px; color: var(--text3); font-family: var(--mono); text-transform: uppercase; letter-spacing: .08em; }
+  .filter-select {
+    padding: 4px 10px; border-radius: 4px;
+    background: var(--navy3); border: 1px solid var(--border2);
+    color: var(--text2); font-size: 12px; font-family: var(--sans); cursor: pointer;
+    outline: none; transition: border-color .2s;
+  }
+  .filter-select:hover, .filter-select:focus { border-color: var(--green); color: var(--text); }
+  .filter-divider { width: 1px; height: 20px; background: var(--border); margin: 0 4px; }
+
+  /* ── MAIN LAYOUT ── */
+  .main { padding: 20px 24px; display: flex; flex-direction: column; gap: 20px; }
+
+  /* ── SECTION HEADER ── */
+  .section-header {
+    display: flex; align-items: center; gap: 10px; margin-bottom: 12px;
+  }
+  .section-title { font-size: 12px; font-weight: 600; font-family: var(--mono); text-transform: uppercase; letter-spacing: .1em; color: var(--text2); }
+  .section-line { flex: 1; height: 1px; background: var(--border); }
+
+  /* ── KPI CARDS ── */
+  .kpi-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
+  .kpi-card {
+    background: var(--card); border: 1px solid var(--border2);
+    border-radius: 8px; padding: 16px 18px;
+    position: relative; overflow: hidden;
+    transition: border-color .2s, transform .2s;
+    cursor: default;
+  }
+  .kpi-card:hover { transform: translateY(-2px); }
+  .kpi-card::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+  }
+  .kpi-green::before  { background: var(--green); }
+  .kpi-red::before    { background: var(--red); }
+  .kpi-amber::before  { background: var(--amber); }
+  .kpi-blue::before   { background: var(--blue); }
+  .kpi-purple::before { background: var(--purple); }
+
+  .kpi-card:hover.kpi-green  { border-color: var(--green); }
+  .kpi-card:hover.kpi-red    { border-color: var(--red); }
+  .kpi-card:hover.kpi-amber  { border-color: var(--amber); }
+  .kpi-card:hover.kpi-blue   { border-color: var(--blue); }
+  .kpi-card:hover.kpi-purple { border-color: var(--purple); }
+
+  .kpi-icon { font-size: 18px; margin-bottom: 10px; }
+  .kpi-value { font-family: var(--mono); font-size: 28px; font-weight: 600; line-height: 1; margin-bottom: 4px; }
+  .kpi-green  .kpi-value { color: var(--green); }
+  .kpi-red    .kpi-value { color: var(--red); }
+  .kpi-amber  .kpi-value { color: var(--amber); }
+  .kpi-blue   .kpi-value { color: var(--blue); }
+  .kpi-purple .kpi-value { color: var(--purple); }
+
+  .kpi-label { font-size: 11px; font-weight: 600; color: var(--text2); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 4px; }
+  .kpi-sub   { font-size: 11px; color: var(--text3); }
+  .kpi-trend { font-size: 11px; margin-top: 8px; font-family: var(--mono); }
+  .trend-up   { color: var(--red); }
+  .trend-down { color: var(--green); }
+  .trend-flat { color: var(--text3); }
+
+  /* ── TWO-COL LAYOUT ── */
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .three-col { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 14px; }
+  .col-7-5  { display: grid; grid-template-columns: 7fr 5fr; gap: 14px; }
+  .col-5-7  { display: grid; grid-template-columns: 5fr 7fr; gap: 14px; }
+
+  /* ── CARD ── */
+  .card {
+    background: var(--card); border: 1px solid var(--border2);
+    border-radius: 8px; padding: 16px;
+  }
+  .card-title {
+    font-size: 12px; font-weight: 600; color: var(--text2);
+    font-family: var(--mono); text-transform: uppercase; letter-spacing: .08em;
+    margin-bottom: 4px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .card-sub { font-size: 11px; color: var(--text3); margin-bottom: 14px; }
+
+  /* ── CHART MOCK ── */
+  .chart-area { position: relative; overflow: hidden; border-radius: 4px; }
+
+  /* Line chart SVG */
+  .chart-svg { width: 100%; display: block; }
+
+  /* Bar chart */
+  .bar-chart { display: flex; flex-direction: column; gap: 6px; }
+  .bar-row { display: flex; align-items: center; gap: 8px; }
+  .bar-label { width: 130px; font-size: 11px; color: var(--text2); text-align: right; font-family: var(--mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .bar-track { flex: 1; height: 18px; background: var(--navy3); border-radius: 3px; overflow: hidden; position: relative; }
+  .bar-fill { height: 100%; border-radius: 3px; display: flex; align-items: center; justify-content: flex-end; padding-right: 6px; font-size: 10px; font-family: var(--mono); font-weight: 600; transition: width 1s ease; }
+  .bar-green  { background: linear-gradient(90deg, #00A86B44, var(--green)); color: var(--green); }
+  .bar-red    { background: linear-gradient(90deg, #FF475744, var(--red));   color: #fff; }
+  .bar-amber  { background: linear-gradient(90deg, #FFA50244, var(--amber)); color: var(--amber); }
+  .bar-blue   { background: linear-gradient(90deg, #1E90FF44, var(--blue));  color: var(--blue); }
+  .bar-purple { background: linear-gradient(90deg, #A55EEA44, var(--purple));color: var(--purple); }
+  .bar-teal   { background: linear-gradient(90deg, #00D2D344, var(--teal));  color: var(--teal); }
+
+  /* Donut chart */
+  .donut-wrap { display: flex; align-items: center; gap: 16px; }
+  .donut-svg { flex-shrink: 0; }
+  .donut-legend { display: flex; flex-direction: column; gap: 8px; }
+  .legend-item { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--text2); }
+  .legend-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+  /* Stacked bar timeline */
+  .timeline-chart { display: flex; flex-direction: column; gap: 4px; }
+  .tl-row { display: flex; align-items: center; gap: 8px; }
+  .tl-label { width: 54px; font-size: 10px; color: var(--text3); font-family: var(--mono); text-align: right; }
+  .tl-track { flex: 1; height: 22px; display: flex; border-radius: 3px; overflow: hidden; }
+  .tl-pass { background: var(--green); opacity: .8; }
+  .tl-fail { background: var(--red); opacity: .9; }
+
+  /* ── TABLE ── */
+  .data-table { width: 100%; border-collapse: collapse; }
+  .data-table th {
+    padding: 8px 10px; text-align: left;
+    font-size: 10px; font-weight: 600; color: var(--text3);
+    font-family: var(--mono); text-transform: uppercase; letter-spacing: .08em;
+    border-bottom: 1px solid var(--border); white-space: nowrap;
+  }
+  .data-table td {
+    padding: 9px 10px; border-bottom: 1px solid var(--border);
+    font-size: 12px; color: var(--text2);
+  }
+  .data-table tr:last-child td { border-bottom: none; }
+  .data-table tr:hover td { background: var(--navy3); }
+  .data-table .mono { font-family: var(--mono); font-size: 11px; }
+
+  /* ── STATUS BADGES ── */
+  .status { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 3px; font-size: 10px; font-weight: 600; font-family: var(--mono); }
+  .status-pass   { background: var(--green-dim); color: var(--green); }
+  .status-fail   { background: var(--red-dim);   color: var(--red); }
+  .status-warn   { background: var(--amber-dim); color: var(--amber); }
+  .status-info   { background: var(--blue-dim);  color: var(--blue); }
+  .status::before { content: ''; width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+
+  /* ── SCORE BAR ── */
+  .score-wrap { display: flex; align-items: center; gap: 8px; }
+  .score-bar { flex: 1; height: 6px; background: var(--navy3); border-radius: 3px; overflow: hidden; }
+  .score-fill { height: 100%; border-radius: 3px; }
+  .score-val { font-family: var(--mono); font-size: 11px; font-weight: 600; min-width: 38px; text-align: right; }
+
+  /* ── HEATMAP ── */
+  .heatmap-table { width: 100%; border-collapse: separate; border-spacing: 3px; }
+  .heatmap-table th { font-size: 10px; color: var(--text3); font-family: var(--mono); padding: 2px 4px; text-align: center; }
+  .heatmap-table td { height: 26px; border-radius: 3px; text-align: center; font-size: 10px; font-family: var(--mono); font-weight: 600; cursor: default; transition: transform .15s; }
+  .heatmap-table td:hover { transform: scale(1.1); z-index:1; position: relative; }
+  .hm-label { text-align: left !important; color: var(--text2); font-size: 10px; font-family: var(--mono); white-space: nowrap; padding-right: 8px !important; }
+  .hm-100 { background: #00A86B33; color: var(--green); }
+  .hm-95  { background: #00A86B22; color: #00C97F; }
+  .hm-90  { background: #FFA50222; color: var(--amber); }
+  .hm-85  { background: #FF475722; color: #FF6B81; }
+  .hm-low { background: #FF475744; color: var(--red); }
+
+  /* ── SEVERITY CHIP ── */
+  .sev { display: inline-block; padding: 2px 7px; border-radius: 3px; font-size: 10px; font-weight: 600; font-family: var(--mono); }
+  .sev-critical { background: #FF475722; color: var(--red); border: 1px solid #FF475744; }
+  .sev-high     { background: #FFA50222; color: var(--amber); border: 1px solid #FFA50244; }
+  .sev-medium   { background: #1E90FF22; color: var(--blue); border: 1px solid #1E90FF44; }
+  .sev-low      { background: #00A86B22; color: var(--green); border: 1px solid #00A86B44; }
+
+  /* ── CHRONIC STREAK ── */
+  .streak-dots { display: flex; gap: 3px; }
+  .streak-dot { width: 8px; height: 8px; border-radius: 50%; }
+  .dot-fail { background: var(--red); }
+  .dot-pass { background: var(--green); opacity: .5; }
+
+  /* ── DIMENSION CARDS ── */
+  .dim-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 14px; }
+  .dim-card {
+    padding: 12px; border-radius: 6px; border: 1px solid var(--border2);
+    background: var(--card2); cursor: pointer; transition: all .2s;
+  }
+  .dim-card:hover { border-color: var(--blue); background: var(--navy3); }
+  .dim-card.active { border-color: var(--blue); background: var(--blue-dim); }
+  .dim-icon { font-size: 20px; margin-bottom: 6px; }
+  .dim-name { font-size: 11px; font-weight: 600; color: var(--text); margin-bottom: 2px; font-family: var(--mono); }
+  .dim-count { font-size: 20px; font-weight: 600; font-family: var(--mono); margin-bottom: 2px; }
+  .dim-sub { font-size: 10px; color: var(--text3); }
+  .dim-red    .dim-count { color: var(--red); }
+  .dim-amber  .dim-count { color: var(--amber); }
+  .dim-blue   .dim-count { color: var(--blue); }
+  .dim-teal   .dim-count { color: var(--teal); }
+  .dim-purple .dim-count { color: var(--purple); }
+  .dim-green  .dim-count { color: var(--green); }
+
+  /* ── SCAN EXEC ── */
+  .scan-row { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--border); }
+  .scan-row:last-child { border-bottom: none; }
+  .scan-name { flex: 1; font-family: var(--mono); font-size: 11px; color: var(--text2); }
+  .scan-time { font-size: 11px; color: var(--text3); width: 120px; }
+  .scan-dur  { font-family: var(--mono); font-size: 11px; width: 60px; text-align: right; }
+
+  /* ── DRILL DOWN ── */
+  .drill-header {
+    display: flex; align-items: center; gap: 14px;
+    padding: 14px 16px; border-radius: 6px; margin-bottom: 14px;
+    background: var(--navy3); border: 1px solid var(--border2);
+  }
+  .drill-table-name { font-family: var(--mono); font-size: 15px; font-weight: 600; color: var(--text); }
+  .drill-meta { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 4px; }
+  .drill-meta span { font-size: 11px; color: var(--text3); font-family: var(--mono); }
+  .drill-meta span b { color: var(--text2); }
+  .drill-score-big { font-family: var(--mono); font-size: 32px; font-weight: 600; color: var(--amber); line-height: 1; }
+  .drill-score-label { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: .08em; }
+
+  /* ── SAMPLE ROWS ── */
+  .sample-row-null { color: var(--red); font-style: italic; }
+
+  /* ── DOWNSTREAM ── */
+  .downstream-chain { display: flex; flex-direction: column; gap: 6px; padding: 10px 0; }
+  .ds-node {
+    display: flex; align-items: center; gap: 8px; padding: 8px 12px;
+    border-radius: 4px; border: 1px solid var(--border2);
+    background: var(--navy3); font-family: var(--mono); font-size: 11px;
+  }
+  .ds-node.ds-source { border-color: var(--amber); color: var(--amber); background: var(--amber-dim); }
+  .ds-node.ds-risk   { border-color: var(--red); }
+  .ds-arrow { color: var(--text3); font-size: 12px; padding-left: 20px; }
+
+  /* ── PROGRESS RING ── */
+  .ring-wrap { display: flex; align-items: center; justify-content: center; position: relative; }
+  .ring-center { position: absolute; text-align: center; }
+  .ring-pct { font-family: var(--mono); font-size: 18px; font-weight: 600; }
+  .ring-lbl { font-size: 9px; color: var(--text3); text-transform: uppercase; letter-spacing: .08em; }
+
+  /* ── SCROLLABLE TABLE ── */
+  .table-scroll { overflow-y: auto; max-height: 260px; }
+  .table-scroll::-webkit-scrollbar { width: 4px; }
+  .table-scroll::-webkit-scrollbar-thumb { background: var(--navy3); }
+
+  /* ── SPARK LINE ── */
+  .spark { display: inline-block; }
+
+  /* ── TABS ── */
+  .tab-row { display: flex; gap: 4px; margin-bottom: 12px; }
+  .tab-btn {
+    padding: 5px 12px; border-radius: 4px; cursor: pointer; font-size: 11px;
+    color: var(--text3); border: 1px solid transparent; font-family: var(--mono);
+    transition: all .2s; background: transparent;
+  }
+  .tab-btn:hover { color: var(--text2); background: var(--navy3); }
+  .tab-btn.active { color: var(--green); border-color: var(--green); background: var(--green-dim); }
+
+  /* ── GRID HELPERS ── */
+  .gap-top { margin-top: 14px; }
+
+  /* ── MINI KPI ROW ── */
+  .mini-kpi-row { display: grid; grid-template-columns: repeat(5,1fr); gap: 10px; margin-bottom: 14px; }
+  .mini-kpi { padding: 10px 12px; border-radius: 6px; background: var(--card2); border: 1px solid var(--border2); }
+  .mini-kpi-val { font-family: var(--mono); font-size: 20px; font-weight: 600; }
+  .mini-kpi-lbl { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: .07em; margin-top: 2px; }
+
+  /* ── TOOLTIP ── */
+  [data-tip] { cursor: help; }
+  [data-tip]:hover::after {
+    content: attr(data-tip);
+    position: absolute; z-index: 200;
+    background: var(--card2); border: 1px solid var(--border2);
+    padding: 4px 8px; border-radius: 4px; font-size: 11px; color: var(--text);
+    white-space: nowrap; pointer-events: none;
+    top: -28px; left: 50%; transform: translateX(-50%);
+  }
+
+  /* ── ANIMATIONS ── */
+  @keyframes fadeUp { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+  .kpi-card  { animation: fadeUp .4s ease both; }
+  .kpi-card:nth-child(1) { animation-delay:.05s }
+  .kpi-card:nth-child(2) { animation-delay:.10s }
+  .kpi-card:nth-child(3) { animation-delay:.15s }
+  .kpi-card:nth-child(4) { animation-delay:.20s }
+  .kpi-card:nth-child(5) { animation-delay:.25s }
+
+  .error-msg { font-family: var(--mono); font-size: 10px; color: var(--red); background: var(--red-dim); padding: 3px 8px; border-radius: 3px; }
+  .sql-block { font-family: var(--mono); font-size: 10px; color: var(--teal); background: var(--card2); padding: 8px 10px; border-radius: 4px; border: 1px solid var(--border); white-space: pre-wrap; word-break: break-all; margin-top: 6px; }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════ TOP NAV ═══════════════════════════ -->
+<nav class="topnav">
+  <div class="topnav-left">
+    <div class="logo"><div class="logo-dot"></div>DQ_MONITOR</div>
+    <div class="nav-tabs">
+      <div class="nav-tab active">Overview</div>
+      <div class="nav-tab">Trends</div>
+      <div class="nav-tab">Tables</div>
+      <div class="nav-tab">Dimensions</div>
+      <div class="nav-tab">Scan Health</div>
+      <div class="nav-tab">Drill-Down</div>
+    </div>
+  </div>
+  <div class="topnav-right">
+    <span class="badge badge-green">● LIVE</span>
+    <span style="font-size:11px;color:var(--text3);font-family:var(--mono)">Last scan: 05-May 09:02</span>
+    <button class="refresh-btn">↻ Refresh</button>
+  </div>
+</nav>
+
+<!-- ═══════════════════════════ FILTER BAR ═══════════════════════════ -->
+<div class="filterbar">
+  <span class="filter-label">Filters</span>
+  <select class="filter-select"><option>Last 7 Days</option><option>Today</option><option>Last 14 Days</option><option>Last 30 Days</option><option>Custom Range</option></select>
+  <div class="filter-divider"></div>
+  <select class="filter-select"><option>All Layers</option><option>Staging (stg_)</option><option>Curation (cur_)</option><option>Consumption (con_)</option></select>
+  <select class="filter-select"><option>All Domains</option><option>HR</option><option>Payroll</option><option>Recruitment</option><option>Headcount</option><option>Learning</option><option>Sickness</option></select>
+  <select class="filter-select"><option>All Severities</option><option>Critical</option><option>High</option><option>Medium</option><option>Low</option></select>
+  <select class="filter-select"><option>All Dimensions</option><option>COMPLETENESS</option><option>UNIQUENESS</option><option>VALIDITY</option><option>CONSISTENCY</option><option>TIMELINESS</option><option>REFERENTIAL</option></select>
+  <select class="filter-select"><option>All Statuses</option><option>PASS</option><option>FAIL</option></select>
+  <div class="filter-divider"></div>
+  <span class="badge badge-amber">148 / 150 tables scanned</span>
+</div>
+
+<!-- ═══════════════════════════ MAIN ═══════════════════════════ -->
+<div class="main">
+
+  <!-- ─── SECTION 1: HEALTH STRIP ─── -->
+  <div>
+    <div class="section-header">
+      <span class="section-title">01 · Health Strip</span>
+      <div class="section-line"></div>
+      <span style="font-size:10px;color:var(--text3);font-family:var(--mono)">Source: dq_result · run_dt = today</span>
+    </div>
+    <div class="kpi-row">
+      <!-- DQ Score -->
+      <div class="kpi-card kpi-green">
+        <div class="kpi-icon">◎</div>
+        <div class="kpi-value">94.7%</div>
+        <div class="kpi-label">Overall DQ Score</div>
+        <div class="kpi-sub">AVG(pass_ratio) — all tables, today</div>
+        <div class="kpi-trend trend-up">▲ 0.3% vs yesterday</div>
+      </div>
+      <!-- Tables in Breach -->
+      <div class="kpi-card kpi-red">
+        <div class="kpi-icon">⊘</div>
+        <div class="kpi-value">8</div>
+        <div class="kpi-label">Tables in Breach</div>
+        <div class="kpi-sub">DISTINCT table_name WHERE validation_status='FAIL'</div>
+        <div class="kpi-trend trend-up">▲ 3 new since yesterday</div>
+      </div>
+      <!-- Critical Failures -->
+      <div class="kpi-card kpi-amber">
+        <div class="kpi-icon">⚠</div>
+        <div class="kpi-value">3</div>
+        <div class="kpi-label">Critical Failures</div>
+        <div class="kpi-sub">FAIL + severity = 'Critical'</div>
+        <div class="kpi-trend trend-up">▲ 1 new critical rule</div>
+      </div>
+      <!-- Stale Scans -->
+      <div class="kpi-card kpi-blue">
+        <div class="kpi-icon">⏱</div>
+        <div class="kpi-value">2</div>
+        <div class="kpi-label">Stale Scans</div>
+        <div class="kpi-sub">No pipeline_execution_timestamp &gt; 6h</div>
+        <div class="kpi-trend trend-flat">— unchanged</div>
+      </div>
+      <!-- New Failures -->
+      <div class="kpi-card kpi-purple">
+        <div class="kpi-icon">△</div>
+        <div class="kpi-value">+5</div>
+        <div class="kpi-label">New Failures Today</div>
+        <div class="kpi-sub">Delta: today vs yesterday FAIL count</div>
+        <div class="kpi-trend trend-up">↑ Spike vs 7-day avg (+1.2)</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── SECTION 2: TREND PANEL ─── -->
+  <div>
+    <div class="section-header">
+      <span class="section-title">02 · Trend Panel</span>
+      <div class="section-line"></div>
+      <span style="font-size:10px;color:var(--text3);font-family:var(--mono)">Source: dq_result GROUP BY run_dt</span>
+    </div>
+    <div class="two-col">
+      <!-- Line Chart: Daily Failure Rate -->
+      <div class="card">
+        <div class="card-title">📉 Daily Failure Rate % (30 days)</div>
+        <div class="card-sub">SUM(failed_count) / SUM(evaluated_count) grouped by run_dt · Red line = 5% threshold</div>
+        <div class="tab-row">
+          <button class="tab-btn active">7d</button>
+          <button class="tab-btn">14d</button>
+          <button class="tab-btn">30d</button>
+        </div>
+        <svg class="chart-svg" viewBox="0 0 560 160" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="lineGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#1E90FF" stop-opacity="0.3"/>
+              <stop offset="100%" stop-color="#1E90FF" stop-opacity="0"/>
+            </linearGradient>
+          </defs>
+          <!-- Grid lines -->
+          <line x1="40" y1="20" x2="550" y2="20" stroke="#1E3050" stroke-width="1"/>
+          <line x1="40" y1="50" x2="550" y2="50" stroke="#1E3050" stroke-width="1"/>
+          <line x1="40" y1="80" x2="550" y2="80" stroke="#1E3050" stroke-width="1"/>
+          <line x1="40" y1="110" x2="550" y2="110" stroke="#1E3050" stroke-width="1"/>
+          <line x1="40" y1="140" x2="550" y2="140" stroke="#1E3050" stroke-width="1"/>
+          <!-- Y labels -->
+          <text x="35" y="23" fill="#4A6580" font-size="9" text-anchor="end" font-family="monospace">10%</text>
+          <text x="35" y="53" fill="#4A6580" font-size="9" text-anchor="end" font-family="monospace">8%</text>
+          <text x="35" y="83" fill="#4A6580" font-size="9" text-anchor="end" font-family="monospace">6%</text>
+          <text x="35" y="113" fill="#4A6580" font-size="9" text-anchor="end" font-family="monospace">4%</text>
+          <text x="35" y="143" fill="#4A6580" font-size="9" text-anchor="end" font-family="monospace">2%</text>
+          <!-- X labels -->
+          <text x="67" y="158" fill="#4A6580" font-size="9" text-anchor="middle" font-family="monospace">Apr-10</text>
+          <text x="143" y="158" fill="#4A6580" font-size="9" text-anchor="middle" font-family="monospace">Apr-17</text>
+          <text x="220" y="158" fill="#4A6580" font-size="9" text-anchor="middle" font-family="monospace">Apr-24</text>
+          <text x="297" y="158" fill="#4A6580" font-size="9" text-anchor="middle" font-family="monospace">May-01</text>
+          <text x="373" y="158" fill="#4A6580" font-size="9" text-anchor="middle" font-family="monospace">May-03</text>
+          <text x="450" y="158" fill="#4A6580" font-size="9" text-anchor="middle" font-family="monospace">May-05</text>
+          <!-- Threshold line -->
+          <line x1="40" y1="110" x2="550" y2="110" stroke="#FF4757" stroke-width="1" stroke-dasharray="5,4" opacity="0.6"/>
+          <text x="552" y="113" fill="#FF4757" font-size="8" font-family="monospace">5%</text>
+          <!-- Area fill -->
+          <path d="M67,125 L105,118 L143,100 L181,65 L220,72 L258,98 L297,90 L335,82 L373,60 L411,55 L450,78 L488,85 L550,140 L40,140 Z" fill="url(#lineGrad)" opacity="0.5"/>
+          <!-- Main line -->
+          <polyline points="67,125 105,118 143,100 181,65 220,72 258,98 297,90 335,82 373,60 411,55 450,78 488,85" fill="none" stroke="#1E90FF" stroke-width="2" stroke-linejoin="round"/>
+          <!-- Dots -->
+          <circle cx="67" cy="125" r="3" fill="#1E90FF"/>
+          <circle cx="143" cy="100" r="3" fill="#1E90FF"/>
+          <circle cx="181" cy="65" r="4" fill="#FF4757" stroke="#FF4757" stroke-width="2"/>
+          <circle cx="373" cy="60" r="4" fill="#FF4757" stroke="#FF4757" stroke-width="2"/>
+          <circle cx="488" cy="85" r="3" fill="#1E90FF"/>
+        </svg>
+      </div>
+
+      <!-- Stacked bar: Pass vs Fail -->
+      <div class="card">
+        <div class="card-title">📊 Rules Passed vs Failed per Day</div>
+        <div class="card-sub">COUNT(validation_status) grouped by run_dt · Green = PASS · Red = FAIL</div>
+        <div class="timeline-chart" style="margin-top:8px;">
+          <div class="tl-row"><div class="tl-label">Apr-29</div><div class="tl-track"><div class="tl-pass" style="width:93%"></div><div class="tl-fail" style="width:7%"></div></div><span style="font-size:10px;color:var(--text3);margin-left:6px;font-family:monospace">1,142 / 86</span></div>
+          <div class="tl-row"><div class="tl-label">Apr-30</div><div class="tl-track"><div class="tl-pass" style="width:88%"></div><div class="tl-fail" style="width:12%"></div></div><span style="font-size:10px;color:var(--red);margin-left:6px;font-family:monospace">1,088 / 134</span></div>
+          <div class="tl-row"><div class="tl-label">May-01</div><div class="tl-track"><div class="tl-pass" style="width:94%"></div><div class="tl-fail" style="width:6%"></div></div><span style="font-size:10px;color:var(--text3);margin-left:6px;font-family:monospace">1,150 / 72</span></div>
+          <div class="tl-row"><div class="tl-label">May-02</div><div class="tl-track"><div class="tl-pass" style="width:95%"></div><div class="tl-fail" style="width:5%"></div></div><span style="font-size:10px;color:var(--text3);margin-left:6px;font-family:monospace">1,160 / 62</span></div>
+          <div class="tl-row"><div class="tl-label">May-03</div><div class="tl-track"><div class="tl-pass" style="width:90%"></div><div class="tl-fail" style="width:10%"></div></div><span style="font-size:10px;color:var(--amber);margin-left:6px;font-family:monospace">1,102 / 120</span></div>
+          <div class="tl-row"><div class="tl-label">May-04</div><div class="tl-track"><div class="tl-pass" style="width:97%"></div><div class="tl-fail" style="width:3%"></div></div><span style="font-size:10px;color:var(--text3);margin-left:6px;font-family:monospace">1,188 / 34</span></div>
+          <div class="tl-row"><div class="tl-label">May-05</div><div class="tl-track"><div class="tl-pass" style="width:92%"></div><div class="tl-fail" style="width:8%"></div></div><span style="font-size:10px;color:var(--amber);margin-left:6px;font-family:monospace">1,135 / 87</span></div>
+        </div>
+        <div style="display:flex;gap:12px;margin-top:10px;">
+          <span style="display:flex;align-items:center;gap:5px;font-size:10px;color:var(--text3)"><span style="width:10px;height:10px;background:var(--green);border-radius:2px;display:inline-block"></span>PASS</span>
+          <span style="display:flex;align-items:center;gap:5px;font-size:10px;color:var(--text3)"><span style="width:10px;height:10px;background:var(--red);border-radius:2px;display:inline-block"></span>FAIL</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Chronic Failures Table -->
+    <div class="card gap-top">
+      <div class="card-title">🔴 Chronic Failures — Rules Failing 3+ Consecutive Days</div>
+      <div class="card-sub">check_id WHERE validation_status='FAIL' on consecutive run_dt values · Sorted by streak descending</div>
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Rule (check_id)</th>
+              <th>Table</th>
+              <th>Category</th>
+              <th>Severity</th>
+              <th>Streak</th>
+              <th>fail_count (today)</th>
+              <th>pass_ratio</th>
+              <th>Error Message</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="mono">null_check_employee_id</td>
+              <td class="mono" style="color:var(--teal)">stg_workday_employees</td>
+              <td><span class="status status-fail">COMPLETENESS</span></td>
+              <td><span class="sev sev-critical">Critical</span></td>
+              <td>
+                <div style="display:flex;align-items:center;gap:6px">
+                  <div class="streak-dots"><div class="streak-dot dot-fail"></div><div class="streak-dot dot-fail"></div><div class="streak-dot dot-fail"></div><div class="streak-dot dot-fail"></div><div class="streak-dot dot-fail"></div><div class="streak-dot dot-fail"></div><div class="streak-dot dot-fail"></div></div>
+                  <span style="font-family:var(--mono);font-size:11px;color:var(--red)">7d</span>
+                </div>
+              </td>
+              <td class="mono" style="color:var(--red)">1,847</td>
+              <td><div class="score-wrap"><div class="score-bar"><div class="score-fill" style="width:87%;background:var(--amber)"></div></div><span class="score-val" style="color:var(--amber)">87.5%</span></div></td>
+              <td><span class="error-msg">NON_NULL_EXPECTATION failed · 1847 rows</span></td>
+            </tr>
+            <tr>
+              <td class="mono">uniqueness_pay_ref</td>
+              <td class="mono" style="color:var(--teal)">cur_payroll_records</td>
+              <td><span class="status status-warn">UNIQUENESS</span></td>
+              <td><span class="sev sev-high">High</span></td>
+              <td>
+                <div style="display:flex;align-items:center;gap:6px">
+                  <div class="streak-dots"><div class="streak-dot dot-fail"></div><div class="streak-dot dot-fail"></div><div class="streak-dot dot-fail"></div><div class="streak-dot dot-pass"></div><div class="streak-dot dot-pass"></div></div>
+                  <span style="font-family:var(--mono);font-size:11px;color:var(--amber)">3d</span>
+                </div>
+              </td>
+              <td class="mono" style="color:var(--amber)">312</td>
+              <td><div class="score-wrap"><div class="score-bar"><div class="score-fill" style="width:91%;background:var(--amber)"></div></div><span class="score-val" style="color:var(--amber)">91.2%</span></div></td>
+              <td><span class="error-msg">UNIQUENESS_EXPECTATION failed</span></td>
+            </tr>
+            <tr>
+              <td class="mono">range_check_salary</td>
+              <td class="mono" style="color:var(--teal)">cur_employee_details</td>
+              <td><span class="status status-info">VALIDITY</span></td>
+              <td><span class="sev sev-medium">Medium</span></td>
+              <td>
+                <div style="display:flex;align-items:center;gap:6px">
+                  <div class="streak-dots"><div class="streak-dot dot-fail"></div><div class="streak-dot dot-fail"></div><div class="streak-dot dot-pass"></div><div class="streak-dot dot-pass"></div></div>
+                  <span style="font-family:var(--mono);font-size:11px;color:var(--blue)">2d</span>
+                </div>
+              </td>
+              <td class="mono" style="color:var(--blue)">89</td>
+              <td><div class="score-wrap"><div class="score-bar"><div class="score-fill" style="width:96%;background:var(--green)"></div></div><span class="score-val" style="color:var(--green)">96.1%</span></div></td>
+              <td><span class="error-msg">VALUE_RANGE_EXPECTATION · outliers detected</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── SECTION 3: TABLE BREAKDOWN ─── -->
+  <div>
+    <div class="section-header">
+      <span class="section-title">03 · Table-Level Breakdown</span>
+      <div class="section-line"></div>
+      <span style="font-size:10px;color:var(--text3);font-family:var(--mono)">GROUP BY table_name · partition_dt filter active</span>
+    </div>
+    <div class="col-7-5">
+      <!-- Table Grid -->
+      <div class="card">
+        <div class="card-title">📋 Table Grid — 100-150 BigQuery Tables</div>
+        <div class="card-sub">Sortable by DQ Score · Click row to drill-down · Layer derived from table name prefix</div>
+        <div class="table-scroll">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>table_name</th>
+                <th>Layer</th>
+                <th>Domain</th>
+                <th>DQ Score</th>
+                <th>Failing</th>
+                <th>eval_count</th>
+                <th>fail_count</th>
+                <th>Last Scan</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr style="cursor:pointer" onclick="alert('Drill-down → stg_workday_employees')">
+                <td class="mono" style="color:var(--teal)">stg_workday_employees</td>
+                <td><span class="status status-info">STG</span></td>
+                <td style="color:var(--text2)">HR</td>
+                <td><div class="score-wrap"><div class="score-bar"><div class="score-fill" style="width:87%;background:var(--amber)"></div></div><span class="score-val" style="color:var(--amber)">87.5%</span></div></td>
+                <td class="mono" style="color:var(--red)">3</td>
+                <td class="mono">145,234</td>
+                <td class="mono" style="color:var(--red)">1,847</td>
+                <td class="mono" style="font-size:10px">May-05 08:42</td>
+                <td><span class="status status-fail">FAIL</span></td>
+              </tr>
+              <tr style="cursor:pointer">
+                <td class="mono" style="color:var(--teal)">cur_payroll_records</td>
+                <td><span class="status status-warn">CUR</span></td>
+                <td style="color:var(--text2)">Payroll</td>
+                <td><div class="score-wrap"><div class="score-bar"><div class="score-fill" style="width:91%;background:var(--amber)"></div></div><span class="score-val" style="color:var(--amber)">91.2%</span></div></td>
+                <td class="mono" style="color:var(--amber)">2</td>
+                <td class="mono">89,102</td>
+                <td class="mono" style="color:var(--amber)">312</td>
+                <td class="mono" style="font-size:10px">May-05 08:31</td>
+                <td><span class="status status-fail">FAIL</span></td>
+              </tr>
+              <tr style="cursor:pointer">
+                <td class="mono" style="color:var(--teal)">stg_recruitment_data</td>
+                <td><span class="status status-info">STG</span></td>
+                <td style="color:var(--text2)">Recruitment</td>
+                <td><div class="score-wrap"><div class="score-bar"><div class="score-fill" style="width:75%;background:var(--red)"></div></div><span class="score-val" style="color:var(--red)">75.0%</span></div></td>
+                <td class="mono" style="color:var(--red)">6</td>
+                <td class="mono">12,445</td>
+                <td class="mono" style="color:var(--red)">3,111</td>
+                <td class="mono" style="font-size:10px">May-05 07:58</td>
+                <td><span class="status status-fail">FAIL</span></td>
+              </tr>
+              <tr style="cursor:pointer">
+                <td class="mono" style="color:var(--teal)">con_headcount_summary</td>
+                <td><span class="status status-pass">CON</span></td>
+                <td style="color:var(--text2)">Headcount</td>
+                <td><div class="score-wrap"><div class="score-bar"><div class="score-fill" style="width:98%;background:var(--green)"></div></div><span class="score-val" style="color:var(--green)">98.3%</span></div></td>
+                <td class="mono" style="color:var(--green)">0</td>
+                <td class="mono">8,902</td>
+                <td class="mono" style="color:var(--green)">0</td>
+                <td class="mono" style="font-size:10px">May-05 09:02</td>
+                <td><span class="status status-pass">PASS</span></td>
+              </tr>
+              <tr style="cursor:pointer">
+                <td class="mono" style="color:var(--teal)">cur_sickness_absence</td>
+                <td><span class="status status-warn">CUR</span></td>
+                <td style="color:var(--text2)">Sickness</td>
+                <td><div class="score-wrap"><div class="score-bar"><div class="score-fill" style="width:100%;background:var(--green)"></div></div><span class="score-val" style="color:var(--green)">100%</span></div></td>
+                <td class="mono" style="color:var(--green)">0</td>
+                <td class="mono">34,210</td>
+                <td class="mono" style="color:var(--green)">0</td>
+                <td class="mono" style="font-size:10px">May-05 08:15</td>
+                <td><span class="status status-pass">PASS</span></td>
+              </tr>
+              <tr style="cursor:pointer">
+                <td class="mono" style="color:var(--teal)">stg_hybrid_working</td>
+                <td><span class="status status-info">STG</span></td>
+                <td style="color:var(--text2)">HR</td>
+                <td><div class="score-wrap"><div class="score-bar"><div class="score-fill" style="width:100%;background:var(--green)"></div></div><span class="score-val" style="color:var(--green)">100%</span></div></td>
+                <td class="mono" style="color:var(--green)">0</td>
+                <td class="mono">29,003</td>
+                <td class="mono" style="color:var(--green)">0</td>
+                <td class="mono" style="font-size:10px">May-05 08:50</td>
+                <td><span class="status status-pass">PASS</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <!-- Heatmap -->
+      <div class="card">
+        <div class="card-title">🗓 DQ Heatmap — Table × Date</div>
+        <div class="card-sub">AVG(pass_ratio) per table per run_dt · 🟢 ≥95%  🟡 85–95%  🔴 &lt;85%</div>
+        <div style="overflow-x:auto;">
+          <table class="heatmap-table">
+            <thead>
+              <tr>
+                <th style="text-align:left;min-width:120px"></th>
+                <th>Apr-29</th><th>Apr-30</th><th>May-01</th><th>May-02</th><th>May-03</th><th>May-04</th><th>May-05</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="hm-label">stg_workday</td>
+                <td class="hm-95">95%</td><td class="hm-85">87%</td><td class="hm-85">87%</td><td class="hm-85">88%</td><td class="hm-95">92%</td><td class="hm-95">93%</td><td class="hm-85">87%</td>
+              </tr>
+              <tr>
+                <td class="hm-label">cur_payroll</td>
+                <td class="hm-100">100%</td><td class="hm-90">91%</td><td class="hm-90">91%</td><td class="hm-85">88%</td><td class="hm-85">88%</td><td class="hm-90">91%</td><td class="hm-90">91%</td>
+              </tr>
+              <tr>
+                <td class="hm-label">stg_recruit</td>
+                <td class="hm-100">100%</td><td class="hm-100">100%</td><td class="hm-100">100%</td><td class="hm-100">100%</td><td class="hm-low">75%</td><td class="hm-low">75%</td><td class="hm-low">75%</td>
+              </tr>
+              <tr>
+                <td class="hm-label">con_headcount</td>
+                <td class="hm-100">98%</td><td class="hm-100">98%</td><td class="hm-100">98%</td><td class="hm-100">98%</td><td class="hm-100">98%</td><td class="hm-100">98%</td><td class="hm-100">98%</td>
+              </tr>
+              <tr>
+                <td class="hm-label">cur_sickness</td>
+                <td class="hm-100">100%</td><td class="hm-100">100%</td><td class="hm-100">100%</td><td class="hm-100">100%</td><td class="hm-100">100%</td><td class="hm-100">100%</td><td class="hm-100">100%</td>
+              </tr>
+              <tr>
+                <td class="hm-label">stg_hybrid</td>
+                <td class="hm-100">100%</td><td class="hm-100">100%</td><td class="hm-100">100%</td><td class="hm-90">92%</td><td class="hm-100">100%</td><td class="hm-100">100%</td><td class="hm-100">100%</td>
+              </tr>
+              <tr>
+                <td class="hm-label">stg_learning</td>
+                <td class="hm-100">100%</td><td class="hm-100">100%</td><td class="hm-100">100%</td><td class="hm-100">100%</td><td class="hm-100">100%</td><td style="background:#FF475733;color:var(--red);font-family:monospace;font-size:10px;text-align:center;border-radius:3px">FAIL</td><td style="background:#FF475733;color:var(--red);font-family:monospace;font-size:10px;text-align:center;border-radius:3px">FAIL</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap;">
+          <span style="font-size:10px;color:var(--text3)"><span style="display:inline-block;width:10px;height:10px;background:#00A86B33;border-radius:2px;vertical-align:middle;margin-right:4px"></span>≥ 95%</span>
+          <span style="font-size:10px;color:var(--text3)"><span style="display:inline-block;width:10px;height:10px;background:#00A86B22;border-radius:2px;vertical-align:middle;margin-right:4px"></span>90–95%</span>
+          <span style="font-size:10px;color:var(--text3)"><span style="display:inline-block;width:10px;height:10px;background:#FFA50222;border-radius:2px;vertical-align:middle;margin-right:4px"></span>85–90%</span>
+          <span style="font-size:10px;color:var(--text3)"><span style="display:inline-block;width:10px;height:10px;background:#FF475722;border-radius:2px;vertical-align:middle;margin-right:4px"></span>80–85%</span>
+          <span style="font-size:10px;color:var(--text3)"><span style="display:inline-block;width:10px;height:10px;background:#FF475744;border-radius:2px;vertical-align:middle;margin-right:4px"></span>&lt;80% / FAIL</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── SECTION 4: DIMENSION ANALYSIS ─── -->
+  <div>
+    <div class="section-header">
+      <span class="section-title">04 · Rule Dimension Analysis</span>
+      <div class="section-line"></div>
+      <span style="font-size:10px;color:var(--text3);font-family:var(--mono)">GROUP BY category · Source: dq_result.category</span>
+    </div>
+    <!-- Dimension Cards -->
+    <div class="dim-grid">
+      <div class="dim-card dim-red active">
+        <div class="dim-icon">🔲</div>
+        <div class="dim-name">COMPLETENESS</div>
+        <div class="dim-count">84</div>
+        <div class="dim-sub">failures · null_count avg: 1,204</div>
+        <div style="margin-top:6px"><div class="score-wrap"><div class="score-bar"><div class="score-fill" style="width:37%;background:var(--red)"></div></div><span class="score-val" style="color:var(--red)">37%</span></div></div>
+      </div>
+      <div class="dim-card dim-purple">
+        <div class="dim-icon">⏱</div>
+        <div class="dim-name">TIMELINESS</div>
+        <div class="dim-count">47</div>
+        <div class="dim-sub">failures · execution_duration avg: 8.2s</div>
+        <div style="margin-top:6px"><div class="score-wrap"><div class="score-bar"><div class="score-fill" style="width:21%;background:var(--purple)"></div></div><span class="score-val" style="color:var(--purple)">21%</span></div></div>
+      </div>
+      <div class="dim-card dim-blue">
+        <div class="dim-icon">🔑</div>
+        <div class="dim-name">UNIQUENESS</div>
+        <div class="dim-count">38</div>
+        <div class="dim-sub">failures · duplicate rows detected</div>
+        <div style="margin-top:6px"><div class="score-wrap"><div class="score-bar"><div class="score-fill" style="width:17%;background:var(--blue)"></div></div><span class="score-val" style="color:var(--blue)">17%</span></div></div>
+      </div>
+      <div class="dim-card dim-amber">
+        <div class="dim-icon">📏</div>
+        <div class="dim-name">VALIDITY</div>
+        <div class="dim-count">29</div>
+        <div class="dim-sub">failures · range / format violations</div>
+        <div style="margin-top:6px"><div class="score-wrap"><div class="score-bar"><div class="score-fill" style="width:13%;background:var(--amber)"></div></div><span class="score-val" style="color:var(--amber)">13%</span></div></div>
+      </div>
+      <div class="dim-card dim-teal">
+        <div class="dim-icon">🔗</div>
+        <div class="dim-name">CONSISTENCY</div>
+        <div class="dim-count">18</div>
+        <div class="dim-sub">failures · cross-column logic</div>
+        <div style="margin-top:6px"><div class="score-wrap"><div class="score-bar"><div class="score-fill" style="width:8%;background:var(--teal)"></div></div><span class="score-val" style="color:var(--teal)">8%</span></div></div>
+      </div>
+      <div class="dim-card dim-green">
+        <div class="dim-icon">🔄</div>
+        <div class="dim-name">REFERENTIAL</div>
+        <div class="dim-count">12</div>
+        <div class="dim-sub">failures · FK / lookup integrity</div>
+        <div style="margin-top:6px"><div class="score-wrap"><div class="score-bar"><div class="score-fill" style="width:5%;background:var(--green)"></div></div><span class="score-val" style="color:var(--green)">5%</span></div></div>
+      </div>
+    </div>
+
+    <div class="two-col">
+      <!-- Horizontal bar chart -->
+      <div class="card">
+        <div class="card-title">📊 Failures by Dimension</div>
+        <div class="card-sub">COUNT(*) WHERE validation_status='FAIL' GROUP BY category · Click to filter table below</div>
+        <div class="bar-chart" style="margin-top:8px;">
+          <div class="bar-row"><div class="bar-label">COMPLETENESS</div><div class="bar-track"><div class="bar-fill bar-red" style="width:84%">84</div></div></div>
+          <div class="bar-row"><div class="bar-label">TIMELINESS</div><div class="bar-track"><div class="bar-fill bar-purple" style="width:47%">47</div></div></div>
+          <div class="bar-row"><div class="bar-label">UNIQUENESS</div><div class="bar-track"><div class="bar-fill bar-blue" style="width:38%">38</div></div></div>
+          <div class="bar-row"><div class="bar-label">VALIDITY</div><div class="bar-track"><div class="bar-fill bar-amber" style="width:29%">29</div></div></div>
+          <div class="bar-row"><div class="bar-label">CONSISTENCY</div><div class="bar-track"><div class="bar-fill bar-teal" style="width:18%">18</div></div></div>
+          <div class="bar-row"><div class="bar-label">REFERENTIAL</div><div class="bar-track"><div class="bar-fill bar-green" style="width:12%">12</div></div></div>
+        </div>
+      </div>
+
+      <!-- Dimension × Layer cross-tab -->
+      <div class="card">
+        <div class="card-title">⊕ Dimension × Layer Cross-Tab</div>
+        <div class="card-sub">Which architecture layer introduces each failure type → guides fix direction</div>
+        <table class="data-table" style="margin-top:4px">
+          <thead>
+            <tr><th>Category</th><th>Staging</th><th>Curation</th><th>Consumption</th><th>Fix At</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><span class="status status-fail">COMPLETENESS</span></td>
+              <td class="mono" style="color:var(--red)">18</td>
+              <td class="mono" style="color:var(--amber)">4</td>
+              <td class="mono" style="color:var(--green)">0</td>
+              <td style="font-size:11px;color:var(--text3);font-family:var(--mono)">→ Staging</td>
+            </tr>
+            <tr>
+              <td><span class="status status-warn">UNIQUENESS</span></td>
+              <td class="mono" style="color:var(--green)">2</td>
+              <td class="mono" style="color:var(--red)">11</td>
+              <td class="mono" style="color:var(--amber)">3</td>
+              <td style="font-size:11px;color:var(--text3);font-family:var(--mono)">→ Curation</td>
+            </tr>
+            <tr>
+              <td><span class="status status-info">TIMELINESS</span></td>
+              <td class="mono" style="color:var(--red)">8</td>
+              <td class="mono" style="color:var(--green)">0</td>
+              <td class="mono" style="color:var(--green)">0</td>
+              <td style="font-size:11px;color:var(--text3);font-family:var(--mono)">→ Airflow DAG</td>
+            </tr>
+            <tr>
+              <td><span class="status status-pass">REFERENTIAL</span></td>
+              <td class="mono" style="color:var(--green)">0</td>
+              <td class="mono" style="color:var(--amber)">2</td>
+              <td class="mono" style="color:var(--red)">7</td>
+              <td style="font-size:11px;color:var(--text3);font-family:var(--mono)">→ Consumption</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── SECTION 5: SCAN EXECUTION HEALTH ─── -->
+  <div>
+    <div class="section-header">
+      <span class="section-title">05 · Scan Execution Health</span>
+      <div class="section-line"></div>
+      <span style="font-size:10px;color:var(--text3);font-family:var(--mono)">Source: dq_result.scan_id · job_id · pipeline_execution_timestamp · execution_duration</span>
+    </div>
+    <div class="mini-kpi-row">
+      <div class="mini-kpi"><div class="mini-kpi-val" style="color:var(--amber)">148/150</div><div class="mini-kpi-lbl">Scans Run (24 hrs)</div></div>
+      <div class="mini-kpi"><div class="mini-kpi-val" style="color:var(--green)">146</div><div class="mini-kpi-lbl">Scans Succeeded</div></div>
+      <div class="mini-kpi"><div class="mini-kpi-val" style="color:var(--red)">2</div><div class="mini-kpi-lbl">Scans Failed</div></div>
+      <div class="mini-kpi"><div class="mini-kpi-val" style="color:var(--blue)">4.2m</div><div class="mini-kpi-lbl">Avg Duration</div></div>
+      <div class="mini-kpi"><div class="mini-kpi-val" style="color:var(--amber)">3</div><div class="mini-kpi-lbl">Coverage Gaps (&gt;6h)</div></div>
+    </div>
+    <div class="two-col">
+      <!-- Duration bar -->
+      <div class="card">
+        <div class="card-title">⏱ Scan Duration per Table (Top 8 Slowest)</div>
+        <div class="card-sub">SUM(execution_duration) per scan_id · Spikes = table growth or cost concern</div>
+        <div class="bar-chart" style="margin-top:8px">
+          <div class="bar-row"><div class="bar-label">cur_payroll_records</div><div class="bar-track"><div class="bar-fill bar-red" style="width:91%">18.2 min</div></div></div>
+          <div class="bar-row"><div class="bar-label">stg_workday_employees</div><div class="bar-track"><div class="bar-fill bar-amber" style="width:62%">12.4 min</div></div></div>
+          <div class="bar-row"><div class="bar-label">cur_learning_completions</div><div class="bar-track"><div class="bar-fill bar-amber" style="width:49%">9.8 min</div></div></div>
+          <div class="bar-row"><div class="bar-label">stg_recruitment_data</div><div class="bar-track"><div class="bar-fill bar-blue" style="width:40%">8.1 min</div></div></div>
+          <div class="bar-row"><div class="bar-label">con_headcount_summary</div><div class="bar-track"><div class="bar-fill bar-blue" style="width:31%">6.3 min</div></div></div>
+          <div class="bar-row"><div class="bar-label">cur_sickness_absence</div><div class="bar-track"><div class="bar-fill bar-green" style="width:28%">5.7 min</div></div></div>
+          <div class="bar-row"><div class="bar-label">stg_hybrid_working</div><div class="bar-track"><div class="bar-fill bar-green" style="width:25%">4.9 min</div></div></div>
+          <div class="bar-row"><div class="bar-label">con_attrition_report</div><div class="bar-track"><div class="bar-fill bar-green" style="width:21%">4.2 min</div></div></div>
+        </div>
+      </div>
+      <!-- Coverage map -->
+      <div class="card">
+        <div class="card-title">📡 Scan Coverage Map — Last Scan per Table</div>
+        <div class="card-sub">MAX(pipeline_execution_timestamp) per table_name · Sorted oldest first · FAIL scan = blind spot</div>
+        <div class="table-scroll" style="max-height:220px">
+          <div class="scan-row">
+            <div class="scan-name">stg_learning_completions</div>
+            <div class="scan-time" style="font-size:10px;color:var(--text3)">03-May 22:00</div>
+            <span class="status status-fail">SCAN FAILED</span>
+            <div class="scan-dur" style="color:var(--red)">34h ago ⚠</div>
+          </div>
+          <div class="scan-row">
+            <div class="scan-name">cur_performance_reviews</div>
+            <div class="scan-time" style="font-size:10px;color:var(--text3)">04-May 06:00</div>
+            <span class="status status-warn">STALE</span>
+            <div class="scan-dur" style="color:var(--amber)">20h ago</div>
+          </div>
+          <div class="scan-row">
+            <div class="scan-name">stg_workday_employees</div>
+            <div class="scan-time" style="font-size:10px;color:var(--text3)">05-May 08:00</div>
+            <span class="status status-pass">SUCCESS</span>
+            <div class="scan-dur" style="color:var(--green)">2h ago</div>
+          </div>
+          <div class="scan-row">
+            <div class="scan-name">cur_payroll_records</div>
+            <div class="scan-time" style="font-size:10px;color:var(--text3)">05-May 08:31</div>
+            <span class="status status-pass">SUCCESS</span>
+            <div class="scan-dur" style="color:var(--green)">1h ago</div>
+          </div>
+          <div class="scan-row">
+            <div class="scan-name">con_headcount_summary</div>
+            <div class="scan-time" style="font-size:10px;color:var(--text3)">05-May 09:02</div>
+            <span class="status status-pass">SUCCESS</span>
+            <div class="scan-dur" style="color:var(--green)">&lt;1h ago</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── SECTION 6: DRILL-DOWN ─── -->
+  <div>
+    <div class="section-header">
+      <span class="section-title">06 · Investigation Drill-Down</span>
+      <div class="section-line"></div>
+      <span style="font-size:10px;color:var(--text3);font-family:var(--mono)">Click any table row above to load · All fields from dq_result</span>
+    </div>
+
+    <!-- Drill header -->
+    <div class="drill-header">
+      <div style="flex:1">
+        <div class="drill-table-name">stg_workday_employees</div>
+        <div class="drill-meta">
+          <span><b>Layer:</b> Staging</span>
+          <span><b>Domain:</b> HR</span>
+          <span><b>scan_id:</b> projects/ap-peocur.../datascans/stg-workday-dq</span>
+          <span><b>job_id:</b> ...3a7f</span>
+          <span><b>run_dt:</b> 2025-05-05</span>
+          <span><b>partition_dt:</b> 2025-05-05</span>
+        </div>
+      </div>
+      <div style="text-align:center">
+        <div class="drill-score-big">87.5%</div>
+        <div class="drill-score-label">DQ Score</div>
+      </div>
+      <div style="text-align:center">
+        <div style="font-family:var(--mono);font-size:22px;font-weight:600;color:var(--red)">3 / 24</div>
+        <div class="drill-score-label">Rules Failing</div>
+      </div>
+      <div style="text-align:center">
+        <div style="font-family:var(--mono);font-size:22px;font-weight:600;color:var(--green)">SUCCEEDED</div>
+        <div class="drill-score-label">Scan Status</div>
+      </div>
+    </div>
+
+    <!-- Rule detail + sample rows -->
+    <div class="col-5-7">
+      <div class="card">
+        <div class="card-title">📋 Rule-Level Failure Detail</div>
+        <div class="card-sub">All fields from dq_result WHERE table_name = 'stg_workday_employees' AND validation_status = 'FAIL'</div>
+        <div class="table-scroll">
+          <table class="data-table">
+            <thead>
+              <tr><th>check_id</th><th>category</th><th>severity</th><th>fail_count</th><th>eval_count</th><th>pass_ratio</th><th>null_count</th><th>threshold</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="mono" style="color:var(--red)">null_check_employee_id</td>
+                <td><span class="status status-fail">COMPLETENESS</span></td>
+                <td><span class="sev sev-critical">Critical</span></td>
+                <td class="mono" style="color:var(--red)">1,847</td>
+                <td class="mono">145,234</td>
+                <td class="mono" style="color:var(--amber)">0.8727</td>
+                <td class="mono">1,847</td>
+                <td class="mono">0.95</td>
+              </tr>
+              <tr>
+                <td class="mono" style="color:var(--amber)">range_check_salary</td>
+                <td><span class="status status-info">VALIDITY</span></td>
+                <td><span class="sev sev-medium">Medium</span></td>
+                <td class="mono" style="color:var(--amber)">89</td>
+                <td class="mono">145,234</td>
+                <td class="mono" style="color:var(--green)">0.9994</td>
+                <td class="mono">0</td>
+                <td class="mono">0.99</td>
+              </tr>
+              <tr>
+                <td class="mono" style="color:var(--blue)">fmt_check_ni_number</td>
+                <td><span class="status status-info">VALIDITY</span></td>
+                <td><span class="sev sev-low">Low</span></td>
+                <td class="mono" style="color:var(--blue)">312</td>
+                <td class="mono">145,234</td>
+                <td class="mono" style="color:var(--green)">0.9979</td>
+                <td class="mono">0</td>
+                <td class="mono">0.995</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Error message + SQL -->
+        <div style="margin-top:12px">
+          <div style="font-size:10px;color:var(--text3);font-family:var(--mono);margin-bottom:4px;text-transform:uppercase;letter-spacing:.08em">error_message</div>
+          <div class="error-msg" style="margin-bottom:8px;font-size:11px">NON_NULL_EXPECTATION on column employee_id failed. 1847 out of 145234 rows evaluated (1.27%) did not meet the expectation. pass_ratio=0.8727 did not meet threshold=0.95</div>
+          <div style="font-size:10px;color:var(--text3);font-family:var(--mono);margin-bottom:4px;text-transform:uppercase;letter-spacing:.08em">sql_query (failing rows)</div>
+          <div class="sql-block">SELECT * FROM `ap-peocur-bld-01-57f9.ap_peocur_bld_01_bqd_euwe2_recon.stg_workday_employees`
+WHERE employee_id IS NULL
+AND partition_dt = '2025-05-05'
+LIMIT 1000</div>
+        </div>
+      </div>
+
+      <!-- Sample failing rows + downstream -->
+      <div style="display:flex;flex-direction:column;gap:14px">
+        <div class="card">
+          <div class="card-title">🧪 Sample Failing Records</div>
+          <div class="card-sub">Rows where null_check_employee_id failed · WORKDAY_FEED_A · actual_result parsed from dq_result</div>
+          <table class="data-table">
+            <thead>
+              <tr><th>employee_id</th><th>employee_name</th><th>job_title</th><th>load_date</th><th>source_system</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="mono sample-row-null">NULL</td>
+                <td>John Smith</td>
+                <td>Senior Engineer</td>
+                <td class="mono">2025-05-05</td>
+                <td class="mono" style="color:var(--amber)">WORKDAY_FEED_A</td>
+              </tr>
+              <tr>
+                <td class="mono sample-row-null">NULL</td>
+                <td>Priya Patel</td>
+                <td>Data Analyst</td>
+                <td class="mono">2025-05-05</td>
+                <td class="mono" style="color:var(--amber)">WORKDAY_FEED_A</td>
+              </tr>
+              <tr>
+                <td class="mono sample-row-null">NULL</td>
+                <td>Lee Chang</td>
+                <td>Product Manager</td>
+                <td class="mono">2025-05-05</td>
+                <td class="mono" style="color:var(--amber)">WORKDAY_FEED_A</td>
+              </tr>
+            </tbody>
+          </table>
+          <div style="margin-top:8px;font-size:11px;color:var(--text3)">Showing 3 of <span style="color:var(--red);font-family:var(--mono)">1,847</span> failing rows. All from <span style="color:var(--amber);font-family:var(--mono)">WORKDAY_FEED_A</span> — source feed investigation required.</div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">🔀 Downstream Impact</div>
+          <div class="card-sub">Tables dependent on stg_workday_employees — failures cascade downstream</div>
+          <div class="downstream-chain">
+            <div class="ds-node ds-source">⚠ stg_workday_employees  ←  SOURCE OF FAILURE</div>
+            <div class="ds-arrow">↓</div>
+            <div class="ds-node ds-risk">⚠ cur_employee_details  →  con_headcount_summary</div>
+            <div class="ds-arrow">↓</div>
+            <div class="ds-node ds-risk">⚠ cur_leavers_joiners  →  con_attrition_report</div>
+            <div class="ds-arrow">↓</div>
+            <div class="ds-node ds-risk">⚠ cur_hybrid_working  →  con_hybrid_dashboard</div>
+          </div>
+          <div style="margin-top:10px;padding:8px 12px;background:var(--red-dim);border:1px solid var(--red);border-radius:4px;font-size:11px;color:var(--red);font-family:var(--mono)">
+            ⚠ 3 downstream tables at risk · Fix stg_workday_employees first
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div style="padding:16px 0;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;margin-top:8px">
+    <span style="font-size:11px;color:var(--text3);font-family:var(--mono)">DQ_MONITOR · Dataplex BigQuery · dq_result table · partition_dt = 2025-05-05</span>
+    <span style="font-size:11px;color:var(--text3);font-family:var(--mono)">Lloyds Technology Centre · Data Engineering Team · Internal</span>
+  </div>
+
+</div><!-- end main -->
+
+<script>
+  // Tab switching
+  document.querySelectorAll('.nav-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+    });
+  });
+  // Tab buttons (7d/14d/30d)
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      btn.closest('.tab-row').querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+    });
+  });
+  // Dimension cards
+  document.querySelectorAll('.dim-card').forEach(card => {
+    card.addEventListener('click', () => {
+      document.querySelectorAll('.dim-card').forEach(c => c.classList.remove('active'));
+      card.classList.add('active');
+    });
+  });
+</script>
+</body>
+</html>
