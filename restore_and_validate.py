@@ -309,6 +309,88 @@ def type_signature(f: bigquery.SchemaField) -> str:
     return f"{standard_sql_type(f)}|{(f.mode or 'NULLABLE').upper()}"
 
 
+# --------------------------------------------------------------------------- #
+# require_partition_filter
+# --------------------------------------------------------------------------- #
+
+
+def partition_column(table: bigquery.Table) -> tuple[str | None, bool]:
+    """Return (partition_column, is_ingestion_time).
+
+    An ingestion-time partitioned table has no partition column of its own; it
+    partitions on the _PARTITIONTIME pseudo-column.
+    """
+    tp = table.time_partitioning
+    if tp:
+        return tp.field, tp.field is None
+    rp = table.range_partitioning
+    if rp:
+        return rp.field, False
+    return None, False
+
+
+def requires_partition_filter(table: bigquery.Table) -> bool:
+    tp = table.time_partitioning
+    return bool(
+        getattr(table, "require_partition_filter", False)
+        or (tp is not None and getattr(tp, "require_partition_filter", False))
+    )
+
+
+def resolve_partition_filter(
+    runner: "QueryRunner", table: bigquery.Table, supplied: str | None, table_id: str
+) -> str | None:
+    """Build a filter that satisfies require_partition_filter and keeps every partition.
+
+    `<partition_column> IS NOT NULL` is a predicate on the partition column, so
+    BigQuery accepts it, and it matches every partition that holds a value - the
+    whole table, not a slice of it.
+
+    The one gap is the __NULL__ partition, holding rows whose partition column
+    is NULL. IS NOT NULL would exclude those, so they are counted first (a cheap
+    query touching only that partition) and the filter is widened when any exist.
+    """
+    if not requires_partition_filter(table):
+        return supplied
+    if supplied:
+        LOG.warning(
+            "%s requires a partition filter and one was supplied explicitly: only rows matching "
+            "%s will be processed and validated",
+            table_id, supplied,
+        )
+        return supplied
+
+    column, ingestion_time = partition_column(table)
+    ref = "_PARTITIONTIME" if ingestion_time else (q(column) if column else None)
+    if not ref:
+        raise RestoreBlocked(
+            f"{table_id} has require_partition_filter=true but no partition column could be "
+            'read from its metadata. Supply --partition-filter "<predicate>" manually.'
+        )
+
+    # Count rows in the __NULL__ partition. `IS NULL` is itself a valid partition
+    # filter, and it prunes to that single partition, so this is cheap.
+    null_rows = runner.run(
+        f"SELECT COUNT(*) AS n\nFROM {bq_ref(table_id)}\nWHERE {ref} IS NULL",
+        "null_partition_probe",
+    )[0][0]["n"]
+
+    if null_rows:
+        widened = f"({ref} IS NOT NULL OR {ref} IS NULL)"
+        LOG.warning(
+            "%s holds %s row(s) in the __NULL__ partition; widening the filter to %s so they are "
+            "not silently excluded",
+            table_id, f"{null_rows:,}", widened,
+        )
+        return widened
+
+    LOG.info(
+        "%s has require_partition_filter=true; using %s IS NOT NULL to cover every partition",
+        table_id, ref,
+    )
+    return f"{ref} IS NOT NULL"
+
+
 def collect_policy_tags(fields: Sequence[bigquery.SchemaField], prefix: str = "") -> dict[str, tuple[str, ...]]:
     out: dict[str, tuple[str, ...]] = {}
     for f in fields:
@@ -530,7 +612,10 @@ def compare_schemas(
 
 
 def build_restore_sql(
-    target_id: str, scan: Scan, diff: SchemaDiff, defaults: dict[str, str]
+    target_id: str,
+    scan: Scan,
+    diff: SchemaDiff,
+    defaults: dict[str, str],
 ) -> str:
     """Fully dynamic INSERT. Column names are never hardcoded."""
     insert_cols, select_exprs = [], []
@@ -696,7 +781,7 @@ def validate_snapshot(
     partition_filter: str | None,
     allow_plain_table: bool,
     report: Report,
-) -> bigquery.Table:
+) -> tuple[bigquery.Table, str | None]:
     table = get_table(client, snapshot_id)
 
     if table.table_type != "SNAPSHOT":
@@ -713,10 +798,7 @@ def validate_snapshot(
     if table.expires and (table.expires - datetime.now(timezone.utc)).total_seconds() < 3600:
         LOG.warning("snapshot %s expires in under an hour (%s)", snapshot_id, table.expires)
 
-    if getattr(table, "require_partition_filter", False) and not partition_filter:
-        raise RestoreBlocked(
-            f"{snapshot_id} has require_partition_filter=true. Supply --partition-filter."
-        )
+    partition_filter = resolve_partition_filter(runner, table, partition_filter, snapshot_id)
 
     assert_unique_column_names(table.schema, snapshot_id)
     scan = Scan(snapshot_id, partition_filter=partition_filter)
@@ -730,9 +812,10 @@ def validate_snapshot(
         "base_table": snap_def.base_table_reference.path if snap_def else None,
         "expires": table.expires.isoformat() if table.expires else None,
         "policy_tagged_columns": {k: list(v) for k, v in collect_policy_tags(table.schema).items()},
+        "partition_filter": partition_filter,
     }
     LOG.info("snapshot ok id=%s type=%s columns=%d", snapshot_id, table.table_type, len(table.schema))
-    return table
+    return table, partition_filter
 
 
 def validate_target(
@@ -742,12 +825,11 @@ def validate_target(
     partition_filter: str | None,
     allow_non_empty: bool,
     report: Report,
-) -> tuple[bigquery.Table, int]:
+) -> tuple[bigquery.Table, int, str | None]:
     table = get_table(client, target_id)
     if table.table_type != "TABLE":
         raise RestoreBlocked(f"{target_id} is a {table.table_type}, not a base TABLE")
-    if getattr(table, "require_partition_filter", False) and not partition_filter:
-        raise RestoreBlocked(f"{target_id} has require_partition_filter=true. Supply --partition-filter.")
+    partition_filter = resolve_partition_filter(runner, table, partition_filter, target_id)
 
     assert_unique_column_names(table.schema, target_id)
     scan = Scan(target_id, alias="t", partition_filter=partition_filter)
@@ -770,8 +852,9 @@ def validate_target(
         "columns": [f.name for f in table.schema],
         "last_modified": table.modified.isoformat() if table.modified else None,
         "policy_tagged_columns": {k: list(v) for k, v in collect_policy_tags(table.schema).items()},
+        "partition_filter": partition_filter,
     }
-    return table, existing
+    return table, existing, partition_filter
 
 
 # --------------------------------------------------------------------------- #
@@ -1216,20 +1299,23 @@ def process_table(  # noqa: C901 - linear pipeline, kept together deliberately
             if c.strip()
         ]
         pfilter = valid_expression(partition_filter, "--partition-filter") if partition_filter else None
-        if pfilter:
-            notes.append(f"Restore and validation restricted to rows matching: {pfilter}")
 
         # ---- Steps 1 + 2: pre-flight --------------------------------------- #
-        snapshot = validate_snapshot(
+        snapshot, snap_filter = validate_snapshot(
             runner, client, snapshot_id, pfilter, args.allow_plain_table_source, report
         )
-        target, pre_existing = validate_target(
+        target, pre_existing, tgt_filter = validate_target(
             runner, client, target_id, pfilter, args.allow_non_empty_target, report
         )
         target_modified_before = target.modified
 
-        snap_scan = Scan(snapshot_id, alias="src", partition_filter=pfilter)
-        tgt_scan = Scan(target_id, alias="t", partition_filter=pfilter)
+        # Snapshot and target can partition on different columns, so each gets
+        # its own predicate rather than sharing one.
+        snap_scan = Scan(snapshot_id, alias="src", partition_filter=snap_filter)
+        tgt_scan = Scan(target_id, alias="t", partition_filter=tgt_filter)
+        for which, expr in (("snapshot", snap_filter), ("target", tgt_filter)):
+            if expr:
+                notes.append(f"Partition filter on {which}: {expr}")
 
         # ---- Step 3: schema comparison ------------------------------------- #
         diff = compare_schemas(snapshot.schema, target.schema)

@@ -343,6 +343,111 @@ def diff_schemas(a: Sequence[bigquery.SchemaField], b: Sequence[bigquery.SchemaF
     return diffs
 
 
+def describe_partitioning(table: bigquery.Table) -> dict[str, Any] | None:
+    """Normalised partition spec, or None for an unpartitioned table."""
+    tp = table.time_partitioning
+    if tp:
+        return {
+            "kind": "time",
+            "granularity": tp.type_,
+            "field": tp.field,  # None means ingestion-time (_PARTITIONTIME)
+            "expiration_ms": tp.expiration_ms,
+            "require_filter": bool(getattr(tp, "require_partition_filter", False)),
+        }
+    rp = table.range_partitioning
+    if rp:
+        return {
+            "kind": "range",
+            "field": rp.field,
+            "start": rp.range_.start,
+            "end": rp.range_.end,
+            "interval": rp.range_.interval,
+        }
+    return None
+
+
+# --------------------------------------------------------------------------- #
+# require_partition_filter
+# --------------------------------------------------------------------------- #
+
+
+def partition_column(table: bigquery.Table) -> tuple[str | None, bool]:
+    """Return (partition_column, is_ingestion_time).
+
+    An ingestion-time partitioned table has no partition column of its own; it
+    partitions on the _PARTITIONTIME pseudo-column.
+    """
+    tp = table.time_partitioning
+    if tp:
+        return tp.field, tp.field is None
+    rp = table.range_partitioning
+    if rp:
+        return rp.field, False
+    return None, False
+
+
+def requires_partition_filter(table: bigquery.Table) -> bool:
+    tp = table.time_partitioning
+    return bool(
+        getattr(table, "require_partition_filter", False)
+        or (tp is not None and getattr(tp, "require_partition_filter", False))
+    )
+
+
+def resolve_partition_filter(
+    runner: "QueryRunner", table: bigquery.Table, supplied: str | None, table_id: str
+) -> str | None:
+    """Build a filter that satisfies require_partition_filter and keeps every partition.
+
+    `<partition_column> IS NOT NULL` is a predicate on the partition column, so
+    BigQuery accepts it, and it matches every partition that holds a value - the
+    whole table, not a slice of it.
+
+    The one gap is the __NULL__ partition, holding rows whose partition column
+    is NULL. IS NOT NULL would exclude those, so they are counted first (a cheap
+    query touching only that partition) and the filter is widened when any exist.
+    """
+    if not requires_partition_filter(table):
+        return supplied
+    if supplied:
+        LOG.warning(
+            "%s requires a partition filter and one was supplied explicitly: only rows matching "
+            "%s will be processed and validated",
+            table_id, supplied,
+        )
+        return supplied
+
+    column, ingestion_time = partition_column(table)
+    ref = "_PARTITIONTIME" if ingestion_time else (q(column) if column else None)
+    if not ref:
+        raise BackupError(
+            f"{table_id} has require_partition_filter=true but no partition column could be "
+            'read from its metadata. Supply --partition-filter "<predicate>" manually.'
+        )
+
+    # Count rows in the __NULL__ partition. `IS NULL` is itself a valid partition
+    # filter, and it prunes to that single partition, so this is cheap.
+    null_rows = runner.run(
+        f"SELECT COUNT(*) AS n\nFROM {bq_ref(table_id)}\nWHERE {ref} IS NULL",
+        "null_partition_probe",
+    )[0][0]["n"]
+
+    if null_rows:
+        widened = f"({ref} IS NOT NULL OR {ref} IS NULL)"
+        LOG.warning(
+            "%s holds %s row(s) in the __NULL__ partition; widening the filter to %s so they are "
+            "not silently excluded",
+            table_id, f"{null_rows:,}", widened,
+        )
+        return widened
+
+    LOG.info(
+        "%s has require_partition_filter=true; using %s IS NOT NULL to cover every partition",
+        table_id, ref,
+    )
+    return f"{ref} IS NOT NULL"
+
+
 def collect_policy_tags(
     fields: Sequence[bigquery.SchemaField], prefix: str = ""
 ) -> dict[str, tuple[str, ...]]:
@@ -562,7 +667,7 @@ def validate_source(
     partition_filter: str | None,
     allow_streaming: bool,
     report: Report,
-) -> bigquery.Table:
+) -> tuple[bigquery.Table, str | None]:
     table = get_table(client, table_id)
 
     if table.table_type != "TABLE":
@@ -584,21 +689,12 @@ def validate_source(
             raise BackupError(msg + " Override with --allow-streaming-buffer only if you accept the loss.")
         LOG.warning("%s (overridden)", msg)
 
-    if getattr(table, "require_partition_filter", False) and not partition_filter:
-        raise BackupError(
-            f"{table_id} has require_partition_filter=true, so every validation query would "
-            'fail. Supply --partition-filter "<predicate>" (validation then covers only the '
-            "filtered rows)."
-        )
+    partition_filter = resolve_partition_filter(runner, table, partition_filter, table_id)
 
     scan = Scan(table_id, partition_filter=partition_filter)
     runner.run(f"SELECT 1{scan.tail()}\nLIMIT 0", "source_probe")
 
-    part = None
-    if table.time_partitioning:
-        part = {"kind": "time", "type": table.time_partitioning.type_, "field": table.time_partitioning.field}
-    elif table.range_partitioning:
-        part = {"kind": "range", "field": table.range_partitioning.field}
+    part = describe_partitioning(table)
 
     tags = collect_policy_tags(table.schema)
     report.facts["original"] = {
@@ -619,7 +715,8 @@ def validate_source(
     )
     if tags:
         LOG.info("policy tags present on: %s", ", ".join(sorted(tags)))
-    return table
+    report.facts["original"]["partition_filter"] = partition_filter
+    return table, partition_filter
 
 
 def make_snapshot_id(table: str, stamp: str, suffix: str = "_vw") -> str:
@@ -705,6 +802,10 @@ def render(report: Report, cfg: ValidationConfig, notes: list[str]) -> str:
         row("Expires", s.get("expires", "n/a")),
         "", THIN, "SCHEMA", THIN, "",
         row("Schema match", report.status("schema_match")),
+        "", THIN, "PARTITIONING", THIN, "",
+        row("Source spec", o.get("partitioning") or "not partitioned"),
+        row("Clustering", ", ".join(o.get("clustering", [])) or "none"),
+        row("Partition filter", o.get("partition_filter") or "none required"),
         "", THIN, "PII / POLICY TAGS", THIN, "",
         row("Tagged columns", len(tagged)),
         row("Tags preserved", report.status("policy_tags_preserved")),
@@ -892,8 +993,6 @@ def process_table(  # noqa: C901 - linear pipeline, kept together deliberately
 
     try:
         pfilter = valid_expression(partition_filter, "--partition-filter") if partition_filter else None
-        if pfilter:
-            notes.append(f"Validation restricted to rows matching: {pfilter}")
 
         source_id = fq(project, dataset, table)
         # The snapshot is created alongside the source table, in the same dataset.
@@ -902,7 +1001,11 @@ def process_table(  # noqa: C901 - linear pipeline, kept together deliberately
 
         # ---- Step 1: original ---------------------------------------------- #
         assert_dataset(client, project, dataset)
-        source = validate_source(runner, client, source_id, pfilter, args.allow_streaming_buffer, report)
+        source, pfilter = validate_source(
+            runner, client, source_id, pfilter, args.allow_streaming_buffer, report
+        )
+        if pfilter:
+            notes.append(f"Partition filter in effect: {pfilter}")
 
         snap_ds = assert_dataset(client, snap_project, snap_dataset)
         LOG.info(
