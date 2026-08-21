@@ -235,10 +235,14 @@ class QueryRunner:
         LOG.debug("query[%s]:\n%s", label, sql)
         cfg = bigquery.QueryJobConfig(
             dry_run=dry_run,
-            use_query_cache=False,
-            maximum_bytes_billed=self.max_bytes_billed,
+            use_query_cache=False,  # never trust cached results when proving equality
             labels={**self.labels, "step": re.sub(r"[^a-z0-9_-]", "_", label.lower())[:63]},
         )
+        # Only set the cap when one was given: the client library stringifies this
+        # property unconditionally, so passing None sends the literal "None" and
+        # BigQuery rejects the job with an INT64 type error.
+        if self.max_bytes_billed is not None:
+            cfg.maximum_bytes_billed = self.max_bytes_billed
         try:
             job = self.client.query(sql, job_config=cfg)
             if dry_run:
@@ -254,7 +258,8 @@ class QueryRunner:
         except gexc.BadRequest as exc:
             if "bytes billed" in str(exc).lower():
                 raise RestoreError(
-                    f"Query '{label}' would exceed --max-bytes-billed ({self.max_bytes_billed:,}). "
+                    f"Query '{label}' would exceed --max-bytes-billed "
+                    f"({self.max_bytes_billed:,} bytes). "
                     "Raise the cap or narrow the scan with --partition-filter."
                 ) from exc
             raise
