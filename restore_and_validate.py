@@ -63,7 +63,7 @@ from typing import Any, Sequence
 from google.api_core import exceptions as gexc
 from google.cloud import bigquery
 
-__version__ = "2026.08.21.3"
+__version__ = "2026.08.21.4"
 LOG = logging.getLogger("bq.restore")
 
 HASH_SALTS = ("", "s1|", "s2|", "s3|")

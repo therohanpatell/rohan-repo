@@ -55,7 +55,7 @@ from typing import Any, Sequence
 from google.api_core import exceptions as gexc
 from google.cloud import bigquery
 
-__version__ = "2026.08.21.3"
+__version__ = "2026.08.21.4"
 LOG = logging.getLogger("bq.backup")
 
 HASH_SALTS = ("", "s1|", "s2|", "s3|")  # 4 independent 64-bit fingerprints
@@ -273,17 +273,30 @@ class Scan:
     partition_filter: str | None = None
 
     def from_clause(self) -> str:
-        ref = bq_ref(self.table_id)
-        if self.as_of:
-            stamp = self.as_of.astimezone(timezone.utc).strftime("%Y-%m-%d %H:%M:%S.%f")
-            ref += f' FOR SYSTEM_TIME AS OF TIMESTAMP "{stamp} UTC"'
-        return f"FROM {ref} AS {self.alias}"
+        return f"FROM {bq_ref(self.table_id)} AS {self.alias}"
 
     def where_clause(self) -> str:
         return f"\nWHERE {self.partition_filter}" if self.partition_filter else ""
 
     def tail(self) -> str:
-        return f"\n{self.from_clause()}{self.where_clause()}"
+        """Render FROM/WHERE for a validation query.
+
+        A time-travel read is wrapped in a subquery. BigQuery does not accept a
+        table alias after FOR SYSTEM_TIME AS OF, so the alias is attached to the
+        subquery instead. The partition filter goes inside the subquery, which
+        also lets it reference pseudo-columns such as _PARTITIONTIME.
+        """
+        if not self.as_of:
+            return f"\n{self.from_clause()}{self.where_clause()}"
+
+        stamp = self.as_of.astimezone(timezone.utc).strftime("%Y-%m-%d %H:%M:%S.%f")
+        inner = (
+            f"SELECT *\n  FROM {bq_ref(self.table_id)}\n"
+            f'  FOR SYSTEM_TIME AS OF TIMESTAMP "{stamp} UTC"'
+        )
+        if self.partition_filter:
+            inner += f"\n  WHERE {self.partition_filter}"
+        return f"\nFROM (\n  {inner}\n) AS {self.alias}"
 
 
 # --------------------------------------------------------------------------- #
