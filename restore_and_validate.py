@@ -63,6 +63,7 @@ from typing import Any, Sequence
 from google.api_core import exceptions as gexc
 from google.cloud import bigquery
 
+__version__ = "2026.08.21.3"
 LOG = logging.getLogger("bq.restore")
 
 HASH_SALTS = ("", "s1|", "s2|", "s3|")
@@ -242,7 +243,14 @@ class QueryRunner:
         # property unconditionally, so passing None sends the literal "None" and
         # BigQuery rejects the job with an INT64 type error.
         if self.max_bytes_billed is not None:
-            cfg.maximum_bytes_billed = self.max_bytes_billed
+            cfg.maximum_bytes_billed = int(self.max_bytes_billed)
+
+        # Belt and braces: some client versions stringify this property even when
+        # it is None, which BigQuery rejects as an invalid INT64. Drop anything
+        # that is not a numeric string before the job is submitted.
+        _qcfg = cfg._properties.setdefault("query", {})
+        if not str(_qcfg.get("maximumBytesBilled", "")).isdigit():
+            _qcfg.pop("maximumBytesBilled", None)
         try:
             job = self.client.query(sql, job_config=cfg)
             if dry_run:
@@ -1625,6 +1633,7 @@ def resolve_plan(args: argparse.Namespace) -> list[tuple[str, str, str]]:
 def main(argv: Sequence[str] | None = None) -> int:
     args = parse_args(argv)
     setup_logging(args.verbose)
+    LOG.info("%s version=%s python=%s", __file__, __version__, sys.version.split()[0])
 
     try:
         refs = resolve_plan(args)
