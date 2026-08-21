@@ -1,0 +1,9 @@
+# before terraform
+python backup_and_validate.py \
+  --tables proj.hr_curated.customer proj.hr_curated.orders proj.hr_curated.payments
+
+# terraform apply
+
+# after terraform — check first, then run
+python restore_and_validate.py --tables proj.hr_curated.customer proj.hr_curated.orders proj.hr_curated.payments --dry-run
+python restore_and_validate.py --tables proj.hr_curated.customer proj.hr_curated.orders proj.hr_curated.payments
